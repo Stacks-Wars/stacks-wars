@@ -5,7 +5,7 @@ use axum::{
 
 use crate::{
     http::handlers::{
-        game::{create_game_handler, get_all_games_handler, get_game_handler},
+        game::{create_game_handler, get_game_handler, get_games_handler},
         leaderboard::{get_leaderboard_handler, get_user_stat_handler},
         lobby::{
             create_lobby_handler, get_all_lobbies_extended_handler, get_all_lobbies_info_handler,
@@ -58,7 +58,7 @@ pub fn create_http_routes(state: AppState) -> Router {
         .route("/user/stat", get(get_user_stat_handler))
         .route("/user/{user_id}", get(get_user_handler))
         .route("/user/lobbies", get(get_player_lobbies_handler))
-        .route("/game", get(get_all_games_handler))
+        .route("/game", get(get_games_handler))
         .route("/game/{game_id}", get(get_game_handler))
         .route(
             "/game/lobbies/{game_id}",

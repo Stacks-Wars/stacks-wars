@@ -1,7 +1,8 @@
 use std::{collections::HashMap, str::FromStr};
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
 use crate::{errors::AppError, models::User};
@@ -20,6 +21,61 @@ pub struct GameType {
     pub image_url: String,
     pub min_players: u8,
     pub tags: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct GameV2 {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub image_url: String,
+    pub min_players: i16,
+    pub max_players: i16,
+    pub category: Option<String>,
+    pub creator_id: Uuid,
+    pub is_active: bool,
+    pub updated_at: NaiveDateTime,
+    pub created_at: NaiveDateTime,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Order {
+    Ascending,
+    Descending,
+}
+
+impl Order {
+    pub fn to_sql(&self) -> &'static str {
+        match self {
+            Order::Ascending => "ASC",
+            Order::Descending => "DESC",
+        }
+    }
+}
+
+impl FromStr for Order {
+    type Err = AppError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "asc" | "ascending" => Ok(Order::Ascending),
+            "desc" | "descending" => Ok(Order::Descending),
+            _ => Err(AppError::BadRequest(format!("Unknown order: {}", s))),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Pagination {
+    pub page: i64,
+    pub limit: i64,
+}
+
+impl Pagination {
+    pub fn offset(&self) -> i64 {
+        (self.page.saturating_sub(1)) * self.limit
+    }
 }
 
 impl GameType {
@@ -80,13 +136,16 @@ pub enum PlayerState {
 }
 
 impl FromStr for PlayerState {
-    type Err = String;
+    type Err = AppError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "notjoined" | "notJoined" => Ok(PlayerState::NotJoined),
             "joined" => Ok(PlayerState::Joined),
-            other => Err(format!("Unknown PlayerState: {}", other)),
+            other => Err(AppError::BadRequest(format!(
+                "Unknown PlayerState: {}",
+                other
+            ))),
         }
     }
 }
@@ -269,7 +328,7 @@ pub enum LobbyState {
 }
 
 impl FromStr for LobbyState {
-    type Err = String;
+    type Err = AppError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
@@ -277,7 +336,10 @@ impl FromStr for LobbyState {
             "Starting" => Ok(LobbyState::Starting),
             "InProgress" => Ok(LobbyState::InProgress),
             "Finished" => Ok(LobbyState::Finished),
-            other => Err(format!("Unknown LobbyState: {}", other)),
+            other => Err(AppError::BadRequest(format!(
+                "Unknown LobbyState: {}",
+                other
+            ))),
         }
     }
 }
