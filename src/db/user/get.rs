@@ -222,7 +222,7 @@ pub async fn get_user_by_id_v2(user_id: Uuid, postgres: PgPool) -> Result<UserV2
     Ok(user)
 }
 
-pub async fn get_user_id_v2(identifier: String, postgres: PgPool) -> Result<Uuid, AppError> {
+pub async fn _get_user_id_v2(identifier: String, postgres: PgPool) -> Result<Uuid, AppError> {
     // Try to find user by wallet_address first
     let user_id = sqlx::query_scalar::<_, Uuid>("SELECT id FROM users WHERE wallet_address = $1")
         .bind(&identifier)

@@ -9,12 +9,12 @@ use uuid::Uuid;
 use crate::{
     auth::AuthClaims,
     db::user::{
-        get::get_user_by_id,
+        get::get_user_by_id_v2,
         patch::{update_display_name, update_username},
         post::create_user_v2,
     },
     errors::AppError,
-    models::User,
+    models::user::UserV2,
     state::AppState,
 };
 
@@ -45,8 +45,8 @@ pub async fn create_user_handler(
 pub async fn get_user_handler(
     State(state): State<AppState>,
     Path(user_id): Path<Uuid>,
-) -> Result<Json<User>, (StatusCode, String)> {
-    let user = get_user_by_id(user_id, state.redis.clone())
+) -> Result<Json<UserV2>, (StatusCode, String)> {
+    let user = get_user_by_id_v2(user_id, state.postgres.clone())
         .await
         .map_err(|e| {
             tracing::error!("Error retrieving user: {}", e);
