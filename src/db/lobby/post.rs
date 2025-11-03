@@ -1,4 +1,5 @@
 use chrono::Utc;
+use sqlx::PgPool;
 use teloxide::Bot;
 use uuid::Uuid;
 
@@ -12,6 +13,7 @@ use crate::{
     http::bot::{self, BotNewLobbyPayload},
     models::{
         game::{LobbyInfo, LobbyPoolInput, LobbyState, Player, PlayerState},
+        lobby::Lobby,
         redis::{KeyPart, RedisKey},
     },
     state::RedisClient,
@@ -162,4 +164,69 @@ pub async fn create_lobby(
     });
 
     Ok(lobby_id)
+}
+
+pub async fn _create_lobby_v2(
+    name: String,
+    description: Option<String>,
+    game_id: Uuid,
+    creator_id: Uuid,
+    entry_amount: Option<f64>,
+    token_symbol: Option<String>,
+    token_contract_id: Option<String>,
+    contract_address: Option<String>,
+    is_private: Option<bool>,
+    postgres: PgPool,
+) -> Result<Lobby, AppError> {
+    // Generate new lobby ID
+    let lobby_id = Uuid::new_v4();
+
+    // Start transaction
+    let mut tx = postgres
+        .begin()
+        .await
+        .map_err(|e| AppError::DatabaseError(format!("Failed to start transaction: {}", e)))?;
+
+    // Insert lobby into database
+    let lobby = sqlx::query_as::<_, Lobby>(
+        "INSERT INTO lobbies (
+                id,
+                name,
+                description,
+                game_id,
+                creator_id,
+                entry_amount,
+                token_symbol,
+                token_contract_id,
+                contract_address,
+                is_private
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, FALSE))
+            RETURNING id, name, description, game_id, creator_id, entry_amount,
+                    token_symbol, token_contract_id, contract_address,
+                    is_private, status, created_at, updated_at
+        ",
+    )
+    .bind(lobby_id)
+    .bind(&name)
+    .bind(&description)
+    .bind(game_id)
+    .bind(creator_id)
+    .bind(entry_amount)
+    .bind(&token_symbol)
+    .bind(&token_contract_id)
+    .bind(&contract_address)
+    .bind(is_private)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(|e| AppError::DatabaseError(format!("Failed to create lobby: {}", e)))?;
+
+    // Commit transaction
+    tx.commit()
+        .await
+        .map_err(|e| AppError::DatabaseError(format!("Failed to commit transaction: {}", e)))?;
+
+    tracing::info!("Created new lobby: {}", lobby.id);
+
+    Ok(lobby)
 }

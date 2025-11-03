@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use bb8::PooledConnection;
 use bb8_redis::RedisConnectionManager;
 use redis::AsyncCommands;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
@@ -15,10 +16,31 @@ use crate::{
         game::{
             ClaimState, LobbyExtended, LobbyInfo, LobbyState, Player, PlayerLobbyInfo, PlayerState,
         },
+        lobby::Lobby,
         redis::{KeyPart, RedisKey},
     },
     state::RedisClient,
 };
+
+pub async fn _get_lobby_v2(lobby_id: Uuid, postgres: PgPool) -> Result<Lobby, AppError> {
+    // Fetch lobby from database
+    let lobby = sqlx::query_as::<_, Lobby>(
+        "SELECT id, name, description, game_id, creator_id, entry_amount,
+                token_symbol, token_contract_id, contract_address,
+                is_private, status, created_at, updated_at
+            FROM lobbies
+            WHERE id = $1",
+    )
+    .bind(lobby_id)
+    .fetch_optional(&postgres)
+    .await
+    .map_err(|e| AppError::DatabaseError(format!("Failed to query lobby: {}", e)))?
+    .ok_or_else(|| AppError::NotFound(format!("Lobby with ID {} not found", lobby_id)))?;
+
+    tracing::info!("Fetched lobby: {}", lobby.id);
+
+    Ok(lobby)
+}
 
 pub async fn get_lobbies_by_game_id(
     game_id: Uuid,
