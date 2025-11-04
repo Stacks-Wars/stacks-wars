@@ -5,6 +5,8 @@ use uuid::Uuid;
 
 use crate::models::game::Player;
 
+/// Legacy user model for Redis-based operations
+/// TODO: Migrate all usage to UserV2 for PostgreSQL persistence
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct User {
@@ -16,6 +18,13 @@ pub struct User {
     pub display_name: Option<String>,
 }
 
+/// Tracks player progression, ranks, and rewards across seasons
+/// Maps to `user_wars_points` table in PostgreSQL
+/// 
+/// # Database Schema
+/// - Primary key: `id`
+/// - Foreign keys: `user_id` (users), `season_id` (seasons)
+/// - Unique constraint: `(user_id, season_id)` - one entry per user per season
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct UserWarsPoints {
@@ -28,6 +37,16 @@ pub struct UserWarsPoints {
     pub updated_at: NaiveDateTime,
 }
 
+/// Refined user model that maps directly to PostgreSQL
+/// Maps to `users` table with embedded seasonal points
+/// 
+/// This is the primary user model for all new features and endpoints.
+/// Contains wallet authentication, profile data, and trust metrics.
+/// 
+/// # Database Schema
+/// - Primary key: `id`
+/// - Unique constraint: `wallet_address`
+/// - Default trust_rating: 10.0
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserV2 {

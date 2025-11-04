@@ -23,6 +23,16 @@ pub struct GameType {
     pub tags: Option<Vec<String>>,
 }
 
+/// Defines each game type under Stacks Wars
+/// Maps to `games` table in PostgreSQL
+/// 
+/// Represents a game mode available on the platform (e.g., "Lexi Wars").
+/// Each game has its own rules, player limits, and can be toggled active/inactive.
+/// 
+/// # Database Schema
+/// - Primary key: `id`
+/// - Foreign key: `creator_id` (users)
+/// - Unique constraint: `name`
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct GameV2 {
