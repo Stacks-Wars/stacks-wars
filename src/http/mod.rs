@@ -1,5 +1,5 @@
-pub mod bot;
-pub mod bot_commands;
+//pub mod bot;
+//pub mod bot_commands;
 pub mod handlers;
 pub mod routes;
 

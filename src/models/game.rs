@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
-use crate::{errors::AppError, models::User};
+use crate::{errors::AppError, models::user::User};
 
 #[derive(Deserialize)]
 pub struct WsQueryParams {
@@ -25,10 +25,10 @@ pub struct GameType {
 
 /// Defines each game type under Stacks Wars
 /// Maps to `games` table in PostgreSQL
-/// 
+///
 /// Represents a game mode available on the platform (e.g., "Lexi Wars").
 /// Each game has its own rules, player limits, and can be toggled active/inactive.
-/// 
+///
 /// # Database Schema
 /// - Primary key: `id`
 /// - Foreign key: `creator_id` (users)
@@ -190,14 +190,14 @@ impl ClaimState {
 pub struct Player {
     pub id: Uuid,
     pub state: PlayerState,
-
-    // Game-specific fields only
     pub rank: Option<usize>,
-    pub used_words: Option<Vec<String>>,
     pub tx_id: Option<String>,
     pub claim: Option<ClaimState>,
     pub prize: Option<f64>,
     pub last_ping: Option<u64>,
+
+    // Game-specific fields only
+    pub used_words: Option<Vec<String>>,
 
     // Hydrated user data (not stored in Redis)
     #[serde(skip_serializing_if = "Option::is_none")]

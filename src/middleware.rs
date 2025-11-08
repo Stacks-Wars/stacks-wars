@@ -10,50 +10,91 @@ use tower_http::cors::CorsLayer;
 
 pub type IpRateLimiter = Arc<RateLimiter<String, DefaultKeyedStateStore<String>, DefaultClock>>;
 
-// Create different IP-based rate limiters for different endpoints
-pub fn create_global_rate_limiter() -> IpRateLimiter {
-    // Allow 1000 requests per minute per IP globally (generous for normal usage)
-    let quota = Quota::per_minute(NonZeroU32::new(1000).unwrap());
-    Arc::new(RateLimiter::keyed(quota))
+/// Rate limiter configuration trait for type-safe middleware
+pub trait RateLimitConfig {
+    fn quota() -> Quota;
+    fn name() -> &'static str;
 }
 
-pub fn create_api_rate_limiter() -> IpRateLimiter {
-    // Allow 300 requests per minute per IP for API endpoints
-    let quota = Quota::per_minute(NonZeroU32::new(1000).unwrap());
-    Arc::new(RateLimiter::keyed(quota))
+/// API rate limiter - moderate limits for read operations
+/// 1000 requests per minute per IP
+pub struct ApiRateLimit;
+
+impl RateLimitConfig for ApiRateLimit {
+    fn quota() -> Quota {
+        Quota::per_minute(NonZeroU32::new(1000).unwrap())
+    }
+
+    fn name() -> &'static str {
+        "API"
+    }
 }
 
-pub fn create_auth_rate_limiter() -> IpRateLimiter {
-    // Allow 50 requests per minute per IP for auth endpoints (stricter)
-    let quota = Quota::per_minute(NonZeroU32::new(300).unwrap());
-    Arc::new(RateLimiter::keyed(quota))
+/// Auth rate limiter - strict limits for write operations
+/// 300 requests per minute per IP
+pub struct AuthRateLimit;
+
+impl RateLimitConfig for AuthRateLimit {
+    fn quota() -> Quota {
+        Quota::per_minute(NonZeroU32::new(300).unwrap())
+    }
+
+    fn name() -> &'static str {
+        "Auth"
+    }
 }
 
-// IP-based rate limiting middleware function
-pub async fn rate_limit_middleware(
-    rate_limiter: IpRateLimiter,
+/// Strict rate limiter - very strict limits for sensitive operations
+/// 50 requests per minute per IP
+pub struct StrictRateLimit;
+
+impl RateLimitConfig for StrictRateLimit {
+    fn quota() -> Quota {
+        Quota::per_minute(NonZeroU32::new(50).unwrap())
+    }
+
+    fn name() -> &'static str {
+        "Strict"
+    }
+}
+
+/// Type-safe rate limiting middleware
+///
+/// Usage:
+/// ```rust
+/// .layer(axum_middleware::from_fn(rate_limit_middleware::<ApiRateLimit>))
+/// .layer(axum_middleware::from_fn(rate_limit_middleware::<AuthRateLimit>))
+/// ```
+pub async fn rate_limit_middleware<T: RateLimitConfig>(
     request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    // Extract the client IP address
+    // Create rate limiter lazily (shared across all requests)
+    use std::sync::OnceLock;
+    static API_LIMITER: OnceLock<IpRateLimiter> = OnceLock::new();
+    static AUTH_LIMITER: OnceLock<IpRateLimiter> = OnceLock::new();
+    static STRICT_LIMITER: OnceLock<IpRateLimiter> = OnceLock::new();
+
+    let limiter = match T::name() {
+        "API" => API_LIMITER.get_or_init(|| Arc::new(RateLimiter::keyed(T::quota()))),
+        "Auth" => AUTH_LIMITER.get_or_init(|| Arc::new(RateLimiter::keyed(T::quota()))),
+        "Strict" => STRICT_LIMITER.get_or_init(|| Arc::new(RateLimiter::keyed(T::quota()))),
+        _ => unreachable!("Unknown rate limit type"),
+    };
+
+    // Extract client IP
     let client_ip =
         if let Some(ConnectInfo(addr)) = request.extensions().get::<ConnectInfo<SocketAddr>>() {
             addr.ip().to_string()
         } else {
-            // Fallback to a default IP if we can't extract it
             "unknown".to_string()
         };
 
-    // Check rate limit for this specific IP
-    match rate_limiter.check_key(&client_ip) {
-        Ok(_) => {
-            // Request is within rate limit for this IP, proceed
-            let response = next.run(request).await;
-            Ok(response)
-        }
+    // Check rate limit
+    match limiter.check_key(&client_ip) {
+        Ok(_) => Ok(next.run(request).await),
         Err(_) => {
-            // Rate limit exceeded for this IP
-            tracing::warn!("Rate limit exceeded for IP: {}", client_ip);
+            tracing::warn!("{} rate limit exceeded for IP: {}", T::name(), client_ip);
             Err(StatusCode::TOO_MANY_REQUESTS)
         }
     }

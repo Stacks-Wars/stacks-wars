@@ -5,8 +5,6 @@ use uuid::Uuid;
 
 use crate::models::game::Player;
 
-/// Legacy user model for Redis-based operations
-/// TODO: Migrate all usage to UserV2 for PostgreSQL persistence
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct User {
@@ -20,7 +18,7 @@ pub struct User {
 
 /// Tracks player progression, ranks, and rewards across seasons
 /// Maps to `user_wars_points` table in PostgreSQL
-/// 
+///
 /// # Database Schema
 /// - Primary key: `id`
 /// - Foreign keys: `user_id` (users), `season_id` (seasons)
@@ -38,16 +36,18 @@ pub struct UserWarsPoints {
 }
 
 /// Refined user model that maps directly to PostgreSQL
-/// Maps to `users` table with embedded seasonal points
-/// 
+/// Maps to `users` table (global user profile)
+///
 /// This is the primary user model for all new features and endpoints.
 /// Contains wallet authentication, profile data, and trust metrics.
-/// 
+///
+/// **Note**: Seasonal data (wars points) is managed separately in `UserWarsPoints`.
+///
 /// # Database Schema
 /// - Primary key: `id`
 /// - Unique constraint: `wallet_address`
 /// - Default trust_rating: 10.0
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct UserV2 {
     pub id: Uuid,
@@ -57,7 +57,6 @@ pub struct UserV2 {
     pub trust_rating: f64,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
-    pub wars_point: UserWarsPoints,
 }
 
 impl From<Player> for User {
@@ -66,9 +65,5 @@ impl From<Player> for User {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Claims {
-    pub sub: String,    // user ID
-    pub wallet: String, // wallet address
-    pub exp: usize,     // expiration time
-}
+// Re-export Claims from auth module for backward compatibility
+pub use crate::auth::jwt::Claims;
