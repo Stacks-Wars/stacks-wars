@@ -1,6 +1,5 @@
 //! Migrate lobby states from old LobbyInfo to new LobbyState
 
-use crate::db::hydration::redis::get_all_lobby_ids;
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::errors::AppError;
 use crate::models::enums::LobbyState as LobbyStatus;
@@ -12,39 +11,48 @@ use uuid::Uuid;
 
 /// Migrate lobby states from old structure to new structure
 ///
-/// Transforms: `lobbies:{id}:info` (LobbyInfo) → `lobbies:{id}:state` (LobbyState)
-///
-/// Extracts only the runtime state fields:
-/// - status
-/// - participant_count
-/// - created_at, updated_at, started_at, finished_at
-/// - creator_last_ping
-/// - tg_msg_id
-///
-/// Configuration fields (name, entry_amount, etc.) remain in PostgreSQL only.
+/// Scans all `lobbies:*:info` keys and transforms them to `lobbies:{id}:state`.
 pub async fn migrate_lobby_states(
     redis: &RedisClient,
     lobby_state_repo: &LobbyStateRepository,
     dry_run: bool,
 ) -> Result<usize, AppError> {
-    let lobby_ids = get_all_lobby_ids(redis).await?;
+    let mut conn = redis
+        .get()
+        .await
+        .map_err(|e| AppError::RedisError(format!("Failed to get Redis connection: {}", e)))?;
 
-    if lobby_ids.is_empty() {
-        println!("   ℹ️  No lobbies found to migrate");
+    // Scan all lobby info keys directly
+    let pattern = "lobbies:*:info";
+    let lobby_keys: Vec<String> = conn
+        .keys(pattern)
+        .await
+        .map_err(AppError::RedisCommandError)?;
+
+    if lobby_keys.is_empty() {
+        println!("   ℹ️  No lobby keys found");
         return Ok(0);
     }
 
-    println!("   Found {} lobbies to migrate", lobby_ids.len());
+    println!("   📋 Found {} lobby keys to migrate", lobby_keys.len());
 
     let mut migrated_count = 0;
     let mut skipped_count = 0;
     let mut error_count = 0;
 
-    for lobby_id_str in lobby_ids {
-        let lobby_id = match Uuid::parse_str(&lobby_id_str) {
+    for lobby_key in lobby_keys {
+        // Extract lobby_id from key: "lobbies:{uuid}:info"
+        let parts: Vec<&str> = lobby_key.split(':').collect();
+        if parts.len() != 3 || parts[0] != "lobbies" || parts[2] != "info" {
+            println!("   ⚠️  Invalid lobby key format: {}", lobby_key);
+            error_count += 1;
+            continue;
+        }
+
+        let lobby_id = match Uuid::parse_str(parts[1]) {
             Ok(id) => id,
             Err(_) => {
-                println!("   ⚠️  Invalid lobby ID: {}", lobby_id_str);
+                println!("   ⚠️  Invalid lobby ID: {}", lobby_key);
                 error_count += 1;
                 continue;
             }
@@ -60,14 +68,8 @@ pub async fn migrate_lobby_states(
         }
 
         // Get old LobbyInfo
-        let mut conn = redis
-            .get()
-            .await
-            .map_err(|e| AppError::RedisError(format!("Failed to get Redis connection: {}", e)))?;
-        let old_key = format!("lobbies:{}:info", lobby_id);
-
         let lobby_info: HashMap<String, String> = conn
-            .hgetall(&old_key)
+            .hgetall(&lobby_key)
             .await
             .map_err(AppError::RedisCommandError)?;
 

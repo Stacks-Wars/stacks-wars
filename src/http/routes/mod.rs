@@ -52,8 +52,8 @@ pub fn create_http_routes(state: AppState) -> Router {
         // Public routes (no rate limiting, no auth)
         .merge(public::routes())
         // Read routes (moderate rate limit: 1000/min, mostly no auth)
-        .merge(api::routes())
+        .nest("/api", api::routes())
         // Write routes (strict rate limit: 300/min, auth required)
-        .merge(auth::routes())
+        .nest("/auth", auth::routes())
         .with_state(state)
 }

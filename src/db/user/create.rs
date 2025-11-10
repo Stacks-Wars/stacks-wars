@@ -33,6 +33,7 @@ impl UserRepository {
 
         // Create new user
         let user_id = Uuid::new_v4();
+        let trust_rating = 10.0;
 
         // Start a transaction
         let mut tx =
@@ -47,7 +48,7 @@ impl UserRepository {
         )
         .bind(user_id)
         .bind(&wallet_address)
-        .bind(10.0) // Default trust rating
+        .bind(trust_rating) // Default trust rating
         .execute(&mut *tx)
         .await
         .map_err(|e| AppError::DatabaseError(format!("Failed to create user: {}", e)))?;
@@ -63,7 +64,7 @@ impl UserRepository {
             wallet_address,
             username: None,
             display_name: None,
-            trust_rating: 10.0,
+            trust_rating,
             created_at: chrono::Utc::now().naive_utc(),
             updated_at: chrono::Utc::now().naive_utc(),
         };
@@ -93,7 +94,6 @@ impl UserRepository {
         wallet_address: String,
         username: Option<String>,
         display_name: Option<String>,
-        trust_rating: Option<f64>,
     ) -> Result<UserV2, AppError> {
         // Check if user already exists
         if self.find_by_wallet(&wallet_address).await.is_ok() {
@@ -103,7 +103,7 @@ impl UserRepository {
         }
 
         let user_id = Uuid::new_v4();
-        let trust_rating = trust_rating.unwrap_or(10.0);
+        let trust_rating = 10.0;
 
         // Start transaction
         let mut tx =

@@ -17,6 +17,7 @@
 //! ```
 
 use crate::errors::AppError;
+use crate::models::db::lobby::LobbyStatus;
 use crate::models::game::LobbyInfo;
 use crate::models::redis_key::{KeyPart, RedisKey};
 use crate::state::RedisClient;
@@ -26,6 +27,10 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 pub mod redis;
+
+/// Default creator ID for games and lobbies when creator is missing in Redis
+/// This user must exist in the database before hydration
+const DEFAULT_CREATOR_ID: &str = "da8e9778-2e2f-4eb3-b50e-76be49f5ba38";
 
 /// Hydrate users table from Redis
 ///
@@ -94,12 +99,14 @@ pub async fn hydrate_users_from_redis(
         let display_name = user_data.get("display_name").cloned();
 
         // Insert into PostgreSQL
-        // Note: wars_point is NOT in the users table anymore - it's in user_wars_points
         let result = sqlx::query(
             r#"
             INSERT INTO users (id, wallet_address, username, display_name, trust_rating, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, $6)
-            ON CONFLICT (id) DO NOTHING
+            ON CONFLICT (wallet_address) DO UPDATE SET
+                username = COALESCE(EXCLUDED.username, users.username),
+                display_name = COALESCE(EXCLUDED.display_name, users.display_name),
+                updated_at = EXCLUDED.updated_at
             "#,
         )
         .bind(user_id)
@@ -114,15 +121,159 @@ pub async fn hydrate_users_from_redis(
             AppError::DatabaseError(format!("Failed to insert user {}: {}", user_id, e))
         })?;
 
+        hydrated_count += 1;
+        let action = if result.rows_affected() > 0 {
+            "✅ Hydrated"
+        } else {
+            "  Updated"
+        };
+        println!(
+            "{} user: {} ({})",
+            action,
+            username.as_deref().unwrap_or("unknown"),
+            user_id
+        );
+    }
+
+    Ok(hydrated_count)
+}
+
+/// Hydrate games table from Redis
+///
+/// Reads from: `games:{game_id}:data` (Redis hash)
+/// Writes to: `games` table (PostgreSQL)
+///
+/// Default values for fields not in Redis:
+/// - max_players: 16
+/// - category: "puzzle"
+/// - creator_id: da8e9778-2e2f-4eb3-b50e-76be49f5ba38
+/// - is_active: true
+pub async fn hydrate_games_from_redis(
+    redis: &RedisClient,
+    pool: &PgPool,
+) -> Result<usize, AppError> {
+    let mut conn = redis
+        .get()
+        .await
+        .map_err(|e| AppError::RedisError(format!("Failed to get Redis connection: {}", e)))?;
+
+    // Get all game keys: games:*:data
+    let pattern = RedisKey::game(KeyPart::Wildcard);
+    let keys: Vec<String> = conn
+        .keys(&pattern)
+        .await
+        .map_err(AppError::RedisCommandError)?;
+
+    let mut hydrated_count = 0;
+
+    println!(
+        "Found {} game keys matching pattern: {}",
+        keys.len(),
+        pattern
+    );
+
+    // Default creator ID
+    let default_creator_id =
+        Uuid::parse_str(DEFAULT_CREATOR_ID).expect("DEFAULT_CREATOR_ID must be a valid UUID");
+
+    for key in keys {
+        // Extract game_id from key "games:{uuid}:data"
+        let parts: Vec<&str> = key.split(':').collect();
+        if parts.len() != 3 || parts[2] != "data" {
+            println!("⚠️  Invalid game key format: {}", key);
+            continue;
+        }
+
+        let game_id = match Uuid::parse_str(parts[1]) {
+            Ok(id) => id,
+            Err(_) => {
+                println!("⚠️  Invalid game ID in key: {}", key);
+                continue;
+            }
+        };
+
+        // Get game data from Redis hash
+        let game_data: HashMap<String, String> = conn
+            .hgetall(&key)
+            .await
+            .map_err(AppError::RedisCommandError)?;
+
+        if game_data.is_empty() {
+            println!("⚠️  Empty data for game {}, skipping", game_id);
+            continue;
+        }
+
+        // Parse fields from Redis (using GameType structure)
+        let name = match game_data.get("name") {
+            Some(n) => n.clone(),
+            None => {
+                println!("⚠️  Missing name for game {}, skipping", game_id);
+                continue;
+            }
+        };
+
+        let description = game_data
+            .get("description")
+            .cloned()
+            .unwrap_or_else(|| "No description available".to_string());
+
+        let image_url = game_data
+            .get("image_url")
+            .cloned()
+            .unwrap_or_else(|| "".to_string());
+
+        let min_players = game_data
+            .get("min_players")
+            .and_then(|s| s.parse::<i16>().ok())
+            .unwrap_or(2);
+
+        // Default values for fields not in Redis
+        let max_players = 16;
+        let category = Some("puzzle".to_string());
+        let creator_id = default_creator_id;
+        let is_active = true;
+
+        // Insert into PostgreSQL
+        let result = sqlx::query(
+            r#"
+            INSERT INTO games (
+                id, name, description, image_url,
+                min_players, max_players, category,
+                creator_id, is_active, created_at, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+            ON CONFLICT (name) DO UPDATE SET
+                description = EXCLUDED.description,
+                image_url = EXCLUDED.image_url,
+                min_players = EXCLUDED.min_players,
+                max_players = EXCLUDED.max_players,
+                updated_at = EXCLUDED.updated_at
+            "#,
+        )
+        .bind(game_id)
+        .bind(&name)
+        .bind(&description)
+        .bind(&image_url)
+        .bind(min_players)
+        .bind(max_players)
+        .bind(&category)
+        .bind(creator_id)
+        .bind(is_active)
+        .bind(chrono::Utc::now().naive_utc())
+        .execute(pool)
+        .await
+        .map_err(|e| {
+            AppError::DatabaseError(format!("Failed to insert game {}: {}", game_id, e))
+        })?;
+
         if result.rows_affected() > 0 {
             hydrated_count += 1;
             println!(
-                "✅ Hydrated user: {} ({})",
-                username.as_deref().unwrap_or("unknown"),
-                user_id
+                "✅ Hydrated game: {} ({}) - min_players={}, max_players={}",
+                name, game_id, min_players, max_players
             );
         } else {
-            println!("  User {} already exists, skipping", user_id);
+            println!("  Game {} already exists, updated", game_id);
         }
     }
 
@@ -162,6 +313,10 @@ pub async fn hydrate_lobbies_from_redis(
         pattern
     );
 
+    // Default creator ID
+    let default_creator_id =
+        Uuid::parse_str(DEFAULT_CREATOR_ID).expect("DEFAULT_CREATOR_ID must be a valid UUID");
+
     for key in keys {
         // Extract lobby_id from key "lobbies:{uuid}:info"
         let parts: Vec<&str> = key.split(':').collect();
@@ -200,6 +355,40 @@ pub async fn hydrate_lobbies_from_redis(
                 }
             };
 
+        // Check if creator exists in database, otherwise use default
+        let creator_exists =
+            sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)")
+                .bind(creator_id)
+                .fetch_one(pool)
+                .await
+                .unwrap_or(false);
+
+        let final_creator_id = if creator_exists {
+            creator_id
+        } else {
+            println!(
+                "⚠️  Creator {} not found for lobby {}, using default creator",
+                creator_id, lobby_id
+            );
+            default_creator_id
+        };
+
+        // Check if game exists in database
+        let game_exists =
+            sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM games WHERE id = $1)")
+                .bind(game_id)
+                .fetch_one(pool)
+                .await
+                .unwrap_or(false);
+
+        if !game_exists {
+            println!(
+                "⚠️  Game {} not found for lobby {}, skipping lobby",
+                game_id, lobby_id
+            );
+            continue;
+        }
+
         // Extract fields from LobbyInfo
         let name = lobby_info.name;
         let description = lobby_info.description;
@@ -217,7 +406,7 @@ pub async fn hydrate_lobbies_from_redis(
         let is_sponsored = entry_amount == 0.0 && current_amount > 0.0;
 
         // Convert LobbyState enum to PostgreSQL enum string
-        let status = format!("{:?}", lobby_info.state).to_lowercase();
+        let status = LobbyStatus::Finished; // Default to Finished
 
         // Insert into PostgreSQL using raw SQL
         let result = sqlx::query(
@@ -234,7 +423,7 @@ pub async fn hydrate_lobbies_from_redis(
         .bind(lobby_id)
         .bind(&name)
         .bind(description)
-        .bind(creator_id)
+        .bind(final_creator_id)
         .bind(game_id)
         .bind(entry_amount)
         .bind(current_amount)
@@ -243,7 +432,7 @@ pub async fn hydrate_lobbies_from_redis(
         .bind(contract_address)
         .bind(is_private)
         .bind(is_sponsored)
-        .bind(&status)
+        .bind(status)
         .bind(chrono::Utc::now().naive_utc())
         .execute(pool)
         .await
@@ -279,8 +468,13 @@ pub async fn hydrate_all_from_redis(redis: &RedisClient, pool: &PgPool) -> Resul
     let user_count = hydrate_users_from_redis(redis, pool).await?;
     println!("   {} users migrated\n", user_count);
 
-    // Hydrate lobbies
-    println!("📊 Phase 2: Hydrating lobbies table...");
+    // Hydrate games second (lobbies depend on games)
+    println!("📊 Phase 2: Hydrating games table...");
+    let game_count = hydrate_games_from_redis(redis, pool).await?;
+    println!("   {} games migrated\n", game_count);
+
+    // Hydrate lobbies last (depends on both users and games)
+    println!("📊 Phase 3: Hydrating lobbies table...");
     let lobby_count = hydrate_lobbies_from_redis(redis, pool).await?;
     println!("   {} lobbies migrated\n", lobby_count);
 
@@ -289,6 +483,10 @@ pub async fn hydrate_all_from_redis(redis: &RedisClient, pool: &PgPool) -> Resul
     println!(
         "║  ✅ {} users migrated                        ",
         user_count
+    );
+    println!(
+        "║  ✅ {} games migrated                        ",
+        game_count
     );
     println!(
         "║  ✅ {} lobbies migrated                      ",

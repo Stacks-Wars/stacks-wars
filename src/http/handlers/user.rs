@@ -56,6 +56,21 @@ pub struct UpdateDisplayNameRequest {
     pub display_name: String,
 }
 
+/// Request body for updating user profile (partial update)
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateProfileRequest {
+    /// Optional new username
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+    /// Optional new display name
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    /// Optional new trust rating (admin only)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trust_rating: Option<f64>,
+}
+
 // ============================================================================
 // User Creation
 // ============================================================================
@@ -263,4 +278,85 @@ pub async fn update_display_name(
         payload.display_name
     );
     Ok(Json(payload))
+}
+
+// ============================================================================
+// User Profile Update (Partial)
+// ============================================================================
+
+/// Update user profile (partial update)
+///
+/// Updates one or more user profile fields. Only provided fields are updated.
+/// Allows updating username, display name, or both in a single request.
+///
+/// ## Authentication
+/// Required (JWT token in Authorization header)
+///
+/// ## Request
+/// ```json
+/// {
+///   "username": "new_username",
+///   "displayName": "New Display Name"
+/// }
+/// ```
+///
+/// Or update individual fields:
+/// ```json
+/// {
+///   "username": "new_username"
+/// }
+/// ```
+///
+/// ## Response
+/// Returns the full updated user profile:
+/// ```json
+/// {
+///   "id": "550e8400-e29b-41d4-a716-446655440000",
+///   "walletAddress": "SP2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKNRV9EJ7",
+///   "username": "new_username",
+///   "displayName": "New Display Name",
+///   "trustRating": 10.0,
+///   "createdAt": "2024-01-01T00:00:00Z",
+///   "updatedAt": "2024-01-15T12:30:00Z"
+/// }
+/// ```
+///
+/// ## Errors
+/// - `400 Bad Request` - Invalid data or username already taken
+/// - `401 Unauthorized` - Invalid or missing JWT token
+/// - `409 Conflict` - Username already taken by another user
+/// - `500 Internal Server Error` - Database error
+pub async fn update_profile(
+    State(state): State<AppState>,
+    AuthClaims(claims): AuthClaims,
+    Json(payload): Json<UpdateProfileRequest>,
+) -> Result<Json<UserV2>, (StatusCode, String)> {
+    let user_id = Uuid::parse_str(&claims.sub).map_err(|_| {
+        tracing::error!("Invalid user ID in JWT token");
+        AppError::Unauthorized("Invalid token".into()).to_response()
+    })?;
+
+    let repo = UserRepository::new(state.postgres.clone());
+
+    let user = repo
+        .update_profile(
+            user_id,
+            payload.username.clone(),
+            payload.display_name.clone(),
+            payload.trust_rating,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to update profile for {}: {}", user_id, e);
+            e.to_response()
+        })?;
+
+    tracing::info!(
+        "Profile updated for user {}: username={:?}, display_name={:?}",
+        user_id,
+        payload.username,
+        payload.display_name
+    );
+
+    Ok(Json(user))
 }

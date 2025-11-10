@@ -12,14 +12,13 @@
 //! cargo run --bin migrate_redis -- --apply
 //! ```
 
-use stacks_wars_be::{
-    db::{
-        hydration::redis::migrate_all_redis_state, lobby_state::LobbyStateRepository,
-        player_state::PlayerStateRepository,
-    },
-    state::AppState,
+use bb8::Pool;
+use bb8_redis::RedisConnectionManager;
+use stacks_wars_be::db::{
+    hydration::redis::migrate_all_redis_state, lobby_state::LobbyStateRepository,
+    player_state::PlayerStateRepository,
 };
-use std::env;
+use std::{env, time::Duration};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -48,16 +47,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize app state
     println!("📡 Connecting to Redis...");
-    let state = AppState::new().await?;
+
+    // Create Redis pool directly
+    let redis_url = env::var("REDIS_URL")?;
+    let manager = RedisConnectionManager::new(redis_url)?;
+
+    let redis_pool = Pool::builder()
+        .max_size(10)
+        .connection_timeout(Duration::from_secs(10))
+        .build(manager)
+        .await?;
+
     println!("✅ Connected!\n");
 
     // Create repositories
-    let lobby_state_repo = LobbyStateRepository::new(state.redis.clone());
-    let player_state_repo = PlayerStateRepository::new(state.redis.clone());
+    let lobby_state_repo = LobbyStateRepository::new(redis_pool.clone());
+    let player_state_repo = PlayerStateRepository::new(redis_pool.clone());
 
     // Run migration
-    let (lobbies, players, game_states) =
-        migrate_all_redis_state(&state.redis, &lobby_state_repo, &player_state_repo, dry_run)
+    let (lobbies, players) =
+        migrate_all_redis_state(&redis_pool, &lobby_state_repo, &player_state_repo, dry_run)
             .await?;
 
     println!("\n╔═══════════════════════════════════════════════╗");
@@ -65,10 +74,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("╠═══════════════════════════════════════════════╣");
     println!("║  Lobbies migrated:      {:>5}                ║", lobbies);
     println!("║  Players migrated:      {:>5}                ║", players);
-    println!(
-        "║  Game states migrated:  {:>5}                ║",
-        game_states
-    );
     println!("╚═══════════════════════════════════════════════╝");
 
     if dry_run {

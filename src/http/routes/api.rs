@@ -28,17 +28,17 @@ use crate::{
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/user/:user_id", get(get_user))
+        .route("/user/{user_id}", get(get_user))
         .route("/game", get(list_games))
-        .route("/game/:game_id", get(get_game))
-        .route("/game/:game_id/lobbies", get(list_lobbies_by_game))
-        .route("/lobby/:lobby_id", get(get_lobby))
+        .route("/game/{game_id}", get(get_game))
+        .route("/game/{game_id}/lobbies", get(list_lobbies_by_game))
+        .route("/lobby/{lobby_id}", get(get_lobby))
         .route("/lobby/my", get(list_my_lobbies))
         .route("/season/current", get(get_current_season))
         .route("/season", get(list_seasons))
-        .route("/token/:contract_address", get(get_token_info_mainnet))
+        .route("/token/{contract_address}", get(get_token_info_mainnet))
         .route(
-            "/token/testnet/:contract_address",
+            "/token/testnet/{contract_address}",
             get(get_token_info_testnet),
         )
         .layer(axum_middleware::from_fn(
