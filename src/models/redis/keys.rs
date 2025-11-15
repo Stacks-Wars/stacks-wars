@@ -107,4 +107,37 @@ impl RedisKey {
             KeyPart::Str("info".to_string()),
         ])
     }
+
+    /// Rate limiter key for unauthenticated users keyed by IP
+    /// Pattern: `rate:user:ip:{ip}`
+    pub fn rate_user_ip(ip: &str) -> String {
+        Self::build(&[
+            KeyPart::Str("rate".to_string()),
+            KeyPart::Str("user".to_string()),
+            KeyPart::Str("ip".to_string()),
+            KeyPart::Str(ip.to_string()),
+        ])
+    }
+
+    /// Rate limiter key for authenticated users (public APIs)
+    /// Pattern: `rate:user:auth:{user_id}`
+    pub fn rate_user_auth(user_id: impl Into<KeyPart>) -> String {
+        Self::build(&[
+            KeyPart::Str("rate".to_string()),
+            KeyPart::Str("user".to_string()),
+            KeyPart::Str("auth".to_string()),
+            user_id.into(),
+        ])
+    }
+
+    /// Rate limiter key for strict/write operations for authenticated users
+    /// Pattern: `rate:user:strict:{user_id}`
+    pub fn rate_user_strict(user_id: impl Into<KeyPart>) -> String {
+        Self::build(&[
+            KeyPart::Str("rate".to_string()),
+            KeyPart::Str("user".to_string()),
+            KeyPart::Str("strict".to_string()),
+            user_id.into(),
+        ])
+    }
 }
