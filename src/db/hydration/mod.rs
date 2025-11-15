@@ -16,10 +16,10 @@
 //! cargo run --bin hydrate
 //! ```
 
+use crate::db::hydration::types::LobbyInfo;
 use crate::errors::AppError;
-use crate::models::db::lobby::LobbyStatus;
-use crate::models::game::LobbyInfo;
-use crate::models::redis_key::{KeyPart, RedisKey};
+use crate::models::redis::LobbyStatus;
+use crate::models::redis::keys::{KeyPart, RedisKey};
 use crate::state::RedisClient;
 use ::redis::AsyncCommands;
 use sqlx::PgPool;
@@ -27,6 +27,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 pub mod redis;
+pub mod types;
 
 /// Default creator ID for games and lobbies when creator is missing in Redis
 /// This user must exist in the database before hydration

@@ -1,4 +1,4 @@
-use crate::{auth::generate_jwt, errors::AppError, models::user::UserV2};
+use crate::{auth::generate_jwt, errors::AppError, models::db::UserV2};
 use uuid::Uuid;
 
 use super::UserRepository;
@@ -83,7 +83,6 @@ impl UserRepository {
     /// * `wallet_address` - Stacks wallet address
     /// * `username` - Optional username
     /// * `display_name` - Optional display name
-    /// * `trust_rating` - Initial trust rating (defaults to 10.0)
     ///
     /// # Returns
     /// * `Ok(UserV2)` - Created user with wars points

@@ -1,4 +1,4 @@
-use crate::{errors::AppError, models::game::GameV2};
+use crate::{errors::AppError, models::db::game::Game};
 use uuid::Uuid;
 
 use super::GameRepository;
@@ -18,7 +18,7 @@ impl GameRepository {
     /// * `creator_id` - User who created this game type
     ///
     /// # Returns
-    /// * `Ok(GameV2)` - Created or existing game
+    /// * `Ok(Game)` - Created or existing game
     ///
     /// # Examples
     /// ```rust,ignore
@@ -41,7 +41,7 @@ impl GameRepository {
         max_players: i16,
         category: Option<String>,
         creator_id: Uuid,
-    ) -> Result<GameV2, AppError> {
+    ) -> Result<Game, AppError> {
         // Validate player limits
         if min_players < 1 {
             return Err(AppError::BadRequest(
@@ -55,7 +55,7 @@ impl GameRepository {
         }
 
         // Check if game already exists (by name)
-        let existing_game = sqlx::query_as::<_, GameV2>(
+        let existing_game = sqlx::query_as::<_, Game>(
             "SELECT id, name, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at
             FROM games
             WHERE name = $1",
@@ -73,7 +73,7 @@ impl GameRepository {
         // Create new game
         let game_id = Uuid::new_v4();
 
-        let game = sqlx::query_as::<_, GameV2>(
+        let game = sqlx::query_as::<_, Game>(
             "INSERT INTO games (id, name, description, image_url, min_players, max_players, category, creator_id, is_active)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE)
             RETURNING id, name, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",

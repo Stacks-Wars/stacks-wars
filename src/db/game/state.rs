@@ -5,7 +5,7 @@ use uuid::Uuid;
 use crate::{
     errors::AppError,
     games::lexi_wars::rules::RuleContext,
-    models::redis::{KeyPart, RedisKey},
+    models::redis_key::{KeyPart, RedisKey},
     state::RedisClient,
 };
 

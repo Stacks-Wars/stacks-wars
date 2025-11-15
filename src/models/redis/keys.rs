@@ -1,91 +1,110 @@
-use crate::models::enums::LobbyState;
+use std::fmt;
 use uuid::Uuid;
+
+/// Represents a fragment of a Redis key. Using `KeyPart::Wildcard` allows
+/// building patterns such as `lobbies:*:players:*`.
+#[derive(Debug, Clone)]
+pub enum KeyPart {
+    Id(Uuid),
+    Str(String),
+    Wildcard,
+}
+
+impl From<Uuid> for KeyPart {
+    fn from(id: Uuid) -> Self {
+        KeyPart::Id(id)
+    }
+}
+
+impl From<&str> for KeyPart {
+    fn from(s: &str) -> Self {
+        if s == "*" {
+            KeyPart::Wildcard
+        } else {
+            KeyPart::Str(s.to_string())
+        }
+    }
+}
+
+impl fmt::Display for KeyPart {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            KeyPart::Id(id) => write!(f, "{}", id),
+            KeyPart::Str(s) => write!(f, "{}", s),
+            KeyPart::Wildcard => write!(f, "*"),
+        }
+    }
+}
 
 /// Redis key builder for consistent key naming across the application
 pub struct RedisKey;
 
 impl RedisKey {
-    pub fn user(user_id: impl std::fmt::Display) -> String {
-        format!("users:data:{user_id}")
+    /// Build a key from arbitrary parts joined by ':'
+    pub fn build(parts: &[KeyPart]) -> String {
+        parts
+            .iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<_>>()
+            .join(":")
     }
 
-    pub fn users_wallets() -> String {
-        "users:wallets".to_string()
+    /// Key for lobby runtime state
+    /// Pattern: `lobbies:{lobby_id}:state`
+    pub fn lobby_state(lobby_id: impl Into<KeyPart>) -> String {
+        Self::build(&[
+            KeyPart::Str("lobbies".to_string()),
+            lobby_id.into(),
+            KeyPart::Str("state".to_string()),
+        ])
     }
 
-    pub fn users_usernames() -> String {
-        "users:usernames".to_string()
+    /// Key for a player's state within a lobby
+    /// Pattern: `lobbies:{lobby_id}:players:{user_id}`
+    pub fn lobby_player(lobby_id: impl Into<KeyPart>, user_id: impl Into<KeyPart>) -> String {
+        Self::build(&[
+            KeyPart::Str("lobbies".to_string()),
+            lobby_id.into(),
+            KeyPart::Str("players".to_string()),
+            user_id.into(),
+        ])
     }
 
-    pub fn users_matches() -> String {
-        "users:matches".to_string()
+    /// Key for a spectator's state within a lobby
+    /// Pattern: `lobbies:{lobby_id}:spectators:{user_id}`
+    pub fn lobby_spectator(lobby_id: impl Into<KeyPart>, user_id: impl Into<KeyPart>) -> String {
+        Self::build(&[
+            KeyPart::Str("lobbies".to_string()),
+            lobby_id.into(),
+            KeyPart::Str("spectators".to_string()),
+            user_id.into(),
+        ])
     }
 
-    pub fn users_wins() -> String {
-        "users:wins".to_string()
+    /// legacy key for game data, kept for hydration purposes and would be cleaned up later
+    pub fn game(game_id: impl Into<KeyPart>) -> String {
+        Self::build(&[
+            KeyPart::Str("games".to_string()),
+            game_id.into(),
+            KeyPart::Str("data".to_string()),
+        ])
     }
 
-    pub fn users_pnl() -> String {
-        "users:pnl".to_string()
+    /// legacy key for game data, kept for hydration purposes and would be cleaned up later
+    pub fn user(user_id: impl Into<KeyPart>) -> String {
+        Self::build(&[
+            KeyPart::Str("users".to_string()),
+            KeyPart::Str("data".to_string()),
+            user_id.into(),
+        ])
     }
 
-    pub fn users_points() -> String {
-        "users:points".to_string()
-    }
-
-    pub fn game(game_id: impl std::fmt::Display) -> String {
-        format!("games:{game_id}:data")
-    }
-
-    pub fn game_lobbies(game_id: impl std::fmt::Display) -> String {
-        format!("games:{game_id}:lobbies")
-    }
-
-    pub fn lobby(lobby_id: impl std::fmt::Display) -> String {
-        format!("lobbies:{lobby_id}:info")
-    }
-
-    pub fn lobby_player(
-        lobby_id: impl std::fmt::Display,
-        player_id: impl std::fmt::Display,
-    ) -> String {
-        format!("lobbies:{lobby_id}:player:{player_id}")
-    }
-
-    pub fn lobby_connected_players(lobby_id: impl std::fmt::Display) -> String {
-        format!("lobbies:{lobby_id}:connected_players")
-    }
-
-    pub fn lobby_spectators(lobby_id: impl std::fmt::Display) -> String {
-        format!("lobbies:{lobby_id}:spectators")
-    }
-
-    pub fn lobby_current_players(lobby_id: impl std::fmt::Display) -> String {
-        format!("lobbies:{lobby_id}:current_players")
-    }
-
-    pub fn lobbies_state(state: &LobbyState) -> String {
-        format!("lobbies:{}:state", format!("{state:?}").to_lowercase())
-    }
-
-    pub fn lobbies_all() -> String {
-        "lobbies:all".to_string()
-    }
-
-    pub fn lobby_chat(lobby_id: impl std::fmt::Display) -> String {
-        format!("lobbies:{lobby_id}:chats")
-    }
-
-    // Temporary keys
-    pub fn lobby_countdown(lobby_id: impl std::fmt::Display) -> String {
-        format!("lobbies:{lobby_id}:countdown")
-    }
-
-    pub fn user_rate_limit_auth(user_id: Uuid) -> String {
-        format!("ratelimit:auth:{user_id}")
-    }
-
-    pub fn ip_rate_limit_auth(ip: &str) -> String {
-        format!("ratelimit:auth:ip:{ip}")
+    /// legacy key for game data, kept for hydration purposes and would be cleaned up later
+    pub fn lobby(lobby_id: impl Into<KeyPart>) -> String {
+        Self::build(&[
+            KeyPart::Str("lobbies".to_string()),
+            lobby_id.into(),
+            KeyPart::Str("info".to_string()),
+        ])
     }
 }

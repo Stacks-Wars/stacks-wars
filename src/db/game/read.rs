@@ -1,6 +1,6 @@
 use crate::{
     errors::AppError,
-    models::game::{GameV2, Order, Pagination},
+    models::db::game::{Game, Order, Pagination},
 };
 use uuid::Uuid;
 
@@ -13,7 +13,7 @@ impl GameRepository {
     /// * `game_id` - UUID of the game
     ///
     /// # Returns
-    /// * `Ok(GameV2)` - Game data
+    /// * `Ok(Game)` - Game data
     /// * `Err(AppError::NotFound)` - Game doesn't exist
     ///
     /// # Examples
@@ -21,8 +21,8 @@ impl GameRepository {
     /// let game = repo.find_by_id(game_id).await?;
     /// println!("Game: {}", game.name);
     /// ```
-    pub async fn find_by_id(&self, game_id: Uuid) -> Result<GameV2, AppError> {
-        let game = sqlx::query_as::<_, GameV2>(
+    pub async fn find_by_id(&self, game_id: Uuid) -> Result<Game, AppError> {
+        let game = sqlx::query_as::<_, Game>(
             "SELECT id, name, description, image_url, min_players, max_players, category,
                     creator_id, is_active, updated_at, created_at
             FROM games
@@ -43,10 +43,10 @@ impl GameRepository {
     /// * `name` - Game name (case-sensitive)
     ///
     /// # Returns
-    /// * `Ok(GameV2)` - Game data
+    /// * `Ok(Game)` - Game data
     /// * `Err(AppError::NotFound)` - Game doesn't exist
-    pub async fn find_by_name(&self, name: &str) -> Result<GameV2, AppError> {
-        let game = sqlx::query_as::<_, GameV2>(
+    pub async fn find_by_name(&self, name: &str) -> Result<Game, AppError> {
+        let game = sqlx::query_as::<_, Game>(
             "SELECT id, name, description, image_url, min_players, max_players, category,
                     creator_id, is_active, updated_at, created_at
             FROM games
@@ -68,7 +68,7 @@ impl GameRepository {
     /// * `order` - Sort order (Ascending or Descending by created_at)
     ///
     /// # Returns
-    /// * `Ok(Vec<GameV2>)` - List of games
+    /// * `Ok(Vec<Game>)` - List of games
     ///
     /// # Examples
     /// ```rust,ignore
@@ -81,7 +81,7 @@ impl GameRepository {
         &self,
         pagination: Pagination,
         order: Order,
-    ) -> Result<Vec<GameV2>, AppError> {
+    ) -> Result<Vec<Game>, AppError> {
         let offset = pagination.offset();
         let limit = pagination.limit;
         let order_sql = order.to_sql();
@@ -95,7 +95,7 @@ impl GameRepository {
             order_sql
         );
 
-        let games = sqlx::query_as::<_, GameV2>(&query)
+        let games = sqlx::query_as::<_, Game>(&query)
             .bind(limit)
             .bind(offset)
             .fetch_all(&self.pool)
@@ -111,12 +111,12 @@ impl GameRepository {
     /// * `pagination` - Page and limit
     ///
     /// # Returns
-    /// * `Ok(Vec<GameV2>)` - Active games
-    pub async fn get_active_games(&self, pagination: Pagination) -> Result<Vec<GameV2>, AppError> {
+    /// * `Ok(Vec<Game>)` - Active games
+    pub async fn get_active_games(&self, pagination: Pagination) -> Result<Vec<Game>, AppError> {
         let offset = pagination.offset();
         let limit = pagination.limit;
 
-        let games = sqlx::query_as::<_, GameV2>(
+        let games = sqlx::query_as::<_, Game>(
             "SELECT id, name, description, image_url, min_players, max_players, category,
                 creator_id, is_active, updated_at, created_at
             FROM games
@@ -140,13 +140,9 @@ impl GameRepository {
     /// * `limit` - Maximum results
     ///
     /// # Returns
-    /// * `Ok(Vec<GameV2>)` - Games in category
-    pub async fn get_by_category(
-        &self,
-        category: &str,
-        limit: i64,
-    ) -> Result<Vec<GameV2>, AppError> {
-        let games = sqlx::query_as::<_, GameV2>(
+    /// * `Ok(Vec<Game>)` - Games in category
+    pub async fn get_by_category(&self, category: &str, limit: i64) -> Result<Vec<Game>, AppError> {
+        let games = sqlx::query_as::<_, Game>(
             "SELECT id, name, description, image_url, min_players, max_players, category,
                 creator_id, is_active, updated_at, created_at
             FROM games
@@ -172,13 +168,13 @@ impl GameRepository {
     /// * `limit` - Maximum results
     ///
     /// # Returns
-    /// * `Ok(Vec<GameV2>)` - Games created by user
+    /// * `Ok(Vec<Game>)` - Games created by user
     pub async fn get_by_creator(
         &self,
         creator_id: Uuid,
         limit: i64,
-    ) -> Result<Vec<GameV2>, AppError> {
-        let games = sqlx::query_as::<_, GameV2>(
+    ) -> Result<Vec<Game>, AppError> {
+        let games = sqlx::query_as::<_, Game>(
             "SELECT id, name, description, image_url, min_players, max_players, category,
                 creator_id, is_active, updated_at, created_at
             FROM games

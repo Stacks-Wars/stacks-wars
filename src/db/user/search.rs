@@ -1,4 +1,4 @@
-use crate::{errors::AppError, models::user::UserV2};
+use crate::{errors::AppError, models::db::UserV2};
 
 use super::UserRepository;
 

@@ -1,41 +1,30 @@
-//! # HTTP Routes Module
+//! HTTP routing for the Stacks Wars API.
 //!
-//! This module organizes all HTTP routes by protection and rate limiting level.
+//! This crate exposes three route groups that are composed into the main
+//! application router:
 //!
-//! ## Route Organization
+//! - `public` (no auth, no rate limit) - health checks and basic API info
+//! - `api` (read-focused, moderate rate limit) - public read endpoints such as
+//!   user, game, lobby and season queries. Note: a small number of read routes
+//!   may still require authentication (see the route definitions).
+//! - `auth` (write-focused, strict rate limit) - authenticated endpoints for
+//!   creating/updating resources (users, games, lobbies). All routes under
+//!   this group are protected by JWT authentication.
 //!
-//! ### Public Routes (`public.rs`)
-//! - **Rate Limit**: None
-//! - **Auth**: Not required
-//! - **Purpose**: Health checks, API info, monitoring
-//! - **Examples**: `/health`, `/`
+//! Exposed endpoints (high level):
+//! - Users: POST `/auth/user`, GET `/api/user/{id}`, PATCH `/auth/user/profile`,
+//!   PATCH `/auth/user/username`, PATCH `/auth/user/display-name`.
+//! - Games: POST `/auth/game`, GET `/api/game`, GET `/api/game/{id}`.
+//! - Lobbies: POST `/auth/lobby`, GET `/api/lobby/{id}`, GET `/api/game/{id}/lobbies`,
+//!   GET `/api/lobby/my` (see implementation for auth requirements), DELETE `/auth/lobby/{id}`.
+//! - Seasons: GET `/api/season` and GET `/api/season/current`.
+//! - Token info: GET `/api/token/{contract_address}` and `/api/token/testnet/{contract_address}`.
 //!
-//! ### API Routes (`api.rs`)
-//! - **Rate Limit**: 1000 requests/minute per IP (moderate)
-//! - **Auth**: Most don't require auth (public read operations)
-//! - **Purpose**: Reading platform data
-//! - **Examples**: `/api/user/:id`, `/api/game`, `/api/lobby/:id`
-//!
-//! ### Auth Routes (`auth.rs`)
-//! - **Rate Limit**: 300 requests/minute per IP (strict)
-//! - **Auth**: Required (JWT token)
-//! - **Purpose**: Write operations, authenticated actions
-//! - **Examples**: `/user` (POST), `/game` (POST), `/lobby/:id/join`
-//!
-//! ## Migration Status
-//! - ✅ **User endpoints**: Fully refactored to use `UserRepository`
-//! - ✅ **Game endpoints**: Fully refactored to use `GameRepository`
-//! - ⚠️ **Lobby endpoints**: Legacy implementation (uses old Redis patterns)
-//! - ⚠️ **Leaderboard endpoints**: Legacy implementation
-//! - ⚠️ **Token info endpoints**: Legacy implementation
-//!
-//! ## For Contributors
-//! When adding new endpoints:
-//! 1. Choose the correct route file based on auth/rate limit needs
-//! 2. Create handlers in `src/http/handlers/<domain>.rs`
-//! 3. Use repository pattern (see `UserRepository`, `GameRepository`)
-//! 4. Add comprehensive documentation with examples
-//! 5. Follow naming convention (no `_handler` suffix)
+//! Notes for contributors:
+//! - Prefer the repository pattern in `src/db/*` for data access.
+//! - Keep handler-level docs concise and document required auth and inputs/outputs.
+//! - Legacy/removed features (e.g. older Redis-only leaderboards) are deprecated
+//!   and should not be relied on when adding new endpoints.
 
 use crate::state::AppState;
 use axum::Router;

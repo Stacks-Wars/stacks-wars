@@ -1,9 +1,8 @@
 //! Migrate player states from old Player to new PlayerState
 
+use crate::db::hydration::types::{ClaimState, Player, PlayerState as PlayerStatus};
 use crate::db::player_state::PlayerStateRepository;
 use crate::errors::AppError;
-use crate::models::enums::{ClaimState, PlayerState as PlayerStatus};
-use crate::models::game::Player;
 use crate::models::redis::PlayerState;
 use crate::state::RedisClient;
 use redis::AsyncCommands;
@@ -101,7 +100,7 @@ pub async fn migrate_player_states(
                 let player_state = PlayerState {
                     user_id,
                     lobby_id,
-                    status: PlayerStatus::Joined, // All old players mapped as Joined
+                    status: crate::models::redis::player_state::PlayerStatus::Joined, // All old players mapped as Joined
                     tx_id: player_data.get("tx_id").map(|s| s.clone()),
                     rank: player_data.get("rank").and_then(|s| s.parse().ok()),
                     prize: player_data.get("prize").and_then(|s| s.parse().ok()),
@@ -130,10 +129,12 @@ pub async fn migrate_player_states(
 
         // Convert ClaimState from old format to new format
         let claim_state = old_player.claim.and_then(|claim| match claim {
-            crate::models::game::ClaimState::Claimed { tx_id } => {
-                Some(ClaimState::Claimed { tx_id })
+            ClaimState::Claimed { tx_id } => {
+                Some(crate::models::redis::player_state::ClaimState::Claimed { tx_id })
             }
-            crate::models::game::ClaimState::NotClaimed => Some(ClaimState::NotClaimed),
+            ClaimState::NotClaimed => {
+                Some(crate::models::redis::player_state::ClaimState::NotClaimed)
+            }
         });
 
         // Create new PlayerState
@@ -141,8 +142,10 @@ pub async fn migrate_player_states(
             user_id,
             lobby_id,
             status: match old_player.state {
-                crate::models::game::PlayerState::NotJoined => PlayerStatus::NotJoined,
-                crate::models::game::PlayerState::Joined => PlayerStatus::Joined,
+                PlayerStatus::NotJoined => {
+                    crate::models::redis::player_state::PlayerStatus::NotJoined
+                }
+                PlayerStatus::Joined => crate::models::redis::player_state::PlayerStatus::Joined,
             },
             tx_id: old_player.tx_id,
             rank: old_player.rank,

@@ -1,10 +1,8 @@
-//! Leaderboard Handlers
+//! DEPRECATED: legacy Redis-backed leaderboard handlers.
 //!
-//! Provides competitive rankings and player statistics.
-//! Rankings are based on wars points, win rates, and other performance metrics.
-//!
-//! **Note**: This module currently uses legacy Redis operations and will be
-//! refactored to use LeaderboardRepository in a future update.
+//! This module is retained only for backward compatibility. New features must
+//! implement a Postgres-backed leaderboard repository under `db/` and expose
+//! new handlers; do not add new code here.
 
 use axum::{
     extract::{Query, State},

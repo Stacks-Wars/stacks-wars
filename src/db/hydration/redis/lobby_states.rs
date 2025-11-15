@@ -2,7 +2,6 @@
 
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::errors::AppError;
-use crate::models::enums::LobbyState as LobbyStatus;
 use crate::models::redis::LobbyState;
 use crate::state::RedisClient;
 use redis::AsyncCommands;
@@ -80,10 +79,7 @@ pub async fn migrate_lobby_states(
         }
 
         // Extract state fields
-        let status = lobby_info
-            .get("state")
-            .and_then(|s| s.parse::<LobbyStatus>().ok())
-            .unwrap_or(LobbyStatus::Waiting);
+        let status = crate::models::redis::LobbyStatus::Finished;
 
         let participant_count = lobby_info
             .get("participants")
@@ -110,7 +106,7 @@ pub async fn migrate_lobby_states(
         // Create new LobbyState
         let lobby_state = LobbyState {
             lobby_id,
-            status: status.clone(),
+            status: crate::models::redis::LobbyStatus::Finished,
             participant_count,
             created_at,
             updated_at: chrono::Utc::now().timestamp(),

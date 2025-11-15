@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::{
     errors::AppError,
-    models::redis::{KeyPart, RedisKey},
+    models::redis_key::{KeyPart, RedisKey},
     state::RedisClient,
 };
 

@@ -1,4 +1,4 @@
-use crate::{errors::AppError, models::game::GameV2};
+use crate::{errors::AppError, models::db::game::Game};
 use uuid::Uuid;
 
 use super::GameRepository;
@@ -11,9 +11,9 @@ impl GameRepository {
     /// * `name` - New name (must be unique)
     ///
     /// # Returns
-    /// * `Ok(GameV2)` - Updated game
+    /// * `Ok(Game)` - Updated game
     /// * `Err(AppError::BadRequest)` - Name already taken
-    pub async fn update_name(&self, game_id: Uuid, name: String) -> Result<GameV2, AppError> {
+    pub async fn update_name(&self, game_id: Uuid, name: String) -> Result<Game, AppError> {
         // Check if name is already taken by another game
         let existing = sqlx::query_scalar::<_, Option<Uuid>>(
             "SELECT id FROM games WHERE name = $1 AND id != $2",
@@ -31,7 +31,7 @@ impl GameRepository {
             )));
         }
 
-        let game = sqlx::query_as::<_, GameV2>(
+        let game = sqlx::query_as::<_, Game>(
             "UPDATE games
             SET name = $1, updated_at = NOW()
             WHERE id = $2
@@ -56,13 +56,13 @@ impl GameRepository {
     /// * `description` - New description
     ///
     /// # Returns
-    /// * `Ok(GameV2)` - Updated game
+    /// * `Ok(Game)` - Updated game
     pub async fn update_description(
         &self,
         game_id: Uuid,
         description: String,
-    ) -> Result<GameV2, AppError> {
-        let game = sqlx::query_as::<_, GameV2>(
+    ) -> Result<Game, AppError> {
+        let game = sqlx::query_as::<_, Game>(
             "UPDATE games
             SET description = $1, updated_at = NOW()
             WHERE id = $2
@@ -87,13 +87,13 @@ impl GameRepository {
     /// * `image_url` - New image URL
     ///
     /// # Returns
-    /// * `Ok(GameV2)` - Updated game
+    /// * `Ok(Game)` - Updated game
     pub async fn update_image_url(
         &self,
         game_id: Uuid,
         image_url: String,
-    ) -> Result<GameV2, AppError> {
-        let game = sqlx::query_as::<_, GameV2>(
+    ) -> Result<Game, AppError> {
+        let game = sqlx::query_as::<_, Game>(
             "UPDATE games
             SET image_url = $1, updated_at = NOW()
             WHERE id = $2
@@ -119,14 +119,14 @@ impl GameRepository {
     /// * `max_players` - Maximum players (must be >= min_players)
     ///
     /// # Returns
-    /// * `Ok(GameV2)` - Updated game
+    /// * `Ok(Game)` - Updated game
     /// * `Err(AppError::BadRequest)` - Invalid player limits
     pub async fn update_player_limits(
         &self,
         game_id: Uuid,
         min_players: i16,
         max_players: i16,
-    ) -> Result<GameV2, AppError> {
+    ) -> Result<Game, AppError> {
         // Validate
         if min_players < 1 {
             return Err(AppError::BadRequest(
@@ -139,7 +139,7 @@ impl GameRepository {
             ));
         }
 
-        let game = sqlx::query_as::<_, GameV2>(
+        let game = sqlx::query_as::<_, Game>(
             "UPDATE games
             SET min_players = $1, max_players = $2, updated_at = NOW()
             WHERE id = $3
@@ -170,13 +170,13 @@ impl GameRepository {
     /// * `category` - New category
     ///
     /// # Returns
-    /// * `Ok(GameV2)` - Updated game
+    /// * `Ok(Game)` - Updated game
     pub async fn update_category(
         &self,
         game_id: Uuid,
         category: Option<String>,
-    ) -> Result<GameV2, AppError> {
-        let game = sqlx::query_as::<_, GameV2>(
+    ) -> Result<Game, AppError> {
+        let game = sqlx::query_as::<_, Game>(
             "UPDATE games
             SET category = $1, updated_at = NOW()
             WHERE id = $2
@@ -201,9 +201,9 @@ impl GameRepository {
     /// * `is_active` - New active status
     ///
     /// # Returns
-    /// * `Ok(GameV2)` - Updated game
-    pub async fn set_active(&self, game_id: Uuid, is_active: bool) -> Result<GameV2, AppError> {
-        let game = sqlx::query_as::<_, GameV2>(
+    /// * `Ok(Game)` - Updated game
+    pub async fn set_active(&self, game_id: Uuid, is_active: bool) -> Result<Game, AppError> {
+        let game = sqlx::query_as::<_, Game>(
             "UPDATE games
             SET is_active = $1, updated_at = NOW()
             WHERE id = $2
@@ -236,7 +236,7 @@ impl GameRepository {
     /// * `is_active` - Optional new active status
     ///
     /// # Returns
-    /// * `Ok(GameV2)` - Updated game
+    /// * `Ok(Game)` - Updated game
     pub async fn update_game(
         &self,
         game_id: Uuid,
@@ -247,7 +247,7 @@ impl GameRepository {
         max_players: Option<i16>,
         category: Option<String>,
         is_active: Option<bool>,
-    ) -> Result<GameV2, AppError> {
+    ) -> Result<Game, AppError> {
         // Fetch current game
         let current = self.find_by_id(game_id).await?;
 
@@ -290,7 +290,7 @@ impl GameRepository {
             }
         }
 
-        let game = sqlx::query_as::<_, GameV2>(
+        let game = sqlx::query_as::<_, Game>(
             "UPDATE games
             SET name = $1, description = $2, image_url = $3, min_players = $4, max_players = $5,
                 category = $6, is_active = $7, updated_at = NOW()

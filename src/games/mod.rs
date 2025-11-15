@@ -28,8 +28,6 @@ use crate::errors::AppError;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-pub mod lexi_wars;
-
 /// Base trait for game-specific state
 ///
 /// Each game implements this trait to define its own state structure.

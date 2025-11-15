@@ -2,8 +2,8 @@
 
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::errors::AppError;
-use crate::models::enums::LobbyState as LobbyStatus;
-use crate::models::redis::LobbyState;
+use crate::models::redis::keys::{KeyPart, RedisKey};
+use crate::models::redis::{LobbyState, LobbyStatus};
 use redis::AsyncCommands;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -22,7 +22,7 @@ impl LobbyStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:state", lobby_id);
+        let key = RedisKey::lobby_state(lobby_id);
 
         let map: HashMap<String, String> = conn
             .hgetall(&key)
@@ -52,7 +52,7 @@ impl LobbyStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:state", lobby_id);
+        let key = RedisKey::lobby_state(lobby_id);
 
         conn.exists(&key).await.map_err(AppError::RedisCommandError)
     }
@@ -70,7 +70,7 @@ impl LobbyStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:state", lobby_id);
+        let key = RedisKey::lobby_state(lobby_id);
 
         let status: Option<String> = conn
             .hget(&key, "status")
@@ -101,7 +101,7 @@ impl LobbyStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:state", lobby_id);
+        let key = RedisKey::lobby_state(lobby_id);
 
         let count: Option<usize> = conn
             .hget(&key, "participant_count")
@@ -123,7 +123,7 @@ impl LobbyStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let pattern = "lobbies:*:state";
+        let pattern = RedisKey::lobby_state(KeyPart::Wildcard);
 
         let keys: Vec<String> = conn
             .keys(pattern)

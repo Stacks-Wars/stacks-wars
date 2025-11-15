@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    auth::AuthClaims, db::user::UserRepository, errors::AppError, models::user::UserV2,
+    auth::AuthClaims, db::user::UserRepository, errors::AppError, models::db::UserV2,
     state::AppState,
 };
 

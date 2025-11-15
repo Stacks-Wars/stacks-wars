@@ -45,11 +45,59 @@
 //! ```
 
 use crate::errors::AppError;
-use crate::models::enums::{ClaimState, PlayerState as PlayerStatus};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 use uuid::Uuid;
+
+/// Player participation state in a lobby/game
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum PlayerStatus {
+    NotJoined,
+    Joined,
+}
+
+impl FromStr for PlayerStatus {
+    type Err = AppError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "notjoined" | "notJoined" => Ok(PlayerStatus::NotJoined),
+            "joined" => Ok(PlayerStatus::Joined),
+            other => Err(AppError::BadRequest(format!(
+                "Unknown PlayerStatus: {}",
+                other
+            ))),
+        }
+    }
+}
+
+/// Prize claim status for finished games
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "status", content = "data", rename_all = "camelCase")]
+pub enum ClaimState {
+    Claimed { tx_id: String },
+    NotClaimed,
+}
+
+impl ClaimState {
+    pub fn matches_filter(&self, filter: &ClaimState) -> bool {
+        match (self, filter) {
+            (ClaimState::NotClaimed, ClaimState::NotClaimed) => true,
+            (ClaimState::Claimed { .. }, ClaimState::Claimed { .. }) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_claimed(&self) -> bool {
+        matches!(self, ClaimState::Claimed { .. })
+    }
+
+    pub fn is_not_claimed(&self) -> bool {
+        matches!(self, ClaimState::NotClaimed)
+    }
+}
 
 /// Runtime state of a player in a lobby stored in Redis
 ///

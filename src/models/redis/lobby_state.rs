@@ -27,11 +27,37 @@
 //! - Extensible per game type
 
 use crate::errors::AppError;
-use crate::models::enums::LobbyState as LobbyStatus;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 use uuid::Uuid;
+
+/// Lobby lifecycle state
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, sqlx::Type)]
+#[sqlx(type_name = "lobby_status", rename_all = "lowercase")]
+pub enum LobbyStatus {
+    Waiting,
+    Starting,
+    InProgress,
+    Finished,
+}
+
+impl FromStr for LobbyStatus {
+    type Err = AppError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Waiting" => Ok(LobbyStatus::Waiting),
+            "Starting" => Ok(LobbyStatus::Starting),
+            "InProgress" => Ok(LobbyStatus::InProgress),
+            "Finished" => Ok(LobbyStatus::Finished),
+            other => Err(AppError::BadRequest(format!(
+                "Unknown LobbyState: {}",
+                other
+            ))),
+        }
+    }
+}
 
 /// Runtime state of a lobby stored in Redis
 ///

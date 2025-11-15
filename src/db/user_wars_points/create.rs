@@ -1,4 +1,4 @@
-use crate::{errors::AppError, models::user::UserWarsPoints};
+use crate::{errors::AppError, models::db::UserWarsPoints};
 use uuid::Uuid;
 
 use super::UserWarsPointsRepository;

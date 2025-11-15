@@ -3,6 +3,7 @@
 use crate::db::player_state::PlayerStateRepository;
 use crate::errors::AppError;
 use crate::models::redis::PlayerState;
+use crate::models::redis::keys::{KeyPart, RedisKey};
 use redis::AsyncCommands;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -22,7 +23,7 @@ impl PlayerStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:players:{}", lobby_id, user_id);
+        let key = RedisKey::lobby_player(lobby_id, user_id);
 
         let map: HashMap<String, String> = conn
             .hgetall(&key)
@@ -53,7 +54,7 @@ impl PlayerStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:players:{}", lobby_id, user_id);
+        let key = RedisKey::lobby_player(lobby_id, user_id);
 
         conn.exists(&key).await.map_err(AppError::RedisCommandError)
     }
@@ -70,10 +71,10 @@ impl PlayerStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let pattern = format!("lobbies:{}:players:*", lobby_id);
+        let pattern = RedisKey::lobby_player(lobby_id, KeyPart::Wildcard);
 
         let keys: Vec<String> = conn
-            .keys(&pattern)
+            .keys(pattern)
             .await
             .map_err(AppError::RedisCommandError)?;
 
@@ -107,10 +108,10 @@ impl PlayerStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let pattern = format!("lobbies:{}:players:*", lobby_id);
+        let pattern = RedisKey::lobby_player(lobby_id, KeyPart::Wildcard);
 
         let keys: Vec<String> = conn
-            .keys(&pattern)
+            .keys(pattern)
             .await
             .map_err(AppError::RedisCommandError)?;
 

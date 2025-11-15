@@ -34,7 +34,7 @@ use crate::{
     auth::AuthClaims,
     db::game::GameRepository,
     errors::AppError,
-    models::game::{GameV2, Order, Pagination},
+    models::db::game::{Game, Order, Pagination},
     state::AppState,
 };
 
@@ -119,7 +119,7 @@ pub async fn create_game(
     State(state): State<AppState>,
     AuthClaims(claims): AuthClaims,
     Json(payload): Json<CreateGameRequest>,
-) -> Result<Json<GameV2>, (StatusCode, String)> {
+) -> Result<Json<Game>, (StatusCode, String)> {
     let creator_id = Uuid::parse_str(&claims.sub).map_err(|_| {
         tracing::error!("Invalid user ID in JWT token");
         AppError::Unauthorized("Invalid token".into()).to_response()
@@ -184,7 +184,7 @@ pub async fn create_game(
 pub async fn get_game(
     Path(game_id): Path<Uuid>,
     State(state): State<AppState>,
-) -> Result<Json<GameV2>, (StatusCode, String)> {
+) -> Result<Json<Game>, (StatusCode, String)> {
     let repo = GameRepository::new(state.postgres.clone());
 
     let game = repo.find_by_id(game_id).await.map_err(|e| {
@@ -222,7 +222,7 @@ pub async fn get_game(
 pub async fn list_games(
     State(state): State<AppState>,
     Query(query): Query<ListGamesQuery>,
-) -> Result<Json<Vec<GameV2>>, (StatusCode, String)> {
+) -> Result<Json<Vec<Game>>, (StatusCode, String)> {
     let pagination = Pagination {
         page: query.page as i64,
         limit: query.limit as i64,

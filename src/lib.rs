@@ -6,7 +6,8 @@ pub mod auth;
 pub mod db;
 pub mod errors;
 pub mod games;
-mod http;
+pub mod http;
+pub mod lobby;
 mod middleware;
 mod models;
 pub mod state;
@@ -33,6 +34,8 @@ pub async fn start_server() {
     // Build HTTP router
     let app = Router::new()
         .merge(http::create_http_routes(state.clone()))
+        // WebSocket routes (lobbies, games, bots, real-time endpoints)
+        .merge(ws::create_ws_routes(state.clone()))
         .layer(cors_layer())
         .fallback(|| async { "404 Not Found" });
 

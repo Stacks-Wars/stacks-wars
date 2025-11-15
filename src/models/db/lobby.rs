@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
+use crate::models::redis::LobbyStatus;
+
 /// Core structure representing a multiplayer lobby
 /// Maps to `lobbies` table in PostgreSQL
 ///
@@ -34,13 +36,4 @@ pub struct Lobby {
     pub status: LobbyStatus,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "lobby_status", rename_all = "lowercase")]
-pub enum LobbyStatus {
-    Waiting,
-    Starting,
-    InProgress,
-    Finished,
 }

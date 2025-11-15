@@ -7,7 +7,7 @@ use axum::{Json, extract::State, http::StatusCode};
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 
-use crate::{db::season::SeasonRepository, models::season::Season, state::AppState};
+use crate::{db::season::SeasonRepository, models::db::Season, state::AppState};
 
 // ============================================================================
 // Request/Response Types

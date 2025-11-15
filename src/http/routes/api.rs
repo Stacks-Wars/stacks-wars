@@ -1,16 +1,9 @@
-//! # Read-Only API Routes
+//! Read-focused API routes (public).
 //!
-//! Public API endpoints for querying platform data.
-//!
-//! ## Rate Limiting
-//! - **Limit**: 1000 requests per minute per IP
-//!
-//! ## Endpoint Categories
-//! - **Users**: Profile queries
-//! - **Games**: Game type listings
-//! - **Lobbies**: Lobby information
-//! - **Seasons**: Competitive season information
-//! - **Tokens**: Token pricing and information
+//! These endpoints are intended for read/query operations and are rate limited
+//! at a moderate level (default 1000 requests/min per IP). Most routes are
+//! public; a few query handlers may require authentication - check the handler
+//! docs for details.
 
 use axum::{Router, middleware as axum_middleware, routing::get};
 
