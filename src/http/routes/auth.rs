@@ -1,18 +1,11 @@
-//! # Authenticated Write Routes
+//! Authenticated write routes (mounted under `/api`).
 //!
-//! Protected endpoints requiring JWT authentication.
-//!
-//! ## Rate Limiting
-//! - **Limit**: 300 requests per minute per IP
-//!
-//! ## Authentication
-//! All routes require valid JWT token:
-//! ```
-//! Authorization: Bearer <jwt_token>
-//! ```
-
+//! Handlers that require JWT authentication and perform state changes live
+//! here. The router is wrapped with `AuthRateLimit` to apply stricter per-user
+//! limits for authenticated clients.
 use axum::{
-    Router, middleware as axum_middleware,
+    Router,
+    middleware::from_fn_with_state,
     routing::{delete, patch, post},
 };
 
@@ -20,24 +13,22 @@ use crate::{
     http::handlers::{
         game::create_game,
         lobby::{create_lobby, delete_lobby},
-        //season::create_season,
-        user::{create_user, update_display_name, update_profile, update_username},
+        user::{update_display_name, update_profile, update_username},
     },
-    middleware::{AuthRateLimit, rate_limit_middleware},
+    middleware::{AuthRateLimit, rate_limit_with_state},
     state::AppState,
 };
 
-pub fn routes() -> Router<AppState> {
+pub fn routes(state_for_layer: AppState) -> Router<AppState> {
     Router::new()
-        .route("/user", post(create_user))
         .route("/user/profile", patch(update_profile))
         .route("/user/username", patch(update_username))
         .route("/user/display-name", patch(update_display_name))
         .route("/game", post(create_game))
         .route("/lobby", post(create_lobby))
         .route("/lobby/{lobby_id}", delete(delete_lobby))
-        //.route("/season", post(create_season))
-        .layer(axum_middleware::from_fn(
-            rate_limit_middleware::<AuthRateLimit>,
+        .layer(from_fn_with_state(
+            state_for_layer.clone(),
+            rate_limit_with_state::<AuthRateLimit>,
         ))
 }

@@ -1,11 +1,10 @@
-//! Read-focused API routes (public).
+//! Read-focused API routes mounted under `/api`.
 //!
-//! These endpoints are intended for read/query operations and are rate limited
-//! at a moderate level (default 1000 requests/min per IP). Most routes are
-//! public; a few query handlers may require authentication - check the handler
-//! docs for details.
+//! Contains public/read-only handlers: user lookups, game/lobby queries,
+//! season info and token metadata. Note: ApiRateLimit is applied at the
+//! application/router composition level to avoid duplicate increments.
 
-use axum::{Router, middleware as axum_middleware, routing::get};
+use axum::{Router, middleware::from_fn_with_state, routing::get};
 
 use crate::{
     http::handlers::{
@@ -15,11 +14,11 @@ use crate::{
         token_info::{get_token_info_mainnet, get_token_info_testnet},
         user::get_user,
     },
-    middleware::{ApiRateLimit, rate_limit_middleware},
+    middleware::{ApiRateLimit, rate_limit_with_state},
     state::AppState,
 };
 
-pub fn routes() -> Router<AppState> {
+pub fn routes(state_for_layer: AppState) -> Router<AppState> {
     Router::new()
         .route("/user/{user_id}", get(get_user))
         .route("/game", get(list_games))
@@ -34,7 +33,8 @@ pub fn routes() -> Router<AppState> {
             "/token/testnet/{contract_address}",
             get(get_token_info_testnet),
         )
-        .layer(axum_middleware::from_fn(
-            rate_limit_middleware::<ApiRateLimit>,
+        .layer(from_fn_with_state(
+            state_for_layer.clone(),
+            rate_limit_with_state::<ApiRateLimit>,
         ))
 }

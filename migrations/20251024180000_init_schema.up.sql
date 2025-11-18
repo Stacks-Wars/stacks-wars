@@ -1,34 +1,24 @@
--- ===============================
--- 🚀 STACKS WARS INITIAL SCHEMA
--- ===============================
--- This migration creates all core tables and relations in one pass.
+-- Stacks Wars initial schema (sqlx format)
 
--- Enable UUID extension (for gen_random_uuid)
+-- Enable extensions
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS citext;
 
--- ======================================
--- USERS TABLE
--- ======================================
+-- USERS
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     wallet_address TEXT UNIQUE NOT NULL,
-    username CITEXT UNIQUE, -- case-insensitive + unique
+    username CITEXT UNIQUE,
     display_name TEXT,
     trust_rating DOUBLE PRECISION DEFAULT 10,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Add CITEXT extension for case-insensitive username
-CREATE EXTENSION IF NOT EXISTS citext;
+CREATE INDEX IF NOT EXISTS idx_users_wallet_address ON users(wallet_address);
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 
--- Indexing for faster lookup
-CREATE INDEX idx_users_wallet_address ON users(wallet_address);
-CREATE INDEX idx_users_username ON users(username);
-
--- ======================================
--- SEASONS TABLE
--- ======================================
+-- SEASONS
 CREATE TABLE seasons (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
@@ -38,9 +28,7 @@ CREATE TABLE seasons (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- ======================================
--- GAMES TABLE
--- ======================================
+-- GAMES
 CREATE TABLE games (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE,
@@ -55,17 +43,17 @@ CREATE TABLE games (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_games_creator_id ON games(creator_id);
-CREATE INDEX idx_games_is_active ON games(is_active);
+CREATE INDEX IF NOT EXISTS idx_games_creator_id ON games(creator_id);
+CREATE INDEX IF NOT EXISTS idx_games_is_active ON games(is_active);
 
--- ======================================
 -- ENUM TYPE: LOBBY STATUS
--- ======================================
-CREATE TYPE lobby_status AS ENUM ('waiting', 'starting', 'in_progress', 'finished');
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'lobby_status') THEN
+        CREATE TYPE lobby_status AS ENUM ('waiting', 'starting', 'in_progress', 'finished');
+    END IF;
+END$$;
 
--- ======================================
--- LOBBIES TABLE
--- ======================================
+-- LOBBIES
 CREATE TABLE lobbies (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
@@ -84,14 +72,12 @@ CREATE TABLE lobbies (
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_lobbies_game_id ON lobbies(game_id);
-CREATE INDEX idx_lobbies_creator_id ON lobbies(creator_id);
-CREATE INDEX idx_lobbies_status ON lobbies(status);
-CREATE INDEX idx_lobbies_is_sponsored ON lobbies(is_sponsored);
+CREATE INDEX IF NOT EXISTS idx_lobbies_game_id ON lobbies(game_id);
+CREATE INDEX IF NOT EXISTS idx_lobbies_creator_id ON lobbies(creator_id);
+CREATE INDEX IF NOT EXISTS idx_lobbies_status ON lobbies(status);
+CREATE INDEX IF NOT EXISTS idx_lobbies_is_sponsored ON lobbies(is_sponsored);
 
--- ======================================
--- USER WARS POINTS TABLE
--- ======================================
+-- USER WARS POINTS
 CREATE TABLE user_wars_points (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -103,12 +89,10 @@ CREATE TABLE user_wars_points (
     UNIQUE(user_id, season_id)
 );
 
-CREATE INDEX idx_user_wars_points_user_id ON user_wars_points(user_id);
-CREATE INDEX idx_user_wars_points_season_id ON user_wars_points(season_id);
+CREATE INDEX IF NOT EXISTS idx_user_wars_points_user_id ON user_wars_points(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_wars_points_season_id ON user_wars_points(season_id);
 
--- ======================================
--- PLATFORM RATINGS TABLE
--- ======================================
+-- PLATFORM RATINGS
 CREATE TABLE platform_ratings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -118,10 +102,7 @@ CREATE TABLE platform_ratings (
     UNIQUE(user_id)
 );
 
-CREATE INDEX idx_platform_ratings_user_id ON platform_ratings(user_id);
-CREATE INDEX idx_platform_ratings_rating ON platform_ratings(rating);
+CREATE INDEX IF NOT EXISTS idx_platform_ratings_user_id ON platform_ratings(user_id);
+CREATE INDEX IF NOT EXISTS idx_platform_ratings_rating ON platform_ratings(rating);
 
--- ======================================
--- ✅ COMPLETION LOG
--- ======================================
-COMMENT ON DATABASE current_database() IS 'Stacks Wars initial database schema (users, games, lobbies, seasons, points, ratings).';
+COMMENT ON DATABASE postgres IS 'Stacks Wars initial database schema (users, games, lobbies, seasons, points, ratings).';

@@ -9,12 +9,12 @@ pub mod games;
 pub mod http;
 pub mod lobby;
 mod middleware;
+pub use middleware::cors_layer;
 mod models;
 pub mod state;
 pub mod ws;
 
 use axum::Router;
-use middleware::cors_layer;
 use state::AppState;
 use std::net::SocketAddr;
 use tokio::signal;
