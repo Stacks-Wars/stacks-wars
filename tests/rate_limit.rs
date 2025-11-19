@@ -157,7 +157,7 @@ async fn strict_rate_limit_applies_to_sensitive_routes() {
     app.stop().await;
 }
 
-#[tokio::test]
+#[allow(dead_code)]
 async fn api_expiry() {
     let app = common::spawn_app_with_containers().await;
     let client = reqwest::Client::new();

@@ -61,12 +61,6 @@ impl LobbyRepository {
     }
 
     /// Get all lobbies with a specific status
-    ///
-    /// # Example
-    /// ```rust
-    /// let waiting_lobbies = repo.find_by_status(LobbyStatus::Waiting).await?;
-    /// let active_lobbies = repo.find_by_status(LobbyStatus::InProgress).await?;
-    /// ```
     pub async fn find_by_status(&self, status: LobbyStatus) -> Result<Vec<Lobby>, AppError> {
         let lobbies = query_as::<_, Lobby>(
             "SELECT * FROM lobbies WHERE status = $1 ORDER BY created_at DESC",

@@ -15,6 +15,7 @@ use std::error::Error;
 use uuid::Uuid;
 
 /// Test application harness that keeps container handles alive while tests run.
+#[allow(dead_code)]
 pub struct TestApp {
     pub base_url: String,
     pub pg_pool: PgPool,
@@ -22,10 +23,10 @@ pub struct TestApp {
     // hold on to the containers so they live as long as TestApp (boxed as Any)
     _pg_container: Box<dyn std::any::Any + Send + Sync>,
     _redis_container: Box<dyn std::any::Any + Send + Sync>,
-    jwt_secret: String,
     shutdown: Option<oneshot::Sender<()>>,
 }
 
+#[allow(dead_code)]
 impl TestApp {
     /// Gracefully stop the spawned server and drop containers
     pub async fn stop(mut self) {
@@ -61,9 +62,8 @@ impl TestApp {
         Ok(())
     }
 
-    /// Generate a JWT for tests for the given user id. Uses JWT_SECRET env var.
     pub fn generate_jwt_for_user(&self, user_id: Uuid) -> Result<String, Box<dyn Error>> {
-        let secret = &self.jwt_secret;
+        let secret = &self.state.config.jwt_secret;
         let now = Utc::now();
         let expiry_days: i64 = std::env::var("TOKEN_EXPIRY_DAYS")
             .ok()
@@ -84,6 +84,177 @@ impl TestApp {
             &EncodingKey::from_secret(secret.as_bytes()),
         )?;
         Ok(token)
+    }
+
+    /// Return a TestFactory tied to this TestApp instance.
+    pub fn factory(&self) -> TestFactory {
+        TestFactory {
+            pg_pool: self.pg_pool.clone(),
+            jwt_secret: self.state.config.jwt_secret.clone(),
+        }
+    }
+}
+
+/// Lightweight test data factory to insert domain objects directly into Postgres
+/// for integration tests. Avoids repetitive API calls when preparing state.
+#[allow(dead_code)]
+pub struct TestFactory {
+    pub pg_pool: PgPool,
+    pub jwt_secret: String,
+}
+
+#[allow(dead_code)]
+impl TestFactory {
+    /// Insert a user directly into the database and return (user_id, token)
+    pub async fn create_test_user(
+        &self,
+        wallet_address: Option<&str>,
+    ) -> Result<(Uuid, String), Box<dyn Error>> {
+        let user_id = Uuid::new_v4();
+        let wallet = wallet_address
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| format!("test-wallet-{}", &user_id));
+
+        sqlx::query("INSERT INTO users (id, wallet_address, trust_rating) VALUES ($1, $2, $3)")
+            .bind(user_id)
+            .bind(&wallet)
+            .bind(10.0f64)
+            .execute(&self.pg_pool)
+            .await
+            .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
+
+        // Create token using local secret
+        let now = Utc::now();
+        let expiry_days: i64 = std::env::var("TOKEN_EXPIRY_DAYS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(7);
+
+        let claims = stacks_wars_be::auth::jwt::Claims {
+            sub: user_id.to_string(),
+            wallet: wallet.clone(),
+            iat: now.timestamp(),
+            exp: (now + ChronoDuration::days(expiry_days)).timestamp(),
+            jti: Some(Uuid::new_v4().to_string()),
+        };
+
+        let token = jsonwebtoken::encode(
+            &jsonwebtoken::Header::default(),
+            &claims,
+            &jsonwebtoken::EncodingKey::from_secret(self.jwt_secret.as_bytes()),
+        )?;
+
+        Ok((user_id, token))
+    }
+
+    /// Insert a game directly into the database and return the game id
+    pub async fn create_test_game(
+        &self,
+        creator_id: Uuid,
+        name: Option<&str>,
+    ) -> Result<Uuid, Box<dyn Error>> {
+        let game_id = Uuid::new_v4();
+        let gname = name
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| format!("test-game-{}", &game_id));
+
+        sqlx::query("INSERT INTO games (id, name, description, image_url, min_players, max_players, creator_id, is_active) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)")
+            .bind(game_id)
+            .bind(&gname)
+            .bind("test game")
+            .bind("https://example.com/img.png")
+            .bind(1_i16)
+            .bind(4_i16)
+            .bind(creator_id)
+            .bind(true)
+            .execute(&self.pg_pool)
+            .await
+            .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
+
+        Ok(game_id)
+    }
+
+    /// Insert a lobby directly and return lobby id
+    pub async fn create_test_lobby(
+        &self,
+        creator_id: Uuid,
+        game_id: Uuid,
+        name: Option<&str>,
+    ) -> Result<Uuid, Box<dyn Error>> {
+        let lobby_id = Uuid::new_v4();
+        let lname = name
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "test lobby".to_string());
+
+        // Omit `status` (enum) column so DB default ('waiting') is used. Binding text for
+        // enum columns can cause type mismatches depending on Postgres settings.
+        sqlx::query("INSERT INTO lobbies (id, name, game_id, creator_id, entry_amount, current_amount) VALUES ($1,$2,$3,$4,$5,$6)")
+            .bind(lobby_id)
+            .bind(&lname)
+            .bind(game_id)
+            .bind(creator_id)
+            .bind(0_f64)
+            .bind(0_f64)
+            .execute(&self.pg_pool)
+            .await
+            .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
+
+        Ok(lobby_id)
+    }
+
+    /// Insert a season directly and return the season id (integer SERIAL)
+    pub async fn create_test_season(&self, name: Option<&str>) -> Result<i64, Box<dyn Error>> {
+        let sname = name
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| format!("test-season-{}", chrono::Utc::now().timestamp()));
+
+        // Insert without providing `id` (SERIAL) and return the generated id
+        let row = sqlx::query("INSERT INTO seasons (name, description, start_date, end_date) VALUES ($1, $2, NOW() - INTERVAL '1 day', NOW() + INTERVAL '30 day') RETURNING id")
+            .bind(&sname)
+            .bind("test season")
+            .fetch_one(&self.pg_pool)
+            .await
+            .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
+
+        // seasons.id is SERIAL (INT4) in schema; fetch as i32 and cast to i64
+        let id_i32: i32 = row
+            .try_get("id")
+            .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
+        Ok(id_i32 as i64)
+    }
+
+    /// Insert a platform rating record for a user and return its id
+    pub async fn create_platform_rating(
+        &self,
+        user_id: Uuid,
+        rating: i32,
+    ) -> Result<Uuid, Box<dyn Error>> {
+        let id = Uuid::new_v4();
+        sqlx::query("INSERT INTO platform_ratings (id, user_id, rating, created_at) VALUES ($1, $2, $3, NOW())")
+            .bind(id)
+            .bind(user_id)
+            .bind(rating)
+            .execute(&self.pg_pool)
+            .await
+            .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
+        Ok(id)
+    }
+
+    /// Insert a user_wars_points record for a user and return its id
+    pub async fn create_user_wars_points(
+        &self,
+        user_id: Uuid,
+        points: i32,
+    ) -> Result<Uuid, Box<dyn Error>> {
+        let id = Uuid::new_v4();
+        sqlx::query("INSERT INTO user_wars_points (id, user_id, points, created_at) VALUES ($1, $2, $3, NOW())")
+            .bind(id)
+            .bind(user_id)
+            .bind(points)
+            .execute(&self.pg_pool)
+            .await
+            .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
+        Ok(id)
     }
 }
 
@@ -125,9 +296,6 @@ pub async fn spawn_app_with_containers() -> TestApp {
         .await
         .expect("failed to build redis pool");
 
-    // Use a test JWT secret stored in the TestApp (avoid mutating process env)
-    let jwt_secret = "stacks_wars_deep_and_hidden_secret".to_string();
-
     // Wait for Postgres to accept connections
     let mut retries = 0;
     let pg_pool: PgPool;
@@ -167,9 +335,32 @@ pub async fn spawn_app_with_containers() -> TestApp {
         Err(e) => tracing::warn!("Could not list tables after migrations: {}", e),
     }
 
+    // Insert a current season so handlers that request the "current" season return data.
+    // If the application logic expects a season with start_date <= now <= end_date, seed one.
+    match sqlx::query(
+        "INSERT INTO seasons (name, description, start_date, end_date) VALUES ($1, $2, NOW() - INTERVAL '1 day', NOW() + INTERVAL '30 day')"
+    )
+    .bind("Test Season")
+    .bind("Auto-created for tests")
+    .execute(&pg_pool)
+    .await
+    {
+        Ok(_) => tracing::info!("seeded test season"),
+        Err(e) => tracing::warn!("could not seed test season: {}", e),
+    }
+
     // Build AppState manually using the pools we created
     let bot = Bot::new("test-bot-token");
+    let config = stacks_wars_be::state::AppConfig {
+        jwt_secret: "stacks_wars_deep_and_hidden_secret".to_string(),
+        redis_url: redis_url.clone(),
+        database_url: database_url.clone(),
+        telegram_bot_token: "test-bot-token".to_string(),
+        telegram_chat_id: "test-chat-id".to_string(),
+    };
+
     let state = stacks_wars_be::state::AppState {
+        config,
         connections: Default::default(),
         chat_connections: Default::default(),
         redis: redis_pool,
@@ -229,7 +420,6 @@ pub async fn spawn_app_with_containers() -> TestApp {
         state,
         _pg_container: Box::new(pg_container),
         _redis_container: Box::new(redis_container),
-        jwt_secret,
         shutdown: Some(tx),
     }
 }

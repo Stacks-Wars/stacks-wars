@@ -12,32 +12,22 @@ use super::jwt::Claims;
 ///
 /// Extracts and validates JWT token from Authorization header.
 ///
-/// # Usage
-/// ```rust
-/// async fn protected_handler(
-///     AuthClaims(claims): AuthClaims,
-/// ) -> Result<Json<Response>, AppError> {
-///     let user_id = claims.user_id()?;
-///     // ... handler logic
-/// }
-/// ```
-///
 /// # Authentication Flow
 /// 1. Extract Bearer token from Authorization header
 /// 2. Decode and validate JWT
 /// 3. Return claims if valid, error if not
 pub struct AuthClaims(pub Claims);
 
-impl<S> FromRequestParts<S> for AuthClaims
-where
-    S: Send + Sync,
-{
+impl FromRequestParts<crate::state::AppState> for AuthClaims {
     type Rejection = (StatusCode, String);
 
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &crate::state::AppState,
+    ) -> Result<Self, Self::Rejection> {
         // Extract Authorization header
         let TypedHeader(Authorization(bearer)) =
-            TypedHeader::<Authorization<Bearer>>::from_request_parts(parts, _state)
+            TypedHeader::<Authorization<Bearer>>::from_request_parts(parts, state)
                 .await
                 .map_err(|_| {
                     (
@@ -46,8 +36,9 @@ where
                     )
                 })?;
 
-        // Validate token
-        AuthClaims::from_token(bearer.token())
+        // Validate token using secret from AppState config
+        let secret = state.config.jwt_secret.clone();
+        AuthClaims::from_token_with_secret(bearer.token(), &secret)
     }
 }
 
@@ -70,6 +61,10 @@ impl AuthClaims {
             )
         })?;
 
+        AuthClaims::from_token_with_secret(token, &secret)
+    }
+
+    pub fn from_token_with_secret(token: &str, secret: &str) -> Result<Self, (StatusCode, String)> {
         let token_data = decode::<Claims>(
             token,
             &DecodingKey::from_secret(secret.as_bytes()),

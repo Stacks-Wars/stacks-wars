@@ -9,8 +9,18 @@ use teloxide::Bot;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
+#[derive(Clone, Debug)]
+pub struct AppConfig {
+    pub jwt_secret: String,
+    pub redis_url: String,
+    pub database_url: String,
+    pub telegram_bot_token: String,
+    pub telegram_chat_id: String,
+}
+
 #[derive(Clone)]
 pub struct AppState {
+    pub config: AppConfig,
     pub connections: ConnectionInfoMap,
     pub chat_connections: ChatConnectionInfoMap,
     pub redis: RedisClient,
@@ -21,10 +31,23 @@ pub struct AppState {
 impl AppState {
     /// Create a new AppState by connecting to PostgreSQL and Redis
     pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        // Redis connection pool
+        // Read essential configuration from the environment and group it.
         let redis_url = std::env::var("REDIS_URL")?;
-        let manager = RedisConnectionManager::new(redis_url)?;
+        let database_url = std::env::var("DATABASE_URL")?;
+        let bot_token = std::env::var("TELEGRAM_BOT_TOKEN")?;
+        let jwt_secret = std::env::var("JWT_SECRET")?;
+        let telegram_chat_id = std::env::var("TELEGRAM_CHAT_ID")?;
 
+        let config = AppConfig {
+            jwt_secret,
+            redis_url: redis_url.clone(),
+            database_url: database_url.clone(),
+            telegram_bot_token: bot_token.clone(),
+            telegram_chat_id,
+        };
+
+        // Redis connection pool built from config.redis_url
+        let manager = RedisConnectionManager::new(config.redis_url.clone())?;
         let redis_pool = Pool::builder()
             .max_size(100)
             .min_idle(Some(20))
@@ -34,25 +57,24 @@ impl AppState {
             .build(manager)
             .await?;
 
-        // PostgreSQL connection pool
-        let postgres_url = std::env::var("DATABASE_URL")?;
+        // PostgreSQL connection pool built from config.database_url
         let postgres_pool = PgPoolOptions::new()
             .max_connections(50)
             .min_connections(10)
             .acquire_timeout(Duration::from_secs(5))
             .idle_timeout(Duration::from_secs(300))
             .max_lifetime(Duration::from_secs(1800))
-            .connect(&postgres_url)
+            .connect(&config.database_url)
             .await?;
 
         // Bot
-        let bot_token = std::env::var("TELEGRAM_BOT_TOKEN")?;
-        let bot = Bot::new(bot_token);
+        let bot = Bot::new(config.telegram_bot_token.clone());
 
         let connections: ConnectionInfoMap = Default::default();
         let chat_connections: ChatConnectionInfoMap = Default::default();
 
         Ok(Self {
+            config,
             connections,
             chat_connections,
             redis: redis_pool,

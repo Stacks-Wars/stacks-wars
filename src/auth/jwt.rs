@@ -25,22 +25,6 @@
 //! | `exp` | Expiration timestamp | i64 |
 //! | `jti` | JWT ID for tracking | String (optional) |
 //!
-//! ## Usage Example
-//!
-//! ```rust,ignore
-//! use crate::auth::{generate_jwt, validate_jwt_secret};
-//!
-//! // Validate configuration at startup
-//! validate_jwt_secret()?;
-//!
-//! // Generate token for authenticated user
-//! let user = user_repo.find_by_wallet(&wallet).await?;
-//! let token = generate_jwt(&user)?;
-//!
-//! // Token is sent to client and included in Authorization header:
-//! // Authorization: Bearer <token>
-//! ```
-//!
 //! ## Security Best Practices
 //!
 //! 1. **Secret Management**: Store JWT_SECRET securely (use secrets manager in production)
@@ -121,9 +105,9 @@ impl Claims {
 /// let token = generate_jwt(&user)?;
 /// // Send token to client for authentication
 /// ```
-pub fn generate_jwt(user: &UserV2) -> Result<String, AppError> {
-    // Validate secret exists and meets minimum requirements
-    let secret = validate_jwt_secret_internal()?;
+pub fn generate_jwt(user: &UserV2, secret: &str) -> Result<String, AppError> {
+    // Validate provided secret meets requirements
+    validate_jwt_secret(secret)?;
 
     let now = Utc::now();
     let expiry_days = std::env::var("TOKEN_EXPIRY_DAYS")
@@ -150,40 +134,15 @@ pub fn generate_jwt(user: &UserV2) -> Result<String, AppError> {
 /// Validate JWT_SECRET meets security requirements
 ///
 /// Internal validation that checks:
-/// - Secret is set in environment
 /// - Secret is at least 32 characters (256 bits for HS256)
 ///
 /// Returns the secret if valid.
-fn validate_jwt_secret_internal() -> Result<String, AppError> {
-    let secret = std::env::var("JWT_SECRET")
-        .map_err(|_| AppError::EnvError("JWT_SECRET must be set".to_string()))?;
-
+fn validate_jwt_secret(secret: &str) -> Result<(), AppError> {
     if secret.len() < 32 {
         return Err(AppError::EnvError(
             "JWT_SECRET must be at least 32 characters for security".to_string(),
         ));
     }
 
-    Ok(secret)
-}
-
-/// Validate JWT_SECRET is set and meets security requirements at startup
-///
-/// Should be called during application initialization to fail fast
-/// if JWT configuration is invalid.
-///
-/// # Security Requirements
-/// - JWT_SECRET must be set in environment
-/// - Must be at least 32 characters (256 bits for HS256 security)
-///
-/// # Errors
-/// Returns AppError::EnvError if validation fails
-///
-/// # Examples
-/// ```rust,ignore
-/// // In main() or server startup
-/// validate_jwt_secret()?;
-/// ```
-pub fn validate_jwt_secret() -> Result<(), AppError> {
-    validate_jwt_secret_internal().map(|_| ())
+    Ok(())
 }

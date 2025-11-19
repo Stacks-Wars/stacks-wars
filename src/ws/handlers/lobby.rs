@@ -1,4 +1,4 @@
-//! WS handlers template for lobby-related websocket routes.
+// Lobby WebSocket handlers
 
 use axum::{
     extract::{Path, Query, State, WebSocketUpgrade},

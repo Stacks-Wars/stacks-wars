@@ -96,12 +96,6 @@ impl LobbyRepository {
     ///
     /// # Arguments
     /// * `days` - Number of days to retain lobbies
-    ///
-    /// # Example
-    /// ```rust
-    /// // Delete lobbies older than 30 days
-    /// repo.delete_old_lobbies(30).await?;
-    /// ```
     pub async fn delete_old_lobbies(&self, days: i32) -> Result<u64, AppError> {
         let result = query("DELETE FROM lobbies WHERE created_at < NOW() - INTERVAL '1 day' * $1")
             .bind(days)
