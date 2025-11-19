@@ -1,4 +1,4 @@
-//! Read operations for SpectatorState
+// Read operations for SpectatorState (Redis)
 
 use crate::db::spectator_state::SpectatorStateRepository;
 use crate::errors::AppError;
@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 impl SpectatorStateRepository {
-    /// Get all spectator states in a lobby
+    /// Return all spectator states for a lobby.
     pub async fn get_all_in_lobby(&self, lobby_id: Uuid) -> Result<Vec<SpectatorState>, AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -41,7 +41,7 @@ impl SpectatorStateRepository {
         Ok(states)
     }
 
-    /// Count spectators in a lobby
+    /// Count spectators in a lobby.
     pub async fn count_spectators(&self, lobby_id: Uuid) -> Result<usize, AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -57,7 +57,7 @@ impl SpectatorStateRepository {
         Ok(keys.len())
     }
 
-    /// Get spectator IDs in a lobby
+    /// Get spectator UUIDs present in a lobby.
     pub async fn get_spectator_ids(&self, lobby_id: Uuid) -> Result<Vec<Uuid>, AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {

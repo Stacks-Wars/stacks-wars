@@ -1,56 +1,11 @@
-//! # PlayerState - Generic Player State in Redis
-//!
-//! This model represents **platform-generic player state** in a lobby.
-//! It contains NO game-specific fields, making it usable for ALL games.
-//!
-//! ## Storage
-//! - **Redis Key**: `lobbies:{lobby_id}:players:{user_id}`
-//! - **Type**: Hash
-//!
-//! ## Separation of Concerns
-//!
-//! ### PlayerState (Redis) - This file
-//! - User/lobby identity
-//! - Join status
-//! - Payment tracking (tx_id)
-//! - Post-game results (rank, prize, claim_state)
-//! - Connection tracking (last_ping, joined_at)
-//!
-//! ### GameState (Redis - games/{game}/state.rs)
-//! - Game-specific player data:
-//!   - Lexi Wars: used_words, current turn
-//!   - Chess: position, captured pieces
-//!   - Poker: hand, chips, bet amount
-//!
-//! ## Why Separate?
-//!
-//! **Problem with old Player model:**
-//! ```rust
-//! pub struct Player {
-//!     pub id: Uuid,
-//!     pub used_words: Option<Vec<String>>, // ❌ Only for Lexi Wars!
-//!     // Other games can't use this without carrying irrelevant fields
-//! }
-//! ```
-//!
-//! **Solution with new architecture:**
-//! ```rust
-//! // Platform-generic (ALL games)
-//! pub struct PlayerState { ... } // This file
-//!
-//! // Game-specific (extensible)
-//! pub trait GameState { ... }
-//! pub struct LexiWarsGameState { pub used_words: Vec<String>, ... }
-//! pub struct ChessGameState { pub position: Position, ... }
-//! ```
-
+// PlayerState: runtime Redis representation for player participation
 use crate::errors::AppError;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, str::FromStr};
 use uuid::Uuid;
 
-/// Player participation state in a lobby/game
+/// Player participation status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum PlayerStatus {
@@ -103,18 +58,6 @@ impl ClaimState {
 ///
 /// This is GENERIC and works for ALL games.
 /// Game-specific data (e.g., used_words, hand, position) goes in GameState.
-///
-/// # Redis Key
-/// `lobbies:{lobby_id}:players:{user_id}`
-///
-/// # Example
-/// ```rust,ignore
-/// let player_state = PlayerState::new(user_id, lobby_id, Some(tx_id));
-///
-/// // Save to Redis
-/// let hash = player_state.to_redis_hash();
-/// redis.hset_multiple(&key, &hash).await?;
-/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerState {

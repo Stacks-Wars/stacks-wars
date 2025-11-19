@@ -1,4 +1,4 @@
-//! Create operations for LobbyState
+// Create operations for LobbyState (Redis)
 
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::errors::AppError;
@@ -6,14 +6,7 @@ use crate::models::redis::LobbyState;
 use redis::AsyncCommands;
 
 impl LobbyStateRepository {
-    /// Create a new lobby state in Redis
-    ///
-    /// # Arguments
-    /// * `state` - The LobbyState to create
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
-    /// * `Err(AppError)` if the state already exists or Redis operation fails
+    /// Create a new lobby state in Redis (fails if already exists).
     pub async fn create_state(&self, state: LobbyState) -> Result<(), AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -44,13 +37,7 @@ impl LobbyStateRepository {
         Ok(())
     }
 
-    /// Create or update lobby state (upsert)
-    ///
-    /// # Arguments
-    /// * `state` - The LobbyState to create or update
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
+    /// Upsert (create or overwrite) a lobby state in Redis.
     pub async fn upsert_state(&self, state: LobbyState) -> Result<(), AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {

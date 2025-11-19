@@ -1,16 +1,4 @@
-//! Binary to run Redis state restructuring migration
-//!
-//! This migrates Redis data from old scattered keys to new organized state structure.
-//!
-//! ## Usage
-//!
-//! ```bash
-//! # Dry run (preview without making changes)
-//! cargo run --bin migrate_redis
-//!
-//! # Actually perform the migration
-//! cargo run --bin migrate_redis -- --apply
-//! ```
+// Binary to run Redis state restructuring migration (dry-run or --apply)
 
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;

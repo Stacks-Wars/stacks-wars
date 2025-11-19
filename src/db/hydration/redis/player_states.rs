@@ -1,4 +1,4 @@
-//! Migrate player states from old Player to new PlayerState
+// Migrate player states from old Player model to new PlayerState
 
 use crate::db::hydration::types::{ClaimState, Player, PlayerState as PlayerStatus};
 use crate::db::player_state::PlayerStateRepository;

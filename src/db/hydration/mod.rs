@@ -1,20 +1,4 @@
-//! # PostgreSQL Hydration from Redis
-//!
-//! This module provides functions to populate PostgreSQL with existing data from Redis.
-//! This is a one-time migration needed because PostgreSQL was added later to the architecture.
-//!
-//! ## Strategy
-//!
-//! 1. Read existing data from Redis (users, lobbies, etc.) using existing structs
-//! 2. Insert into PostgreSQL using raw SQL (repositories have different signatures)
-//! 3. Maintain existing Redis keys for backward compatibility during transition
-//! 4. Once complete, restructure Redis keys to new format (Phase 4)
-//!
-//! ## Usage
-//!
-//! ```bash
-//! cargo run --bin hydrate
-//! ```
+// Hydration helpers: populate PostgreSQL from existing Redis state (one-time migrations)
 
 use crate::db::hydration::types::LobbyInfo;
 use crate::errors::AppError;
@@ -33,12 +17,7 @@ pub mod types;
 /// This user must exist in the database before hydration
 const DEFAULT_CREATOR_ID: &str = "da8e9778-2e2f-4eb3-b50e-76be49f5ba38";
 
-/// Hydrate users table from Redis
-///
-/// Reads from: `users:data:{user_id}` (Redis hash)
-/// Writes to: `users` table (PostgreSQL)
-///
-/// Uses the User struct to parse Redis data correctly.
+/// Hydrate users from Redis into PostgreSQL (one-time migration).
 pub async fn hydrate_users_from_redis(
     redis: &RedisClient,
     pool: &PgPool,
@@ -139,16 +118,7 @@ pub async fn hydrate_users_from_redis(
     Ok(hydrated_count)
 }
 
-/// Hydrate games table from Redis
-///
-/// Reads from: `games:{game_id}:data` (Redis hash)
-/// Writes to: `games` table (PostgreSQL)
-///
-/// Default values for fields not in Redis:
-/// - max_players: 16
-/// - category: "puzzle"
-/// - creator_id: da8e9778-2e2f-4eb3-b50e-76be49f5ba38
-/// - is_active: true
+/// Hydrate games from Redis into PostgreSQL (one-time migration).
 pub async fn hydrate_games_from_redis(
     redis: &RedisClient,
     pool: &PgPool,
@@ -281,15 +251,7 @@ pub async fn hydrate_games_from_redis(
     Ok(hydrated_count)
 }
 
-/// Hydrate lobbies table from Redis
-///
-/// Reads from: `lobbies:{lobby_id}:info` (Redis hash)
-/// Writes to: `lobbies` table (PostgreSQL)
-///
-/// Uses the LobbyInfo struct to parse Redis data correctly.
-/// Business rules:
-/// - is_private: Set to true for all (doesn't exist in LobbyInfo)
-/// - is_sponsored: true if entry_amount is 0 and current_amount > 0
+/// Hydrate lobbies from Redis into PostgreSQL (one-time migration).
 pub async fn hydrate_lobbies_from_redis(
     redis: &RedisClient,
     pool: &PgPool,
@@ -455,10 +417,7 @@ pub async fn hydrate_lobbies_from_redis(
     Ok(hydrated_count)
 }
 
-/// Hydrate all tables from Redis (one-time migration)
-///
-/// This is a one-time operation to populate PostgreSQL with data from Redis.
-/// Should be run once during migration to the new architecture.
+/// Hydrate all tables from Redis into PostgreSQL (one-time migration).
 pub async fn hydrate_all_from_redis(redis: &RedisClient, pool: &PgPool) -> Result<(), AppError> {
     println!("╔═══════════════════════════════════════════════╗");
     println!("║  Starting PostgreSQL Hydration from Redis   ║");

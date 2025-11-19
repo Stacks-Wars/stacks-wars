@@ -4,34 +4,7 @@ use uuid::Uuid;
 use super::GameRepository;
 
 impl GameRepository {
-    /// Create a new game type
-    ///
-    /// Returns existing game if name already exists (idempotent).
-    ///
-    /// # Arguments
-    /// * `name` - Game name (must be unique)
-    /// * `description` - Game description
-    /// * `image_url` - Game thumbnail/logo URL
-    /// * `min_players` - Minimum players required
-    /// * `max_players` - Maximum players allowed
-    /// * `category` - Optional game category
-    /// * `creator_id` - User who created this game type
-    ///
-    /// # Returns
-    /// * `Ok(Game)` - Created or existing game
-    ///
-    /// # Examples
-    /// ```rust,ignore
-    /// let game = repo.create_game(
-    ///     "Lexi Wars".into(),
-    ///     "Word battle game".into(),
-    ///     "https://example.com/lexi.png".into(),
-    ///     2,
-    ///     4,
-    ///     Some("Word Games".into()),
-    ///     creator_id
-    /// ).await?;
-    /// ```
+    /// Create a new game type.
     pub async fn create_game(
         &self,
         name: String,

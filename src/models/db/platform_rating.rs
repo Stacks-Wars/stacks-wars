@@ -3,16 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-/// Represents a user rating/review on the platform
-/// Maps to `platform_ratings` table in PostgreSQL
-///
-/// Used for trust evaluation, reputation systems, and player feedback.
-/// Each user can receive multiple ratings from different users.
-///
-/// # Database Schema
-/// - Primary key: `id`
-/// - Foreign key: `user_id` (users)
-/// - Rating scale: typically 1-5 stars
+/// Platform rating model (user reviews / trust scores).
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct PlatformRating {

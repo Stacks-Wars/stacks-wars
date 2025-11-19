@@ -1,8 +1,7 @@
 use std::fmt;
 use uuid::Uuid;
 
-/// Represents a fragment of a Redis key. Using `KeyPart::Wildcard` allows
-/// building patterns such as `lobbies:*:players:*`.
+/// Fragment of a Redis key (Id, Str, or Wildcard).
 #[derive(Debug, Clone)]
 pub enum KeyPart {
     Id(Uuid),
@@ -36,7 +35,7 @@ impl fmt::Display for KeyPart {
     }
 }
 
-/// Redis key builder for consistent key naming across the application
+/// Helper to build Redis keys consistently.
 pub struct RedisKey;
 
 impl RedisKey {
@@ -49,8 +48,7 @@ impl RedisKey {
             .join(":")
     }
 
-    /// Key for lobby runtime state
-    /// Pattern: `lobbies:{lobby_id}:state`
+    /// Key for lobby runtime state (pattern: `lobbies:{lobby_id}:state`).
     pub fn lobby_state(lobby_id: impl Into<KeyPart>) -> String {
         Self::build(&[
             KeyPart::Str("lobbies".to_string()),
@@ -59,8 +57,7 @@ impl RedisKey {
         ])
     }
 
-    /// Key for a player's state within a lobby
-    /// Pattern: `lobbies:{lobby_id}:players:{user_id}`
+    /// Key for a player's state in a lobby (pattern: `lobbies:{lobby_id}:players:{user_id}`).
     pub fn lobby_player(lobby_id: impl Into<KeyPart>, user_id: impl Into<KeyPart>) -> String {
         Self::build(&[
             KeyPart::Str("lobbies".to_string()),
@@ -70,8 +67,7 @@ impl RedisKey {
         ])
     }
 
-    /// Key for a spectator's state within a lobby
-    /// Pattern: `lobbies:{lobby_id}:spectators:{user_id}`
+    /// Key for a spectator's state in a lobby (pattern: `lobbies:{lobby_id}:spectators:{user_id}`).
     pub fn lobby_spectator(lobby_id: impl Into<KeyPart>, user_id: impl Into<KeyPart>) -> String {
         Self::build(&[
             KeyPart::Str("lobbies".to_string()),
@@ -81,7 +77,7 @@ impl RedisKey {
         ])
     }
 
-    /// legacy key for game data, kept for hydration purposes and would be cleaned up later
+    /// Legacy key for game data (kept for hydration).
     pub fn game(game_id: impl Into<KeyPart>) -> String {
         Self::build(&[
             KeyPart::Str("games".to_string()),
@@ -90,7 +86,7 @@ impl RedisKey {
         ])
     }
 
-    /// legacy key for game data, kept for hydration purposes and would be cleaned up later
+    /// Legacy key for user data (kept for hydration).
     pub fn user(user_id: impl Into<KeyPart>) -> String {
         Self::build(&[
             KeyPart::Str("users".to_string()),
@@ -99,7 +95,7 @@ impl RedisKey {
         ])
     }
 
-    /// legacy key for game data, kept for hydration purposes and would be cleaned up later
+    /// Legacy key for lobby info (kept for hydration).
     pub fn lobby(lobby_id: impl Into<KeyPart>) -> String {
         Self::build(&[
             KeyPart::Str("lobbies".to_string()),
@@ -108,8 +104,7 @@ impl RedisKey {
         ])
     }
 
-    /// Rate limiter key for unauthenticated users keyed by IP
-    /// Pattern: `rate:user:ip:{ip}`
+    /// Rate limiter key for unauthenticated users by IP.
     pub fn rate_user_ip(ip: &str) -> String {
         Self::build(&[
             KeyPart::Str("rate".to_string()),
@@ -119,8 +114,7 @@ impl RedisKey {
         ])
     }
 
-    /// Rate limiter key for authenticated users (public APIs)
-    /// Pattern: `rate:user:auth:{user_id}`
+    /// Rate limiter key for authenticated users (public APIs).
     pub fn rate_user_auth(user_id: impl Into<KeyPart>) -> String {
         Self::build(&[
             KeyPart::Str("rate".to_string()),
@@ -130,8 +124,7 @@ impl RedisKey {
         ])
     }
 
-    /// Rate limiter key for strict/write operations for authenticated users
-    /// Pattern: `rate:user:strict:{user_id}`
+    /// Rate limiter key for strict/write operations (authenticated users).
     pub fn rate_user_strict(user_id: impl Into<KeyPart>) -> String {
         Self::build(&[
             KeyPart::Str("rate".to_string()),

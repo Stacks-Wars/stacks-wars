@@ -1,8 +1,4 @@
-//! SpectatorState - runtime spectator state in Redis
-//!
-//! Similar to `PlayerState` but only contains spectator-specific runtime fields
-//! (no prizes, ranks or tx info). Stored as a Redis hash at
-//! `lobbies:{lobby_id}:spectators:{user_id}`.
+// SpectatorState: runtime spectator state in Redis (lighter than PlayerState)
 use crate::errors::AppError;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};

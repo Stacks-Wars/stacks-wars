@@ -6,15 +6,7 @@ use crate::{errors::AppError, models::redis::LobbyStatus};
 use super::LobbyRepository;
 
 impl LobbyRepository {
-    /// Delete a lobby by ID
-    ///
-    /// # Cascade Behavior
-    /// Due to foreign key constraints, this will also delete:
-    /// - Related chat messages (if cascade configured)
-    /// - Join requests (if cascade configured)
-    ///
-    /// # Returns
-    /// Number of rows deleted (0 or 1)
+    /// Delete a lobby by ID (returns number of rows deleted).
     pub async fn delete_lobby(&self, lobby_id: Uuid) -> Result<u64, AppError> {
         let result = query("DELETE FROM lobbies WHERE id = $1")
             .bind(lobby_id)
@@ -29,10 +21,7 @@ impl LobbyRepository {
         Ok(result.rows_affected())
     }
 
-    /// Delete all lobbies created by a specific user
-    ///
-    /// # Use Case
-    /// When a user account is deleted, clean up their lobbies.
+    /// Delete all lobbies created by a specific user.
     pub async fn delete_by_creator(&self, creator_id: Uuid) -> Result<u64, AppError> {
         let result = query("DELETE FROM lobbies WHERE creator_id = $1")
             .bind(creator_id)
@@ -51,10 +40,7 @@ impl LobbyRepository {
         Ok(result.rows_affected())
     }
 
-    /// Delete all lobbies for a specific game
-    ///
-    /// # Use Case
-    /// When a game type is deprecated or removed.
+    /// Delete all lobbies for a specific game.
     pub async fn delete_by_game(&self, game_id: Uuid) -> Result<u64, AppError> {
         let result = query("DELETE FROM lobbies WHERE game_id = $1")
             .bind(game_id)
@@ -73,11 +59,7 @@ impl LobbyRepository {
         Ok(result.rows_affected())
     }
 
-    /// Delete all finished lobbies
-    ///
-    /// # Use Case
-    /// Cleanup old finished lobbies to free up database space.
-    /// Run this as a scheduled maintenance task.
+    /// Delete all finished lobbies (cleanup task).
     pub async fn delete_finished_lobbies(&self) -> Result<u64, AppError> {
         let result = query("DELETE FROM lobbies WHERE status = $1")
             .bind(LobbyStatus::Finished)
@@ -92,10 +74,7 @@ impl LobbyRepository {
         Ok(result.rows_affected())
     }
 
-    /// Delete lobbies older than specified days
-    ///
-    /// # Arguments
-    /// * `days` - Number of days to retain lobbies
+    /// Delete lobbies older than the given number of days.
     pub async fn delete_old_lobbies(&self, days: i32) -> Result<u64, AppError> {
         let result = query("DELETE FROM lobbies WHERE created_at < NOW() - INTERVAL '1 day' * $1")
             .bind(days)
@@ -112,10 +91,7 @@ impl LobbyRepository {
         Ok(result.rows_affected())
     }
 
-    /// Delete specific lobbies by IDs
-    ///
-    /// # Use Case
-    /// Bulk deletion based on a list of lobby IDs.
+    /// Delete specific lobbies by IDs (bulk delete).
     pub async fn delete_bulk(&self, lobby_ids: &[Uuid]) -> Result<u64, AppError> {
         if lobby_ids.is_empty() {
             return Ok(0);
@@ -134,10 +110,7 @@ impl LobbyRepository {
         Ok(result.rows_affected())
     }
 
-    /// Delete all lobbies (dangerous - use with caution!)
-    ///
-    /// # Warning
-    /// This deletes ALL lobbies. Only use for testing or complete resets.
+    /// Delete all lobbies (debug only).
     #[cfg(debug_assertions)]
     pub async fn delete_all(&self) -> Result<u64, AppError> {
         let result = query("DELETE FROM lobbies")

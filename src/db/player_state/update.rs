@@ -1,4 +1,4 @@
-//! Update operations for PlayerState
+// Update operations for PlayerState (Redis)
 
 use crate::db::player_state::PlayerStateRepository;
 use crate::errors::AppError;
@@ -8,15 +8,7 @@ use redis::AsyncCommands;
 use uuid::Uuid;
 
 impl PlayerStateRepository {
-    /// Update player status
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    /// * `user_id` - The user UUID
-    /// * `status` - The new status
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
+    /// Update a player's status in Redis.
     pub async fn update_status(
         &self,
         lobby_id: Uuid,
@@ -60,16 +52,7 @@ impl PlayerStateRepository {
         Ok(())
     }
 
-    /// Set player rank and prize (for winners)
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    /// * `user_id` - The user UUID
-    /// * `rank` - The player's rank (1st, 2nd, 3rd, etc.)
-    /// * `prize` - The prize amount (if any)
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
+    /// Set player rank and prize (for winners).
     pub async fn set_result(
         &self,
         lobby_id: Uuid,
@@ -105,15 +88,7 @@ impl PlayerStateRepository {
         Ok(())
     }
 
-    /// Set player rank only
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    /// * `user_id` - The user UUID
-    /// * `rank` - The player's rank
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
+    /// Set a player's rank only.
     pub async fn set_rank(
         &self,
         lobby_id: Uuid,
@@ -142,15 +117,7 @@ impl PlayerStateRepository {
         Ok(())
     }
 
-    /// Set player prize
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    /// * `user_id` - The user UUID
-    /// * `prize` - The prize amount
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
+    /// Set a player's prize and mark as unclaimed.
     pub async fn set_prize(
         &self,
         lobby_id: Uuid,
@@ -180,14 +147,7 @@ impl PlayerStateRepository {
         Ok(())
     }
 
-    /// Mark prize as claimed
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    /// * `user_id` - The user UUID
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
+    /// Mark a player's prize as claimed.
     pub async fn mark_claimed(&self, lobby_id: Uuid, user_id: Uuid) -> Result<(), AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -208,15 +168,7 @@ impl PlayerStateRepository {
         Ok(())
     }
 
-    /// Update claim state
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    /// * `user_id` - The user UUID
-    /// * `claim_state` - The new claim state
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
+    /// Update a player's claim state.
     pub async fn update_claim_state(
         &self,
         lobby_id: Uuid,
@@ -246,14 +198,7 @@ impl PlayerStateRepository {
         Ok(())
     }
 
-    /// Update player's last ping timestamp
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    /// * `user_id` - The user UUID
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
+    /// Update a player's last ping timestamp.
     pub async fn update_ping(&self, lobby_id: Uuid, user_id: Uuid) -> Result<(), AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -278,14 +223,7 @@ impl PlayerStateRepository {
         Ok(())
     }
 
-    /// Touch the player state (update updated_at timestamp)
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    /// * `user_id` - The user UUID
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
+    /// Touch the player state (refresh updated_at timestamp).
     pub async fn touch(&self, lobby_id: Uuid, user_id: Uuid) -> Result<(), AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {

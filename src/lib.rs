@@ -1,6 +1,4 @@
-//! Stacks Wars Backend
-//!
-//! HTTP API server for multiplayer game platform.
+// Stacks Wars backend
 
 pub mod auth;
 pub mod db;

@@ -1,7 +1,4 @@
-//! Lobby action helpers. These methods perform repository updates and
-//! broadcasting. They return typed `LobbyError` on failure and may return
-//! an optional `LobbyServerMessage` that should be sent to the initiating
-//! connection in addition to any broadcasts.
+// Lobby action helpers: repository updates + broadcasting helpers
 use super::LobbySession;
 use crate::db::{
     game::GameRepository, lobby::LobbyRepository, lobby_state::LobbyStateRepository,

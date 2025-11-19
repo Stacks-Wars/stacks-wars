@@ -9,13 +9,6 @@ use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode};
 use super::jwt::Claims;
 
 /// Axum extractor for authenticated requests
-///
-/// Extracts and validates JWT token from Authorization header.
-///
-/// # Authentication Flow
-/// 1. Extract Bearer token from Authorization header
-/// 2. Decode and validate JWT
-/// 3. Return claims if valid, error if not
 pub struct AuthClaims(pub Claims);
 
 impl FromRequestParts<crate::state::AppState> for AuthClaims {
@@ -44,15 +37,6 @@ impl FromRequestParts<crate::state::AppState> for AuthClaims {
 
 impl AuthClaims {
     /// Create AuthClaims from a JWT token string
-    ///
-    /// # Arguments
-    /// * `token` - JWT token string
-    ///
-    /// # Returns
-    /// Validated claims if token is valid
-    ///
-    /// # Errors
-    /// Returns (StatusCode, String) tuple on validation failure
     pub fn from_token(token: &str) -> Result<Self, (StatusCode, String)> {
         let secret = std::env::var("JWT_SECRET").map_err(|_| {
             (

@@ -1,4 +1,4 @@
-//! Update operations for LobbyState
+// Update operations for LobbyState (Redis)
 
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::errors::AppError;
@@ -8,14 +8,7 @@ use redis::AsyncCommands;
 use uuid::Uuid;
 
 impl LobbyStateRepository {
-    /// Update lobby status
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    /// * `status` - The new status
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
+    /// Update lobby status.
     pub async fn update_status(&self, lobby_id: Uuid, status: LobbyStatus) -> Result<(), AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -54,14 +47,7 @@ impl LobbyStateRepository {
         Ok(())
     }
 
-    /// Update participant count
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    /// * `count` - The new participant count
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
+    /// Set the participant count for a lobby.
     pub async fn update_participant_count(
         &self,
         lobby_id: Uuid,
@@ -89,13 +75,7 @@ impl LobbyStateRepository {
         Ok(())
     }
 
-    /// Increment participant count by 1
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    ///
-    /// # Returns
-    /// * `Ok(usize)` - The new count
+    /// Increment participant count by 1 and return the new count.
     pub async fn increment_participants(&self, lobby_id: Uuid) -> Result<usize, AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -118,13 +98,7 @@ impl LobbyStateRepository {
         Ok(new_count)
     }
 
-    /// Decrement participant count by 1
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    ///
-    /// # Returns
-    /// * `Ok(usize)` - The new count
+    /// Decrement participant count by 1 (never negative) and return the new count.
     pub async fn decrement_participants(&self, lobby_id: Uuid) -> Result<usize, AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -150,13 +124,7 @@ impl LobbyStateRepository {
         Ok(new_count)
     }
 
-    /// Mark lobby as started (sets started_at timestamp)
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
+    /// Mark the lobby as started and set `started_at`.
     pub async fn mark_started(&self, lobby_id: Uuid) -> Result<(), AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -181,13 +149,7 @@ impl LobbyStateRepository {
         Ok(())
     }
 
-    /// Mark lobby as finished (sets finished_at timestamp)
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
+    /// Mark the lobby as finished and set `finished_at`.
     pub async fn mark_finished(&self, lobby_id: Uuid) -> Result<(), AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -212,13 +174,7 @@ impl LobbyStateRepository {
         Ok(())
     }
 
-    /// Update creator's last ping timestamp
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
+    /// Update the lobby creator's last ping timestamp.
     pub async fn update_creator_ping(&self, lobby_id: Uuid) -> Result<(), AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -243,14 +199,7 @@ impl LobbyStateRepository {
         Ok(())
     }
 
-    /// Update Telegram message ID
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    /// * `msg_id` - The Telegram message ID
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
+    /// Update the Telegram message ID associated with the lobby.
     pub async fn update_tg_msg_id(&self, lobby_id: Uuid, msg_id: i32) -> Result<(), AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -274,15 +223,7 @@ impl LobbyStateRepository {
         Ok(())
     }
 
-    /// Touch the lobby (update updated_at timestamp)
-    ///
-    /// Useful for keeping track of activity without changing other fields.
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
+    /// Touch the lobby (refresh `updated_at`).
     pub async fn touch(&self, lobby_id: Uuid) -> Result<(), AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {

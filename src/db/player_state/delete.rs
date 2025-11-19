@@ -1,4 +1,4 @@
-//! Delete operations for PlayerState
+// Delete operations for PlayerState (Redis)
 
 use crate::db::player_state::PlayerStateRepository;
 use crate::errors::AppError;
@@ -6,15 +6,7 @@ use redis::AsyncCommands;
 use uuid::Uuid;
 
 impl PlayerStateRepository {
-    /// Delete player state
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    /// * `user_id` - The user UUID
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
-    /// * `Err(AppError::NotFound)` if player state doesn't exist
+    /// Delete a player's state from Redis.
     pub async fn delete_state(&self, lobby_id: Uuid, user_id: Uuid) -> Result<(), AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -34,14 +26,7 @@ impl PlayerStateRepository {
         Ok(())
     }
 
-    /// Delete player state (soft - doesn't error if not found)
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    /// * `user_id` - The user UUID
-    ///
-    /// # Returns
-    /// * `Ok(bool)` - true if deleted, false if didn't exist
+    /// Delete a player's state without error if not found (soft delete).
     pub async fn delete_state_soft(&self, lobby_id: Uuid, user_id: Uuid) -> Result<bool, AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -54,25 +39,12 @@ impl PlayerStateRepository {
         Ok(deleted > 0)
     }
 
-    /// Remove player from lobby (alias for delete_state)
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    /// * `user_id` - The user UUID
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
+    /// Remove a player from a lobby (alias for delete_state).
     pub async fn remove_from_lobby(&self, lobby_id: Uuid, user_id: Uuid) -> Result<(), AppError> {
         self.delete_state(lobby_id, user_id).await
     }
 
-    /// Delete all player states in a lobby
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    ///
-    /// # Returns
-    /// * `Ok(usize)` - Number of players deleted
+    /// Delete all player states in a lobby; returns number deleted.
     pub async fn cleanup_lobby(&self, lobby_id: Uuid) -> Result<usize, AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -94,14 +66,7 @@ impl PlayerStateRepository {
         Ok(deleted)
     }
 
-    /// Delete unclaimed prizes older than a threshold
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    /// * `older_than_secs` - Delete unclaimed prizes older than this many seconds
-    ///
-    /// # Returns
-    /// * `Ok(usize)` - Number of player states deleted
+    /// Delete unclaimed prizes older than the provided threshold (seconds).
     pub async fn cleanup_unclaimed_prizes(
         &self,
         lobby_id: Uuid,
@@ -128,14 +93,7 @@ impl PlayerStateRepository {
         Ok(deleted_count)
     }
 
-    /// Delete players who haven't pinged recently
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    /// * `timeout_secs` - Delete players who haven't pinged in this many seconds
-    ///
-    /// # Returns
-    /// * `Ok(usize)` - Number of players deleted
+    /// Delete inactive players who haven't pinged within `timeout_secs`.
     pub async fn cleanup_inactive_players(
         &self,
         lobby_id: Uuid,

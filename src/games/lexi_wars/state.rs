@@ -1,89 +1,10 @@
-//! # Lexi Wars Game State
-//!
-//! Game-specific state for Lexi Wars word game.
-//!
-//! ## Storage
-//! - **Redis Key**: `lobbies:{lobby_id}:game_state`
-//! - **Format**: JSON blob
-//!
-//! ## Data Stored
-//! - Words used in the game
-//! - Current rule and context
-//! - Turn management
-//! - Eliminated players
-//!
-//! ## Migration from Old Architecture
-//!
-//! ### Old Keys (scattered):
-//! ```
-//! lobbies:{id}:used_words         → Set
-//! lobbies:{id}:current_rule       → String
-//! lobbies:{id}:rule_context       → String
-//! lobbies:{id}:rule_index         → Int
-//! lobbies:{id}:current_turn       → UUID
-//! lobbies:{id}:eliminated_players → Set
-//! ```
-//!
-//! ### New Key (consolidated):
-//! ```
-//! lobbies:{id}:game_state → JSON:
-//! {
-//!   "usedWords": ["word1", "word2"],
-//!   "currentRule": "starts_with_a",
-//!   "ruleContext": "a",
-//!   "ruleIndex": 0,
-//!   "currentTurn": "uuid",
-//!   "eliminatedPlayers": ["uuid1", "uuid2"]
-//! }
-//! ```
+// Lexi Wars game state: Redis-stored JSON for game-specific runtime data
 
 use crate::errors::AppError;
 use crate::games::GameState;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Lexi Wars specific game state
-///
-/// This contains ALL game-specific data for Lexi Wars.
-/// Platform-generic data (player rank, prize) is in PlayerState.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LexiWarsGameState {
-    /// Words used so far in the game (prevents repeats)
-    pub used_words: Vec<String>,
-
-    /// Current game rule (e.g., "starts_with_a", "contains_x", "ends_with_ing")
-    pub current_rule: Option<String>,
-
-    /// Rule context (e.g., the letter "a" for "starts_with_a" rule)
-    pub rule_context: Option<String>,
-
-    /// Current rule index (for cycling through rules)
-    pub rule_index: usize,
-
-    /// Current turn player ID
-    pub current_turn: Option<Uuid>,
-
-    /// List of eliminated player IDs
-    pub eliminated_players: Vec<Uuid>,
-}
-
-impl GameState for LexiWarsGameState {
-    /// Initialize new Lexi Wars game state
-    fn initialize() -> Self {
-        Self {
-            used_words: Vec::new(),
-            current_rule: None,
-            rule_context: None,
-            rule_index: 0,
-            current_turn: None,
-            eliminated_players: Vec::new(),
-        }
-    }
-
-    /// Validate Lexi Wars game state
-    fn validate(&self) -> Result<(), AppError> {
-        // Check that rule and context are either both present or both absent
         match (&self.current_rule, &self.rule_context) {
             (Some(_), None) | (None, Some(_)) => {
                 return Err(AppError::InvalidInput(

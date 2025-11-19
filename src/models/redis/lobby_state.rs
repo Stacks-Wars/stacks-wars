@@ -1,30 +1,4 @@
-//! # LobbyState - Runtime Lobby State in Redis
-//!
-//! This model represents the **transient runtime state** of a lobby stored in Redis.
-//! It tracks state that changes frequently during gameplay.
-//!
-//! ## Storage
-//! - **Redis Key**: `lobbies:{lobby_id}:state`
-//! - **Type**: Hash
-//!
-//! ## Separation of Concerns
-//!
-//! ### LobbyState (Redis) - This file
-//! - Current status (Waiting → Starting → InProgress → Finished)
-//! - Participant count (for quick queries)
-//! - Timing information (created, updated, started, finished)
-//! - Heartbeat tracking (creator_last_ping)
-//! - Integration data (tg_msg_id)
-//!
-//! ### Lobby (PostgreSQL - models/db/lobby.rs)
-//! - Persistent configuration that doesn't change during game
-//! - Name, description, entry_amount, max_participants
-//! - Creator, game references
-//! - Privacy settings
-//!
-//! ### GameState (Redis - games/{game}/state.rs)
-//! - Game-specific state (rules, turns, used words, etc.)
-//! - Extensible per game type
+// Lobby runtime state stored in Redis (status, participants, timing)
 
 use crate::errors::AppError;
 use chrono::Utc;
@@ -32,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, str::FromStr};
 use uuid::Uuid;
 
-/// Lobby lifecycle state
+/// Lobby lifecycle status enum
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, sqlx::Type)]
 #[sqlx(type_name = "lobby_status", rename_all = "lowercase")]
 pub enum LobbyStatus {
@@ -59,38 +33,7 @@ impl FromStr for LobbyStatus {
     }
 }
 
-/// Runtime state of a lobby stored in Redis
-///
-/// This tracks the dynamic state that changes during gameplay:
-/// - Current status (Waiting → Starting → InProgress → Finished)
-/// - Participant counts and player sets
-/// - Timing information
-///
-/// Does NOT store:
-/// - Configuration (name, entry_amount) - in PostgreSQL Lobby table
-/// - Game-specific data (used_words, board state) - in GameState
-///
-/// # Redis Key
-/// `lobbies:{lobby_id}:state`
-///
-/// # Example
-/// ```rust,ignore
-/// let lobby_state = LobbyState {
-///     lobby_id,
-///     status: LobbyStatus::Waiting,
-///     participant_count: 0,
-///     created_at: Utc::now().timestamp(),
-///     updated_at: Utc::now().timestamp(),
-///     started_at: None,
-///     finished_at: None,
-///     creator_last_ping: None,
-///     tg_msg_id: None,
-/// };
-///
-/// // Save to Redis
-/// let hash = lobby_state.to_redis_hash();
-/// redis.hset_multiple(&key, &hash).await?;
-/// ```
+/// Runtime state of a lobby stored in Redis (dynamic runtime fields).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LobbyState {

@@ -1,16 +1,4 @@
-//! HTTP routing for the Stacks Wars API.
-//!
-//! Composes the application's route groups and exposes them under a single
-//! router. Sub-routers:
-//! - `public`  : health and non-rate-limited endpoints
-//! - `api`     : read-focused endpoints (mounted under `/api`)
-//! - `auth`    : authenticated write endpoints (mounted under `/api`)
-//! - `strict`  : sensitive write endpoints (mounted under `/api`)
-//!
-//! `create_http_routes` composes these routers and attaches the shared
-//! `AppState`.
-
-/// Create the main HTTP router with all routes
+// Main HTTP routing: compose and mount sub-routers under `/api`.
 use crate::state::AppState;
 use axum::Router;
 
@@ -19,9 +7,7 @@ pub mod auth;
 pub mod public;
 pub mod strict;
 
-/// Create the main HTTP router with all routes
-///
-/// Combines all route groups into a single router with shared state.
+/// Build the top-level router and nest `api`, `auth`, and `strict` under `/api`.
 pub fn create_http_routes(state: AppState) -> Router {
     // clone the state for attaching to the middleware via from_fn_with_state
     let state_for_layer = state.clone();

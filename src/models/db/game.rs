@@ -7,16 +7,8 @@ use uuid::Uuid;
 
 use crate::errors::AppError;
 
-/// Defines each game type under Stacks Wars
-/// Maps to `games` table in PostgreSQL
-///
-/// Represents a game mode available on the platform (e.g., "Lexi Wars").
-/// Each game has its own rules, player limits, and can be toggled active/inactive.
-///
-/// # Database Schema
-/// - Primary key: `id`
-/// - Foreign key: `creator_id` (users)
-/// - Unique constraint: `name`
+/// Game model mapping to the `games` table.
+/// Represents a playable game mode with metadata and limits.
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {

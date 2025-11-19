@@ -1,4 +1,4 @@
-//! Migrate lobby states from old LobbyInfo to new LobbyState
+// Migrate lobby states from old LobbyInfo to new LobbyState
 
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::errors::AppError;

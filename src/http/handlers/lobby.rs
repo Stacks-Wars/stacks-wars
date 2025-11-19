@@ -1,6 +1,4 @@
-//! Lobby Management Handlers
-//!
-//! Handles multiplayer lobby operations including creation, joining, and state management.
+// Lobby management handlers: create/join/manage lobbies
 
 use axum::{
     Json,
@@ -45,30 +43,7 @@ pub struct LobbyQuery {
 // Handlers
 // ============================================================================
 
-/// Create a new lobby
-///
-/// Creates a new multiplayer game lobby. Authenticated user becomes the lobby creator.
-///
-/// **Auth**: Required
-///
-/// **Request**:
-/// ```json
-/// {
-///   "name": "Epic Battle",
-///   "description": "High stakes match",
-///   "gameId": "123e4567-e89b-12d3-a456-426614174000",
-///   "entryAmount": 100.0,
-///   "tokenSymbol": "STX",
-///   "isPrivate": false
-/// }
-/// ```
-///
-/// **Response**: `201 Created`
-/// ```json
-/// {
-///   "lobbyId": "123e4567-e89b-12d3-a456-426614174000"
-/// }
-/// ```
+/// Create a new lobby. Authenticated endpoint that returns the new `lobby_id`.
 pub async fn create_lobby(
     State(state): State<AppState>,
     AuthClaims(claims): AuthClaims,
@@ -107,22 +82,7 @@ pub async fn create_lobby(
     ))
 }
 
-/// Get lobby details
-///
-/// Retrieves detailed information about a specific lobby.
-///
-/// **Auth**: Not required
-///
-/// **Response**: `200 OK`
-/// ```json
-/// {
-///   "id": "123e4567-e89b-12d3-a456-426614174000",
-///   "name": "Epic Battle",
-///   "creatorId": "...",
-///   "gameId": "...",
-///   "status": "waiting"
-/// }
-/// ```
+/// Get lobby details by UUID. Public endpoint returning `Lobby`.
 pub async fn get_lobby(
     State(state): State<AppState>,
     Path(lobby_id): Path<Uuid>,
@@ -136,24 +96,7 @@ pub async fn get_lobby(
     Ok(Json(lobby))
 }
 
-/// List lobbies for a game
-///
-/// Retrieves all lobbies for a specific game type with pagination.
-///
-/// **Auth**: Not required
-///
-/// **Query Params**: `limit`, `offset`
-///
-/// **Response**: `200 OK`
-/// ```json
-/// [
-///   {
-///     "id": "...",
-///     "name": "Lobby 1",
-///     "status": "waiting"
-///   }
-/// ]
-/// ```
+/// List lobbies for a game with optional pagination. Public endpoint.
 pub async fn list_lobbies_by_game(
     State(state): State<AppState>,
     Path(game_id): Path<Uuid>,
@@ -173,13 +116,7 @@ pub async fn list_lobbies_by_game(
     Ok(Json(paginated))
 }
 
-/// List user's created lobbies
-///
-/// Retrieves all lobbies created by the authenticated user.
-///
-/// **Auth**: Required
-///
-/// **Response**: `200 OK`
+/// List lobbies created by the authenticated user. Requires JWT.
 pub async fn list_my_lobbies(
     State(state): State<AppState>,
     AuthClaims(claims): AuthClaims,
@@ -202,13 +139,7 @@ pub async fn list_my_lobbies(
     Ok(Json(paginated))
 }
 
-/// Delete a lobby
-///
-/// Deletes a lobby. Only the creator can delete their lobby.
-///
-/// **Auth**: Required (must be creator)
-///
-/// **Response**: `204 No Content`
+/// Delete a lobby. Only the lobby creator may delete it. Returns `204`.
 pub async fn delete_lobby(
     State(state): State<AppState>,
     AuthClaims(claims): AuthClaims,

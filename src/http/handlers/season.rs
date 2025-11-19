@@ -1,7 +1,4 @@
-//! Season Management Handlers
-//!
-//! Handles season (competitive periods) management operations.
-//! Seasons define time-bound competitive periods with leaderboards and rewards.
+// Season management handlers: create/list/get current season
 
 use axum::{Json, extract::State, http::StatusCode};
 use chrono::NaiveDateTime;
@@ -39,41 +36,9 @@ pub struct CreateSeasonResponse {
 // Handlers
 // ============================================================================
 
-/// Create a new competitive season
+/// Create a new competitive season (admin only)
 ///
-/// Creates a new time-bound season for competitive play. Seasons help organize
-/// leaderboards and competitive periods for the platform.
-///
-/// # Authentication
-/// - **Required**: Yes (admin/platform access only)
-///
-/// # Request Body
-/// ```json
-/// {
-///   "name": "Season 1: Winter Championship",
-///   "description": "First competitive season with $10k prize pool",
-///   "startDate": "2024-01-01 00:00:00",
-///   "endDate": "2024-03-31 23:59:59"
-/// }
-/// ```
-///
-/// # Response
-/// - **200 OK**: Season created successfully
-/// ```json
-/// {
-///   "id": 1,
-///   "name": "Season 1: Winter Championship",
-///   "description": "First competitive season with $10k prize pool",
-///   "startDate": "2024-01-01T00:00:00",
-///   "endDate": "2024-03-31T23:59:59",
-///   "createdAt": "2024-01-15T10:30:00Z"
-/// }
-/// ```
-///
-/// # Errors
-/// - **400 Bad Request**: Invalid date format or dates
-/// - **401 Unauthorized**: Not authenticated or insufficient permissions
-/// - **500 Internal Server Error**: Database error
+/// Validates dates and inserts a new `Season` row in Postgres.
 pub async fn create_season(
     State(state): State<AppState>,
     Json(payload): Json<CreateSeasonRequest>,
@@ -92,7 +57,7 @@ pub async fn create_season(
         })?;
 
     let end_date =
-        NaiveDateTime::parse_from_str(&payload.end_date, "%Y-%m-%d %H:%M:%SS").map_err(|e| {
+        NaiveDateTime::parse_from_str(&payload.end_date, "%Y-%m-%d %H:%M:%S").map_err(|e| {
             tracing::error!("Invalid end_date format: {}", e);
             (
                 StatusCode::BAD_REQUEST,
@@ -131,27 +96,7 @@ pub async fn create_season(
     Ok(Json(CreateSeasonResponse { season }))
 }
 
-/// Get the current active season
-///
-/// Returns the currently active competitive season based on current timestamp.
-///
-/// # Authentication
-/// - **Required**: No
-///
-/// # Response
-/// - **200 OK**: Current season found
-/// ```json
-/// {
-///   "id": 1,
-///   "name": "Season 1: Winter Championship",
-///   "startDate": "2024-01-01T00:00:00",
-///   "endDate": "2024-03-31T23:59:59"
-/// }
-/// ```
-///
-/// # Errors
-/// - **404 Not Found**: No active season
-/// - **500 Internal Server Error**: Database error
+/// Get the current active season (returns 404 if none)
 pub async fn get_current_season(
     State(state): State<AppState>,
 ) -> Result<Json<Season>, (StatusCode, String)> {
@@ -167,30 +112,7 @@ pub async fn get_current_season(
 
 /// List all seasons with pagination
 ///
-/// Returns paginated list of all seasons (past, current, and future).
-///
-/// # Authentication
-/// - **Required**: No
-///
-/// # Query Parameters
-/// - `limit` (optional): Number of results (default: 10, max: 100)
-/// - `offset` (optional): Pagination offset (default: 0)
-///
-/// # Response
-/// - **200 OK**: List of seasons
-/// ```json
-/// [
-///   {
-///     "id": 1,
-///     "name": "Season 1",
-///     "startDate": "2024-01-01T00:00:00",
-///     "endDate": "2024-03-31T23:59:59"
-///   }
-/// ]
-/// ```
-///
-/// # Errors
-/// - **500 Internal Server Error**: Database error
+/// Supports `limit` and `offset` query params; returns a vector of `Season`.
 #[derive(Debug, Deserialize)]
 pub struct PaginationQuery {
     pub limit: Option<i64>,

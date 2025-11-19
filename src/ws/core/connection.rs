@@ -1,8 +1,4 @@
-//! Lightweight connection helpers for WebSocket send operations.
-//!
-//! This module provides small helpers that operate on the existing
-//! `ConnectionInfo` type defined in `crate::state`. Keeping these helpers
-//! here avoids duplicating send logic across the codebase.
+// WebSocket connection helpers for send operations
 use crate::state::ConnectionInfo;
 use axum::extract::ws::Message;
 use futures::SinkExt;

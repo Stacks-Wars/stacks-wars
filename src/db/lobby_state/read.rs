@@ -1,4 +1,4 @@
-//! Read operations for LobbyState
+// Read operations for LobbyState (Redis)
 
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::errors::AppError;
@@ -9,14 +9,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 impl LobbyStateRepository {
-    /// Get lobby state by ID
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    ///
-    /// # Returns
-    /// * `Ok(LobbyState)` if found
-    /// * `Err(AppError::NotFound)` if not found
+    /// Get the lobby state by UUID from Redis.
     pub async fn get_state(&self, lobby_id: Uuid) -> Result<LobbyState, AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -39,14 +32,7 @@ impl LobbyStateRepository {
         LobbyState::from_redis_hash(&map)
     }
 
-    /// Check if lobby state exists
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    ///
-    /// # Returns
-    /// * `Ok(true)` if exists
-    /// * `Ok(false)` if not found
+    /// Check whether a lobby state exists in Redis.
     pub async fn exists(&self, lobby_id: Uuid) -> Result<bool, AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -57,14 +43,7 @@ impl LobbyStateRepository {
         conn.exists(&key).await.map_err(AppError::RedisCommandError)
     }
 
-    /// Get current status of a lobby
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    ///
-    /// # Returns
-    /// * `Ok(LobbyStatus)` if found
-    /// * `Err(AppError::NotFound)` if not found
+    /// Retrieve a lobby's current `LobbyStatus` from Redis.
     pub async fn get_status(&self, lobby_id: Uuid) -> Result<LobbyStatus, AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -88,14 +67,7 @@ impl LobbyStateRepository {
         }
     }
 
-    /// Get participant count
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    ///
-    /// # Returns
-    /// * `Ok(usize)` - Number of participants
-    /// * `Err(AppError)` if lobby not found
+    /// Return the participant count for a lobby.
     pub async fn get_participant_count(&self, lobby_id: Uuid) -> Result<usize, AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -111,13 +83,7 @@ impl LobbyStateRepository {
         count.ok_or_else(|| AppError::NotFound(format!("Lobby state {} not found", lobby_id)))
     }
 
-    /// Get all lobby states (for admin/debugging)
-    ///
-    /// # Arguments
-    /// * `limit` - Maximum number of lobbies to return (None for all)
-    ///
-    /// # Returns
-    /// * `Ok(Vec<LobbyState>)` - List of lobby states
+    /// Fetch all lobby states (optional `limit`).
     pub async fn get_all(&self, limit: Option<usize>) -> Result<Vec<LobbyState>, AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -154,13 +120,7 @@ impl LobbyStateRepository {
         Ok(states)
     }
 
-    /// Get lobbies by status
-    ///
-    /// # Arguments
-    /// * `status` - The status to filter by
-    ///
-    /// # Returns
-    /// * `Ok(Vec<LobbyState>)` - List of lobby states with the given status
+    /// Return lobby states filtered by `LobbyStatus`.
     pub async fn get_by_status(&self, status: LobbyStatus) -> Result<Vec<LobbyState>, AppError> {
         let all_states = self.get_all(None).await?;
 

@@ -4,23 +4,9 @@ mod create;
 mod read;
 mod update;
 
-/// Repository for managing game seasons
+/// Season repository: create/read/update operations for competitive seasons.
 ///
-/// Handles all operations related to seasons including creation, retrieval,
-/// and updates. Seasons define time periods for competitions and leaderboards.
-///
-/// # Architecture
-/// - **create.rs** - Creating new seasons
-/// - **read.rs** - Fetching season data
-/// - **update.rs** - Modifying existing seasons
-///
-/// # Usage
-/// ```rust,ignore
-/// use crate::db::season::SeasonRepository;
-///
-/// let repo = SeasonRepository::new(postgres_pool);
-/// let current_season = repo.get_current_season().await?;
-/// ```
+/// Modules: `create`, `read`, `update`.
 #[derive(Clone)]
 pub struct SeasonRepository {
     pub(crate) pool: PgPool,

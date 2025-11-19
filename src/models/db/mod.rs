@@ -1,7 +1,4 @@
-//! Database models representing PostgreSQL tables
-//!
-//! This module contains all models that map directly to database tables.
-//! All structs here derive `FromRow` for SQLx compatibility.
+// Database models mapping to PostgreSQL tables (derive `FromRow`)
 
 pub mod game;
 pub mod lobby;

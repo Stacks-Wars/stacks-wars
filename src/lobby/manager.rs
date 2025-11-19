@@ -1,7 +1,4 @@
-//! Lobby connection manager helpers (moved from ws handlers)
-//!
-//! These helpers operate on `AppState::connections` and delegate send/broadcast
-//! work to the generic ws core helpers in `src/ws/core`.
+// Lobby connection manager helpers
 use crate::lobby::handler::LobbyServerMessage;
 use crate::state::{AppState, ConnectionInfo};
 use crate::ws::core::{connection, hub};

@@ -4,27 +4,7 @@ use uuid::Uuid;
 use super::UserWarsPointsRepository;
 
 impl UserWarsPointsRepository {
-    /// Add points to a user's wars points for a season
-    ///
-    /// Increments or decrements the current points value.
-    ///
-    /// # Arguments
-    /// * `user_id` - UUID of the user
-    /// * `season_id` - Season ID
-    /// * `points_to_add` - Points to add (can be negative for deduction)
-    ///
-    /// # Returns
-    /// * `Ok(UserWarsPoints)` - Updated wars points
-    /// * `Err(AppError::NotFound)` - User or season not found
-    ///
-    /// # Examples
-    /// ```rust,ignore
-    /// // Add points
-    /// let points = repo.add_wars_points(user_id, season_id, 10.0).await?;
-    ///
-    /// // Deduct points
-    /// let points = repo.add_wars_points(user_id, season_id, -5.0).await?;
-    /// ```
+    /// Increment or decrement a user's wars points for a season.
     pub async fn add_wars_points(
         &self,
         user_id: Uuid,
@@ -56,23 +36,7 @@ impl UserWarsPointsRepository {
         Ok(wars_points)
     }
 
-    /// Set wars points to a specific value
-    ///
-    /// Overwrites the current points value entirely.
-    ///
-    /// # Arguments
-    /// * `user_id` - UUID of the user
-    /// * `season_id` - Season ID
-    /// * `new_points` - New points value
-    ///
-    /// # Returns
-    /// * `Ok(UserWarsPoints)` - Updated wars points
-    ///
-    /// # Examples
-    /// ```rust,ignore
-    /// // Reset points to zero
-    /// let points = repo.set_wars_points(user_id, season_id, 0.0).await?;
-    /// ```
+    /// Set a user's wars points to an explicit value.
     pub async fn set_wars_points(
         &self,
         user_id: Uuid,
@@ -103,22 +67,7 @@ impl UserWarsPointsRepository {
         Ok(wars_points)
     }
 
-    /// Update rank badge for a user's season performance
-    ///
-    /// Assigns achievement badges based on performance (e.g., "gold", "silver", "bronze").
-    ///
-    /// # Arguments
-    /// * `user_id` - UUID of the user
-    /// * `season_id` - Season ID
-    /// * `rank_badge` - Rank badge (e.g., "gold", "silver", "bronze", "legend")
-    ///
-    /// # Returns
-    /// * `Ok(UserWarsPoints)` - Updated wars points with new badge
-    ///
-    /// # Examples
-    /// ```rust,ignore
-    /// let points = repo.update_rank_badge(user_id, season_id, Some("gold".into())).await?;
-    /// ```
+    /// Update a user's rank badge for a season.
     pub async fn update_rank_badge(
         &self,
         user_id: Uuid,
@@ -149,15 +98,7 @@ impl UserWarsPointsRepository {
         Ok(wars_points)
     }
 
-    /// Bulk update points for multiple users
-    ///
-    /// Efficient method for updating many users at once (e.g., end-of-season adjustments).
-    ///
-    /// # Arguments
-    /// * `updates` - Vec of (user_id, season_id, points_to_add)
-    ///
-    /// # Returns
-    /// * `Ok(u64)` - Number of rows updated
+    /// Bulk-update wars points for many users; returns number updated.
     pub async fn bulk_add_points(&self, updates: Vec<(Uuid, i32, f64)>) -> Result<u64, AppError> {
         let mut transaction =
             self.pool.begin().await.map_err(|e| {

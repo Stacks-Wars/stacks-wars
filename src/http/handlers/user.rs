@@ -1,19 +1,4 @@
-//! # User HTTP Handlers
-//!
-//! HTTP request handlers for user-related operations.
-//!
-//! ## Endpoints Provided
-//! - User creation (registration)
-//! - User profile retrieval
-//! - Username updates
-//! - Display name updates
-//!
-//! ## Architecture
-//! ```text
-//! HTTP Request → Handler → UserRepository → PostgreSQL
-//!                                ↓
-//!                           Response
-//! ```
+// User HTTP handlers: registration, profile, and updates
 
 use axum::{
     Json,
@@ -75,32 +60,9 @@ pub struct UpdateProfileRequest {
 // User Creation
 // ============================================================================
 
-/// Create a new user account
+/// Register a new user and return a JWT token.
 ///
-/// Registers a new user with their Stacks wallet address and generates
-/// a JWT token for authentication.
-///
-/// ## Authentication
-/// None required (public endpoint for registration)
-///
-/// ## Request
-/// ```json
-/// {
-///   "walletAddress": "SP2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKNRV9EJ7"
-/// }
-/// ```
-///
-/// ## Response
-/// ```json
-/// {
-///   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-/// }
-/// ```
-///
-/// ## Errors
-/// - `400 Bad Request` - Invalid wallet address format
-/// - `409 Conflict` - Wallet address already registered
-/// - `500 Internal Server Error` - Database error
+/// Public endpoint. Returns a JSON object containing `token` on success.
 pub async fn create_user(
     State(state): State<AppState>,
     Json(payload): Json<CreateUserRequest>,
@@ -109,7 +71,7 @@ pub async fn create_user(
 
     // Create user and get JWT token
     let token = repo
-        .create_user(payload.wallet_address.clone())
+        .create_user(payload.wallet_address.clone(), &state.config.jwt_secret)
         .await
         .map_err(|e| {
             tracing::error!("Failed to create user: {}", e);
@@ -128,33 +90,9 @@ pub async fn create_user(
 // User Retrieval
 // ============================================================================
 
-/// Get user profile by ID
+/// Get a user's public profile by UUID.
 ///
-/// Retrieves detailed user information including username, display name,
-/// wallet address, and trust rating.
-///
-/// ## Authentication
-/// None required (public endpoint)
-///
-/// ## Path Parameters
-/// - `user_id` - UUID of the user
-///
-/// ## Response
-/// ```json
-/// {
-///   "id": "550e8400-e29b-41d4-a716-446655440000",
-///   "walletAddress": "SP2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKNRV9EJ7",
-///   "username": "player123",
-///   "displayName": "Pro Gamer",
-///   "trustRating": 10.0,
-///   "createdAt": "2024-01-01T00:00:00Z",
-///   "updatedAt": "2024-01-15T12:30:00Z"
-/// }
-/// ```
-///
-/// ## Errors
-/// - `404 Not Found` - User doesn't exist
-/// - `500 Internal Server Error` - Database error
+/// Public endpoint returning `UserV2` or `404` if not found.
 pub async fn get_user(
     State(state): State<AppState>,
     Path(user_id): Path<Uuid>,
@@ -174,33 +112,9 @@ pub async fn get_user(
 // User Updates
 // ============================================================================
 
-/// Update user's username
+/// Update the authenticated user's username.
 ///
-/// Changes the user's unique username. The username must not already be
-/// taken by another user.
-///
-/// ## Authentication
-/// Required (JWT token in Authorization header)
-///
-/// ## Request
-/// ```json
-/// {
-///   "username": "new_username"
-/// }
-/// ```
-///
-/// ## Response
-/// ```json
-/// {
-///   "username": "new_username"
-/// }
-/// ```
-///
-/// ## Errors
-/// - `400 Bad Request` - Invalid username format
-/// - `401 Unauthorized` - Invalid or missing JWT token
-/// - `409 Conflict` - Username already taken
-/// - `500 Internal Server Error` - Database error
+/// Requires a valid JWT. Returns the updated username on success.
 pub async fn update_username(
     State(state): State<AppState>,
     AuthClaims(claims): AuthClaims,
@@ -228,31 +142,9 @@ pub async fn update_username(
     Ok(Json(payload))
 }
 
-/// Update user's display name
+/// Update the authenticated user's display name.
 ///
-/// Changes the user's display name shown in the UI. Unlike username,
-/// display names don't need to be unique.
-///
-/// ## Authentication
-/// Required (JWT token in Authorization header)
-///
-/// ## Request
-/// ```json
-/// {
-///   "displayName": "Cool Player"
-/// }
-/// ```
-///
-/// ## Response
-/// ```json
-/// {
-///   "displayName": "Cool Player"
-/// }
-/// ```
-///
-/// ## Errors
-/// - `401 Unauthorized` - Invalid or missing JWT token
-/// - `500 Internal Server Error` - Database error
+/// Requires a valid JWT. Display names are not required to be unique.
 pub async fn update_display_name(
     State(state): State<AppState>,
     AuthClaims(claims): AuthClaims,
@@ -284,48 +176,10 @@ pub async fn update_display_name(
 // User Profile Update (Partial)
 // ============================================================================
 
-/// Update user profile (partial update)
+/// Partially update the authenticated user's profile fields.
 ///
-/// Updates one or more user profile fields. Only provided fields are updated.
-/// Allows updating username, display name, or both in a single request.
-///
-/// ## Authentication
-/// Required (JWT token in Authorization header)
-///
-/// ## Request
-/// ```json
-/// {
-///   "username": "new_username",
-///   "displayName": "New Display Name"
-/// }
-/// ```
-///
-/// Or update individual fields:
-/// ```json
-/// {
-///   "username": "new_username"
-/// }
-/// ```
-///
-/// ## Response
-/// Returns the full updated user profile:
-/// ```json
-/// {
-///   "id": "550e8400-e29b-41d4-a716-446655440000",
-///   "walletAddress": "SP2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKNRV9EJ7",
-///   "username": "new_username",
-///   "displayName": "New Display Name",
-///   "trustRating": 10.0,
-///   "createdAt": "2024-01-01T00:00:00Z",
-///   "updatedAt": "2024-01-15T12:30:00Z"
-/// }
-/// ```
-///
-/// ## Errors
-/// - `400 Bad Request` - Invalid data or username already taken
-/// - `401 Unauthorized` - Invalid or missing JWT token
-/// - `409 Conflict` - Username already taken by another user
-/// - `500 Internal Server Error` - Database error
+/// Accepts optional `username` and `displayName` fields and returns the
+/// updated `UserV2` on success. Requires a valid JWT.
 pub async fn update_profile(
     State(state): State<AppState>,
     AuthClaims(claims): AuthClaims,
@@ -343,7 +197,6 @@ pub async fn update_profile(
             user_id,
             payload.username.clone(),
             payload.display_name.clone(),
-            payload.trust_rating,
         )
         .await
         .map_err(|e| {

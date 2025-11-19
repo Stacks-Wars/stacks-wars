@@ -1,10 +1,4 @@
-//! # Redis State Restructuring
-//!
-//! Migrates Redis data from old scattered key structure to new organized state architecture.
-//!
-//! ## Migration:
-//! - `lobbies:{id}:info` → `lobbies:{id}:state` (LobbyState)
-//! - `lobbies:{id}:player:{user_id}` → `lobbies:{id}:players:{user_id}` (PlayerState)
+// Redis state migration helpers: migrate old key patterns to new structured state
 
 pub mod lobby_states;
 pub mod player_states;

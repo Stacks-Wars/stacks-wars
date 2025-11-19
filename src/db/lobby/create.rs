@@ -10,26 +10,7 @@ use crate::{
 use super::LobbyRepository;
 
 impl LobbyRepository {
-    /// Create a new lobby in the database
-    ///
-    /// # Arguments
-    /// * `name` - Lobby display name
-    /// * `description` - Optional lobby description
-    /// * `creator_id` - User ID of the lobby creator
-    /// * `game_id` - Game type ID
-    /// * `entry_amount` - Optional entry fee amount
-    /// * `token_symbol` - Token symbol (e.g., "STX")
-    /// * `token_contract_id` - Token contract identifier
-    /// * `contract_address` - Smart contract address
-    /// * `is_private` - Whether lobby is private (requires approval)
-    /// * `is_sponsored` - Whether lobby is sponsored (free entry)
-    ///
-    /// # Returns
-    /// Created `Lobby` with generated UUID and timestamps
-    ///
-    /// # Errors
-    /// - `AppError::DatabaseError` if insertion fails
-    /// - Foreign key violations if creator_id or game_id don't exist
+    /// Create a new lobby and return the created `Lobby`.
     pub async fn create_lobby(
         &self,
         name: String,
@@ -77,10 +58,7 @@ impl LobbyRepository {
         Ok(lobby)
     }
 
-    /// Create a sponsored lobby (free entry, no fees)
-    ///
-    /// Convenience method for creating lobbies without entry fees.
-    /// Sets `is_sponsored = true` and `entry_amount = 0`.
+    /// Create a sponsored lobby (free entry).
     pub async fn create_sponsored_lobby(
         &self,
         name: String,
@@ -104,10 +82,7 @@ impl LobbyRepository {
         .await
     }
 
-    /// Create a private lobby (requires join approval)
-    ///
-    /// Convenience method for creating invite-only lobbies.
-    /// Sets `is_private = true`.
+    /// Create a private (invite-only) lobby.
     pub async fn create_private_lobby(
         &self,
         name: String,

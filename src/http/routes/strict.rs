@@ -1,6 +1,4 @@
-//! Sensitive write endpoints subject to the strict rate limiter.
-//!
-//! Examples: user creation. Mounted under `/api` and wrapped with StrictRateLimit.
+// Strict routes: sensitive write endpoints wrapped by strict limiter
 
 use axum::middleware::from_fn_with_state;
 use axum::{Router, routing::post};

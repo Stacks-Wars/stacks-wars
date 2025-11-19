@@ -5,10 +5,7 @@ mod delete;
 mod read;
 mod update;
 
-/// Repository for managing game types
-///
-/// Handles PostgreSQL operations for games (e.g., "Lexi Wars", "Word Battle").
-/// Each game defines rules, player limits, and platform availability.
+/// Repository for managing game types and related DB operations.
 #[derive(Clone)]
 pub struct GameRepository {
     pub(crate) pool: PgPool,

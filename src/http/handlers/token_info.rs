@@ -1,8 +1,4 @@
-//! Token Information Handlers
-//!
-//! Provides cryptocurrency token information for Stacks-based tokens.
-//! Fetches real-time pricing data from external APIs for mainnet tokens
-//! and provides mock data for testnet environments.
+// Token information handlers: token metadata and pricing (mainnet/testnet)
 
 use axum::{extract::Path, http::StatusCode, response::Json};
 use serde::{Deserialize, Serialize};
@@ -33,10 +29,7 @@ struct TokenMetrics {
 // Response Types
 // ============================================================================
 
-/// Token information with pricing data
-///
-/// Contains comprehensive token details including real-time pricing
-/// and calculated minimum amounts for platform entry fees.
+/// Token information with pricing and a minimum amount for a $10 USD equivalent.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenInfo {
@@ -58,24 +51,7 @@ pub struct TokenInfo {
 // Helper Functions
 // ============================================================================
 
-/// Fetch token information from external API and calculate minimums
-///
-/// Queries stxtools.io API for real-time token data and calculates
-/// the minimum token amount needed for a $10 USD entry fee.
-///
-/// # Arguments
-/// * `contract_address` - Stacks contract address (format: "SP...::token")
-///
-/// # Returns
-/// * `Ok(TokenInfo)` - Token details with pricing
-/// * `Err(AppError)` - API errors or token not found
-///
-/// # Minimum Amount Calculation
-/// The minimum amount represents how many tokens are needed for a $10 USD entry:
-/// - Expensive tokens (≥$1): Up to 6 decimal places
-/// - Medium tokens ($0.01-$1): Up to 2 decimal places
-/// - Low-value tokens ($0.001-$0.01): Up to 1 decimal place
-/// - Very cheap tokens (<$0.001): Whole numbers only
+/// Fetch token information from external API and calculate minimums for $10 USD
 pub async fn get_token_info(contract_address: String) -> Result<TokenInfo, AppError> {
     let url = format!("https://api.stxtools.io/tokens/{}", contract_address);
 
@@ -134,33 +110,7 @@ pub async fn get_token_info(contract_address: String) -> Result<TokenInfo, AppEr
 // Handlers
 // ============================================================================
 
-/// Get token information (mainnet)
-///
-/// Fetches real-time token information including current USD price and
-/// calculated minimum amounts for platform entry fees.
-///
-/// # Authentication
-/// - **Required**: No
-///
-/// # Path Parameters
-/// - `contract_address` - Stacks contract address (e.g., "SP3K8BC0PPEVCV7NZ6QSRWPQ2JE9E5B6N3PA0KBR9.alex-token")
-///
-/// # Response
-/// - **200 OK**: Token information retrieved
-/// ```json
-/// {
-///   "contractId": "SP3K8BC0PPEVCV7NZ6QSRWPQ2JE9E5B6N3PA0KBR9.alex-token",
-///   "symbol": "ALEX",
-///   "name": "ALEX Token",
-///   "decimals": 8,
-///   "priceUsd": 0.15,
-///   "minimumAmount": 66.67
-/// }
-/// ```
-///
-/// # Errors
-/// - **404 Not Found**: Token not found in registry
-/// - **500 Internal Server Error**: External API error
+/// Handler: get token info on mainnet (calls external API)
 pub async fn get_token_info_mainnet(
     Path(contract_address): Path<String>,
 ) -> Result<Json<TokenInfo>, (StatusCode, String)> {
@@ -176,33 +126,7 @@ pub async fn get_token_info_mainnet(
         })
 }
 
-/// Get token information (testnet)
-///
-/// Returns mock token data for testnet environments. Provides fixed values
-/// for STX or generic test tokens for development and testing.
-///
-/// # Authentication
-/// - **Required**: No
-///
-/// # Path Parameters
-/// - `contract_address` - Token identifier ("stx" for STX, any other for test tokens)
-///
-/// # Response
-/// - **200 OK**: Token information (mock data)
-/// ```json
-/// {
-///   "contractId": "ST...::test-token",
-///   "symbol": "TEST",
-///   "name": "Test Token",
-///   "decimals": 6,
-///   "priceUsd": 0.01,
-///   "minimumAmount": 3000.0
-/// }
-/// ```
-///
-/// # Notes
-/// - For "stx": Returns real STX token data from mainnet API
-/// - For other addresses: Returns mock test token data
+/// Handler: get token info for testnet (returns mock data; STX fetches real mainnet data)
 pub async fn get_token_info_testnet(
     Path(contract_address): Path<String>,
 ) -> Result<Json<TokenInfo>, (StatusCode, String)> {

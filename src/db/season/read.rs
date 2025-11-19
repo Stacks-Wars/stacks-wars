@@ -3,21 +3,7 @@ use crate::{errors::AppError, models::db::Season};
 use super::SeasonRepository;
 
 impl SeasonRepository {
-    /// Get the current active season
-    ///
-    /// Returns the season that is currently running (current timestamp falls
-    /// between start_date and end_date).
-    ///
-    /// # Returns
-    /// * `Ok(i32)` - Current season ID
-    /// * `Err(AppError::NotFound)` - No active season found
-    /// * `Err(AppError::DatabaseError)` - Database error
-    ///
-    /// # Examples
-    /// ```rust,ignore
-    /// let season_id = repo.get_current_season().await?;
-    /// println!("Current season: {}", season_id);
-    /// ```
+    /// Return the ID of the currently active season, if any.
     pub async fn get_current_season(&self) -> Result<i32, AppError> {
         let now = chrono::Utc::now();
 
@@ -37,13 +23,7 @@ impl SeasonRepository {
         Ok(current_season_id)
     }
 
-    /// Get the full current season data
-    ///
-    /// Returns complete season information for the currently active season.
-    ///
-    /// # Returns
-    /// * `Ok(Season)` - Current season data
-    /// * `Err(AppError::NotFound)` - No active season
+    /// Return the full `Season` for the currently active season.
     pub async fn get_current_season_full(&self) -> Result<Season, AppError> {
         let now = chrono::Utc::now();
 
@@ -63,14 +43,7 @@ impl SeasonRepository {
         Ok(season)
     }
 
-    /// Get a season by ID
-    ///
-    /// # Arguments
-    /// * `season_id` - Season ID
-    ///
-    /// # Returns
-    /// * `Ok(Season)` - Season data
-    /// * `Err(AppError::NotFound)` - Season not found
+    /// Find a `Season` by its ID.
     pub async fn find_by_id(&self, season_id: i32) -> Result<Season, AppError> {
         let season = sqlx::query_as::<_, Season>(
             "SELECT id, name, description, start_date, end_date, created_at
@@ -86,14 +59,7 @@ impl SeasonRepository {
         Ok(season)
     }
 
-    /// Get a season by name
-    ///
-    /// # Arguments
-    /// * `name` - Season name
-    ///
-    /// # Returns
-    /// * `Ok(Season)` - Season data
-    /// * `Err(AppError::NotFound)` - Season not found
+    /// Find a `Season` by its name.
     pub async fn find_by_name(&self, name: &str) -> Result<Season, AppError> {
         let season = sqlx::query_as::<_, Season>(
             "SELECT id, name, description, start_date, end_date, created_at
@@ -109,16 +75,7 @@ impl SeasonRepository {
         Ok(season)
     }
 
-    /// Get all seasons (ordered by start date descending)
-    ///
-    /// Returns all seasons, most recent first.
-    ///
-    /// # Arguments
-    /// * `limit` - Maximum number of seasons to return
-    /// * `offset` - Number of seasons to skip
-    ///
-    /// # Returns
-    /// * `Ok(Vec<Season>)` - List of seasons
+    /// List seasons (most recent first) with `limit` and `offset`.
     pub async fn get_all_seasons(&self, limit: i64, offset: i64) -> Result<Vec<Season>, AppError> {
         let seasons = sqlx::query_as::<_, Season>(
             "SELECT id, name, description, start_date, end_date, created_at
@@ -135,13 +92,7 @@ impl SeasonRepository {
         Ok(seasons)
     }
 
-    /// Get past seasons (ended before now)
-    ///
-    /// # Arguments
-    /// * `limit` - Maximum number of seasons to return
-    ///
-    /// # Returns
-    /// * `Ok(Vec<Season>)` - Past seasons
+    /// Return past seasons (already ended), limited by `limit`.
     pub async fn get_past_seasons(&self, limit: i64) -> Result<Vec<Season>, AppError> {
         let now = chrono::Utc::now();
 

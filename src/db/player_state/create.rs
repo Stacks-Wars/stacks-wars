@@ -1,4 +1,4 @@
-//! Create operations for PlayerState
+// Create operations for PlayerState
 
 use crate::db::player_state::PlayerStateRepository;
 use crate::errors::AppError;
@@ -6,14 +6,7 @@ use crate::models::redis::PlayerState;
 use redis::AsyncCommands;
 
 impl PlayerStateRepository {
-    /// Create a new player state in Redis
-    ///
-    /// # Arguments
-    /// * `state` - The PlayerState to create
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
-    /// * `Err(AppError)` if the state already exists or Redis operation fails
+    /// Create a new player state in Redis.
     pub async fn create_state(&self, state: PlayerState) -> Result<(), AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -45,13 +38,7 @@ impl PlayerStateRepository {
         Ok(())
     }
 
-    /// Create or update player state (upsert)
-    ///
-    /// # Arguments
-    /// * `state` - The PlayerState to create or update
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
+    /// Upsert (create or update) a player's state in Redis.
     pub async fn upsert_state(&self, state: PlayerState) -> Result<(), AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {

@@ -4,30 +4,16 @@ use uuid::Uuid;
 use super::UserRepository;
 
 impl UserRepository {
-    /// Create a new user or return existing user with JWT token
-    ///
-    /// This is the primary method for user registration/authentication.
-    /// If a user with the given wallet address exists, returns their token.
-    /// Otherwise, creates a new user with default values and initializes
-    /// their wars points for the current season.
-    ///
-    /// # Arguments
-    /// * `wallet_address` - Stacks wallet address (e.g., "SP2...")
-    ///
-    /// # Returns
-    /// * `Ok(String)` - JWT token for authentication
-    /// * `Err(AppError::DatabaseError)` - Database operation failed
-    /// * `Err(AppError::BadRequest)` - Invalid wallet format
-    ///
-    /// # Examples
-    /// ```rust,ignore
-    /// let token = repo.create_user("SP2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKNRV9EJ7".to_string()).await?;
-    /// ```
-    pub async fn create_user(&self, wallet_address: String) -> Result<String, AppError> {
+    /// Create a new user or return an existing user's JWT token.
+    pub async fn create_user(
+        &self,
+        wallet_address: String,
+        jwt_secret: &str,
+    ) -> Result<String, AppError> {
         // Check if user already exists
         if let Ok(user) = self.find_by_wallet(&wallet_address).await {
             tracing::info!("User already exists: {}", user.id);
-            let token = generate_jwt(&user)?;
+            let token = generate_jwt(&user, jwt_secret)?;
             return Ok(token);
         }
 
@@ -69,25 +55,13 @@ impl UserRepository {
             updated_at: chrono::Utc::now().naive_utc(),
         };
 
-        let token = generate_jwt(&user)?;
+        let token = generate_jwt(&user, jwt_secret)?;
         tracing::info!("Created new user: {}", user.id);
 
         Ok(token)
     }
 
-    /// Create a new user without returning a token
-    ///
-    /// Useful for administrative user creation or bulk operations.
-    ///
-    /// # Arguments
-    /// * `wallet_address` - Stacks wallet address
-    /// * `username` - Optional username
-    /// * `display_name` - Optional display name
-    ///
-    /// # Returns
-    /// * `Ok(UserV2)` - Created user with wars points
-    /// * `Err(AppError::DatabaseError)` - Database operation failed
-    /// * `Err(AppError::BadRequest)` - User already exists
+    /// Create a new user (returns the created `UserV2`).
     pub async fn create_user_with_details(
         &self,
         wallet_address: String,

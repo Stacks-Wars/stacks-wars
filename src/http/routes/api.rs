@@ -1,8 +1,4 @@
-//! Read-focused API routes mounted under `/api`.
-//!
-//! Contains public/read-only handlers: user lookups, game/lobby queries,
-//! season info and token metadata. Note: ApiRateLimit is applied at the
-//! application/router composition level to avoid duplicate increments.
+// Read-focused API routes mounted under `/api` (public/read-only)
 
 use axum::{Router, middleware::from_fn_with_state, routing::get};
 

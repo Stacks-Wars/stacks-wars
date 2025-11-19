@@ -1,28 +1,4 @@
-//! # Game Module - Extensible Game State Architecture
-//!
-//! This module provides the infrastructure for game-specific state management.
-//! Each game implements the `GameState` trait to define its own state structure.
-//!
-//! ## Architecture
-//!
-//! ### Platform (Generic)
-//! - `LobbyState` - Runtime lobby state (models/redis/lobby_state.rs)
-//! - `PlayerState` - Generic player state (models/redis/player_state.rs)
-//!
-//! ### Game-Specific (Extensible)
-//! - `GameState` trait - Base trait for all games
-//! - `LexiWarsGameState` - Lexi Wars implementation
-//! - Future games implement this trait
-//!
-//! ## How to Add a New Game
-//!
-//! 1. Create a new module: `games/your_game/`
-//! 2. Create `state.rs` with your game state struct
-//! 3. Implement `GameState` trait
-//! 4. Use platform's `LobbyStateRepository` and `PlayerStateRepository`
-//! 5. Create your own `GameStateRepository` if needed
-//!
-//! See `games/lexi_wars/state.rs` for a complete example.
+// Game module: extensible GameState trait and helpers
 
 use crate::errors::AppError;
 use serde::Serialize;

@@ -1,10 +1,4 @@
-//! Models module - organized by storage layer and purpose
-//!
-//! ## Structure
-//! - `db/` - PostgreSQL models (FromRow-derived structs)
-//! - `redis/` - Redis cache models (GameType, LobbyInfo, Player)
-//! - `dto/` - Data Transfer Objects (requests, responses, queries)
+// Models module: db, redis and dto organized by storage layer
 
 pub mod db;
-pub mod dto;
 pub mod redis;

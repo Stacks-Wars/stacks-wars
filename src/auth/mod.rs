@@ -1,10 +1,4 @@
-//! Authentication and authorization module
-//!
-//! Provides JWT-based authentication for the Stacks Wars API.
-//!
-//! ## Structure
-//! - `extractors` - Axum extractors for authentication
-//! - `jwt` - JWT token generation and validation
+// Authentication module: extractors and JWT helpers
 
 pub mod extractors;
 pub mod jwt;

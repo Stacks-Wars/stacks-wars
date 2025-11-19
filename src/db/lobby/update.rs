@@ -10,10 +10,7 @@ use crate::{
 use super::LobbyRepository;
 
 impl LobbyRepository {
-    /// Update lobby status
-    ///
-    /// # Status Flow
-    /// Waiting → Starting → InProgress → Finished
+    /// Update lobby status.
     pub async fn update_status(
         &self,
         lobby_id: Uuid,
@@ -39,7 +36,7 @@ impl LobbyRepository {
         Ok(lobby)
     }
 
-    /// Update lobby name
+    /// Update lobby name.
     pub async fn update_name(&self, lobby_id: Uuid, name: String) -> Result<Lobby, AppError> {
         let lobby = sqlx::query_as::<_, Lobby>(
             r#"
@@ -60,7 +57,7 @@ impl LobbyRepository {
         Ok(lobby)
     }
 
-    /// Update lobby description
+    /// Update lobby description.
     pub async fn update_description(
         &self,
         lobby_id: Uuid,
@@ -85,7 +82,7 @@ impl LobbyRepository {
         Ok(lobby)
     }
 
-    /// Update lobby entry amount
+    /// Update lobby entry amount.
     pub async fn update_entry_amount(
         &self,
         lobby_id: Uuid,
@@ -112,9 +109,7 @@ impl LobbyRepository {
         Ok(lobby)
     }
 
-    /// Update current pool amount
-    ///
-    /// Used to track total value in the lobby pool as players join.
+    /// Update current pool amount.
     pub async fn update_current_amount(
         &self,
         lobby_id: Uuid,
@@ -141,9 +136,7 @@ impl LobbyRepository {
         Ok(lobby)
     }
 
-    /// Increment current amount by a specific value
-    ///
-    /// Atomically adds to the pool when a player joins.
+    /// Increment current amount by a specific value.
     pub async fn increment_current_amount(
         &self,
         lobby_id: Uuid,
@@ -168,7 +161,7 @@ impl LobbyRepository {
         Ok(lobby)
     }
 
-    /// Update token information
+    /// Update token information.
     pub async fn update_token_info(
         &self,
         lobby_id: Uuid,
@@ -195,7 +188,7 @@ impl LobbyRepository {
         Ok(lobby)
     }
 
-    /// Update contract address
+    /// Update contract address.
     pub async fn update_contract_address(
         &self,
         lobby_id: Uuid,
@@ -222,7 +215,7 @@ impl LobbyRepository {
         Ok(lobby)
     }
 
-    /// Toggle lobby privacy status
+    /// Toggle lobby privacy status.
     pub async fn set_private(&self, lobby_id: Uuid, is_private: bool) -> Result<Lobby, AppError> {
         let lobby = sqlx::query_as::<_, Lobby>(
             r#"
@@ -243,7 +236,7 @@ impl LobbyRepository {
         Ok(lobby)
     }
 
-    /// Toggle lobby sponsored status
+    /// Toggle lobby sponsored status.
     pub async fn set_sponsored(
         &self,
         lobby_id: Uuid,
@@ -270,9 +263,7 @@ impl LobbyRepository {
         Ok(lobby)
     }
 
-    /// Bulk update lobbies to finished status
-    ///
-    /// Useful for cleanup operations or scheduled tasks.
+    /// Bulk update lobbies to finished status.
     pub async fn mark_lobbies_as_finished(&self, lobby_ids: &[Uuid]) -> Result<u64, AppError> {
         if lobby_ids.is_empty() {
             return Ok(0);

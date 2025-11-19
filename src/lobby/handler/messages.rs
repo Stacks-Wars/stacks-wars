@@ -1,4 +1,4 @@
-//! Lobby message types (client -> server, server -> client)
+// Lobby message types (client -> server, server -> client)
 use crate::models::redis::PlayerState;
 use crate::models::redis::lobby_state::LobbyStatus;
 

@@ -1,9 +1,5 @@
-//! Convenience test entry that exposes the per-route integration tests
-//! located in `tests/routes/` so they can be run independently.
-//!
-//! Run only these with:
-//!
-//!     cargo test --test routes
+// Convenience test entry exposing per-route integration tests
+// Run with: `cargo test --test routes`
 
 #[path = "common/mod.rs"]
 mod common;

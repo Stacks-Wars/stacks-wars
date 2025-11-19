@@ -4,24 +4,7 @@ use uuid::Uuid;
 use super::UserWarsPointsRepository;
 
 impl UserWarsPointsRepository {
-    /// Create or update wars points for a season (upsert)
-    ///
-    /// If entry exists, updates points. Otherwise, creates new entry.
-    /// This is the primary method for initializing user wars points.
-    ///
-    /// # Arguments
-    /// * `user_id` - UUID of the user
-    /// * `season_id` - Season ID
-    /// * `points` - Initial points value (default: 0.0)
-    ///
-    /// # Returns
-    /// * `Ok(UserWarsPoints)` - Created or updated wars points
-    ///
-    /// # Examples
-    /// ```rust,ignore
-    /// // Initialize user for new season
-    /// let points = repo.upsert_wars_points(user_id, season_id, 0.0).await?;
-    /// ```
+    /// Upsert (create or update) user wars points for a season.
     pub async fn upsert_wars_points(
         &self,
         user_id: Uuid,

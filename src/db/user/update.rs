@@ -4,18 +4,7 @@ use uuid::Uuid;
 use super::UserRepository;
 
 impl UserRepository {
-    /// Update a user's username
-    ///
-    /// Username must be unique (case-insensitive check).
-    ///
-    /// # Arguments
-    /// * `user_id` - UUID of the user
-    /// * `username` - New username
-    ///
-    /// # Returns
-    /// * `Ok(UserV2)` - Updated user
-    /// * `Err(AppError::BadRequest)` - Username already taken
-    /// * `Err(AppError::NotFound)` - User doesn't exist
+    /// Update a user's username (ensures uniqueness).
     pub async fn update_username(
         &self,
         user_id: Uuid,
@@ -43,15 +32,7 @@ impl UserRepository {
         self.find_by_id(user_id).await
     }
 
-    /// Update a user's display name
-    ///
-    /// # Arguments
-    /// * `user_id` - UUID of the user
-    /// * `display_name` - New display name
-    ///
-    /// # Returns
-    /// * `Ok(UserV2)` - Updated user
-    /// * `Err(AppError::NotFound)` - User doesn't exist
+    /// Update a user's display name.
     pub async fn update_display_name(
         &self,
         user_id: Uuid,
@@ -76,17 +57,7 @@ impl UserRepository {
         self.find_by_id(user_id).await
     }
 
-    /// Update a user's trust rating
-    ///
-    /// Trust rating affects matchmaking and platform privileges.
-    ///
-    /// # Arguments
-    /// * `user_id` - UUID of the user
-    /// * `trust_rating` - New trust rating (typically 0.0 - 100.0)
-    ///
-    /// # Returns
-    /// * `Ok(UserV2)` - Updated user
-    /// * `Err(AppError::NotFound)` - User doesn't exist
+    /// Update a user's trust rating.
     pub async fn update_trust_rating(
         &self,
         user_id: Uuid,
@@ -111,40 +82,12 @@ impl UserRepository {
         self.find_by_id(user_id).await
     }
 
-    /// Update a user's profile (username, display_name, trust_rating)
-    ///
-    /// Only updates fields that are Some(). Use this for partial updates.
-    ///
-    /// # Arguments
-    /// * `user_id` - UUID of the user
-    /// * `username` - Optional new username
-    /// * `display_name` - Optional new display name
-    /// * `trust_rating` - Optional new trust rating
-    ///
-    /// # Returns
-    /// * `Ok(UserV2)` - Updated user
-    /// * `Err(AppError::BadRequest)` - Username already taken
-    /// * `Err(AppError::NotFound)` - User doesn't exist
-    ///
-    /// # Examples
-    /// ```rust,ignore
-    /// // Update only username
-    /// let user = repo.update_profile(user_id, Some("alice".into()), None, None).await?;
-    ///
-    /// // Update multiple fields
-    /// let user = repo.update_profile(
-    ///     user_id,
-    ///     Some("alice".into()),
-    ///     Some("Alice Wonderland".into()),
-    ///     Some(95.5)
-    /// ).await?;
-    /// ```
+    /// Partially update a user's profile (only provided fields are changed).
     pub async fn update_profile(
         &self,
         user_id: Uuid,
         username: Option<String>,
         display_name: Option<String>,
-        trust_rating: Option<f64>,
     ) -> Result<UserV2, AppError> {
         // Validate username uniqueness if provided
         if let Some(ref uname) = username {
@@ -167,10 +110,6 @@ impl UserRepository {
             query.push_str(&format!(", display_name = ${}", param_count));
             param_count += 1;
         }
-        if trust_rating.is_some() {
-            query.push_str(&format!(", trust_rating = ${}", param_count));
-            param_count += 1;
-        }
 
         query.push_str(&format!(" WHERE id = ${}", param_count));
 
@@ -181,9 +120,6 @@ impl UserRepository {
         }
         if let Some(dname) = display_name {
             query_builder = query_builder.bind(dname);
-        }
-        if let Some(rating) = trust_rating {
-            query_builder = query_builder.bind(rating);
         }
 
         query_builder = query_builder.bind(user_id);
@@ -197,16 +133,7 @@ impl UserRepository {
         self.find_by_id(user_id).await
     }
 
-    /// Increment a user's trust rating
-    ///
-    /// Useful for positive feedback systems.
-    ///
-    /// # Arguments
-    /// * `user_id` - UUID of the user
-    /// * `amount` - Amount to add to trust rating
-    ///
-    /// # Returns
-    /// * `Ok(f64)` - New trust rating value
+    /// Increment a user's trust rating.
     pub async fn increment_trust_rating(
         &self,
         user_id: Uuid,
@@ -233,16 +160,7 @@ impl UserRepository {
         Ok(new_rating)
     }
 
-    /// Decrement a user's trust rating
-    ///
-    /// Useful for negative feedback systems.
-    ///
-    /// # Arguments
-    /// * `user_id` - UUID of the user
-    /// * `amount` - Amount to subtract from trust rating
-    ///
-    /// # Returns
-    /// * `Ok(f64)` - New trust rating value
+    /// Decrement a user's trust rating.
     pub async fn decrement_trust_rating(
         &self,
         user_id: Uuid,

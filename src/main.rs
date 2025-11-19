@@ -1,4 +1,4 @@
-//! Stacks Wars Backend Entry Point
+// Stacks Wars Entry Point
 
 #[tokio::main]
 async fn main() {

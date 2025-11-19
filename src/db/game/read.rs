@@ -7,20 +7,7 @@ use uuid::Uuid;
 use super::GameRepository;
 
 impl GameRepository {
-    /// Find a game by ID
-    ///
-    /// # Arguments
-    /// * `game_id` - UUID of the game
-    ///
-    /// # Returns
-    /// * `Ok(Game)` - Game data
-    /// * `Err(AppError::NotFound)` - Game doesn't exist
-    ///
-    /// # Examples
-    /// ```rust,ignore
-    /// let game = repo.find_by_id(game_id).await?;
-    /// println!("Game: {}", game.name);
-    /// ```
+    /// Find a game by UUID.
     pub async fn find_by_id(&self, game_id: Uuid) -> Result<Game, AppError> {
         let game = sqlx::query_as::<_, Game>(
             "SELECT id, name, description, image_url, min_players, max_players, category,
@@ -37,14 +24,7 @@ impl GameRepository {
         Ok(game)
     }
 
-    /// Find a game by name
-    ///
-    /// # Arguments
-    /// * `name` - Game name (case-sensitive)
-    ///
-    /// # Returns
-    /// * `Ok(Game)` - Game data
-    /// * `Err(AppError::NotFound)` - Game doesn't exist
+    /// Find a game by its name.
     pub async fn find_by_name(&self, name: &str) -> Result<Game, AppError> {
         let game = sqlx::query_as::<_, Game>(
             "SELECT id, name, description, image_url, min_players, max_players, category,
@@ -61,22 +41,7 @@ impl GameRepository {
         Ok(game)
     }
 
-    /// Get all games with pagination
-    ///
-    /// # Arguments
-    /// * `pagination` - Page and limit
-    /// * `order` - Sort order (Ascending or Descending by created_at)
-    ///
-    /// # Returns
-    /// * `Ok(Vec<Game>)` - List of games
-    ///
-    /// # Examples
-    /// ```rust,ignore
-    /// use crate::models::game::{Pagination, Order};
-    ///
-    /// let pagination = Pagination { page: 1, limit: 20 };
-    /// let games = repo.get_all_games(pagination, Order::Descending).await?;
-    /// ```
+    /// List all games with pagination and sort order.
     pub async fn get_all_games(
         &self,
         pagination: Pagination,
@@ -105,13 +70,7 @@ impl GameRepository {
         Ok(games)
     }
 
-    /// Get active games only
-    ///
-    /// # Arguments
-    /// * `pagination` - Page and limit
-    ///
-    /// # Returns
-    /// * `Ok(Vec<Game>)` - Active games
+    /// List active games with pagination.
     pub async fn get_active_games(&self, pagination: Pagination) -> Result<Vec<Game>, AppError> {
         let offset = pagination.offset();
         let limit = pagination.limit;
@@ -133,14 +92,7 @@ impl GameRepository {
         Ok(games)
     }
 
-    /// Get games by category
-    ///
-    /// # Arguments
-    /// * `category` - Game category
-    /// * `limit` - Maximum results
-    ///
-    /// # Returns
-    /// * `Ok(Vec<Game>)` - Games in category
+    /// Get games in a category (limited).
     pub async fn get_by_category(&self, category: &str, limit: i64) -> Result<Vec<Game>, AppError> {
         let games = sqlx::query_as::<_, Game>(
             "SELECT id, name, description, image_url, min_players, max_players, category,
@@ -161,14 +113,7 @@ impl GameRepository {
         Ok(games)
     }
 
-    /// Get games by creator
-    ///
-    /// # Arguments
-    /// * `creator_id` - Creator user ID
-    /// * `limit` - Maximum results
-    ///
-    /// # Returns
-    /// * `Ok(Vec<Game>)` - Games created by user
+    /// List games created by a user (limited).
     pub async fn get_by_creator(
         &self,
         creator_id: Uuid,
@@ -191,13 +136,7 @@ impl GameRepository {
         Ok(games)
     }
 
-    /// Count total games
-    ///
-    /// # Arguments
-    /// * `active_only` - If true, count only active games
-    ///
-    /// # Returns
-    /// * `Ok(i64)` - Number of games
+    /// Count games; optionally only active ones.
     pub async fn count_games(&self, active_only: bool) -> Result<i64, AppError> {
         let query = if active_only {
             "SELECT COUNT(*) FROM games WHERE is_active = TRUE"
@@ -213,13 +152,7 @@ impl GameRepository {
         Ok(count)
     }
 
-    /// Check if a game exists by ID
-    ///
-    /// # Arguments
-    /// * `game_id` - Game ID
-    ///
-    /// # Returns
-    /// * `Ok(bool)` - true if game exists
+    /// Return whether a game exists by UUID.
     pub async fn exists(&self, game_id: Uuid) -> Result<bool, AppError> {
         let exists =
             sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM games WHERE id = $1)")
@@ -233,13 +166,7 @@ impl GameRepository {
         Ok(exists)
     }
 
-    /// Check if a game name is taken
-    ///
-    /// # Arguments
-    /// * `name` - Game name
-    ///
-    /// # Returns
-    /// * `Ok(bool)` - true if name exists
+    /// Check whether a game name already exists.
     pub async fn name_exists(&self, name: &str) -> Result<bool, AppError> {
         let exists =
             sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM games WHERE name = $1)")

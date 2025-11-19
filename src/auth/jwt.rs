@@ -1,38 +1,4 @@
-//! JWT Token Generation and Validation
-//!
-//! Provides secure JWT-based authentication for the Stacks Wars API.
-//!
-//! ## Security Features
-//!
-//! - **Algorithm**: HS256 (HMAC-SHA256)
-//! - **Secret Key**: Minimum 32 characters (256 bits)
-//! - **Token Expiration**: 7 days (configurable via TOKEN_EXPIRY_DAYS)
-//! - **Standard Claims**: sub, iat, exp, jti
-//! - **Token Tracking**: JWT ID (jti) for revocation support
-//!
-//! ## Environment Variables
-//!
-//! - `JWT_SECRET` (required): Secret key for signing tokens, minimum 32 characters
-//! - `TOKEN_EXPIRY_DAYS` (optional): Token validity period in days, default 7
-//!
-//! ## Token Claims
-//!
-//! | Claim | Description | Type |
-//! |-------|-------------|------|
-//! | `sub` | User ID (UUID) | String |
-//! | `wallet` | Stacks wallet address | String |
-//! | `iat` | Issued at timestamp | i64 |
-//! | `exp` | Expiration timestamp | i64 |
-//! | `jti` | JWT ID for tracking | String (optional) |
-//!
-//! ## Security Best Practices
-//!
-//! 1. **Secret Management**: Store JWT_SECRET securely (use secrets manager in production)
-//! 2. **HTTPS Only**: Always transmit tokens over HTTPS
-//! 3. **Token Storage**: Store tokens securely on client (httpOnly cookies or secure storage)
-//! 4. **Token Rotation**: Consider implementing refresh tokens for long-lived sessions
-//! 5. **Revocation**: Use `jti` claim to implement token revocation if needed
-//! 6. **Validation**: Always validate tokens on protected endpoints using `AuthClaims` extractor
+// JWT utilities: token generation and validation (HS256, claims, expiry)
 
 use chrono::{Duration, Utc};
 use jsonwebtoken::{EncodingKey, Header, encode};
@@ -79,32 +45,6 @@ impl Claims {
 }
 
 /// Generate JWT token for user authentication
-///
-/// Creates a signed JWT token with user identification and expiration.
-/// Tokens are valid for 7 days and include issued-at timestamp for tracking.
-///
-/// # Security Features
-/// - HS256 (HMAC-SHA256) signing algorithm
-/// - 7-day expiration (configurable via TOKEN_EXPIRY_DAYS env var)
-/// - Issued-at timestamp for token age validation
-/// - Optional JWT ID for token revocation support
-///
-/// # Arguments
-/// * `user` - User to generate token for
-///
-/// # Returns
-/// JWT token string
-///
-/// # Errors
-/// - `AppError::EnvError` if JWT_SECRET not set or invalid
-/// - `AppError::JwtError` if token generation fails
-///
-/// # Examples
-/// ```rust,ignore
-/// let user = repo.find_by_wallet(&wallet).await?;
-/// let token = generate_jwt(&user)?;
-/// // Send token to client for authentication
-/// ```
 pub fn generate_jwt(user: &UserV2, secret: &str) -> Result<String, AppError> {
     // Validate provided secret meets requirements
     validate_jwt_secret(secret)?;

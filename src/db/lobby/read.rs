@@ -9,12 +9,7 @@ use crate::{
 use super::LobbyRepository;
 
 impl LobbyRepository {
-    /// Find a lobby by its ID
-    ///
-    /// # Returns
-    /// - `Ok(Some(Lobby))` if found
-    /// - `Ok(None)` if not found
-    /// - `Err` on database error
+    /// Find a lobby by its ID.
     pub async fn find_by_id(&self, lobby_id: Uuid) -> Result<Option<Lobby>, AppError> {
         let lobby = query_as::<_, Lobby>("SELECT * FROM lobbies WHERE id = $1")
             .bind(lobby_id)
@@ -25,16 +20,14 @@ impl LobbyRepository {
         Ok(lobby)
     }
 
-    /// Get a lobby by ID, returning error if not found
-    ///
-    /// Convenience method that returns `AppError::NotFound` instead of `Option`.
+    /// Get a lobby by ID or return `AppError::NotFound`.
     pub async fn get_by_id(&self, lobby_id: Uuid) -> Result<Lobby, AppError> {
         self.find_by_id(lobby_id)
             .await?
             .ok_or_else(|| AppError::NotFound(format!("Lobby {} not found", lobby_id)))
     }
 
-    /// Get all lobbies created by a specific user
+    /// Get all lobbies created by a specific user.
     pub async fn find_by_creator(&self, creator_id: Uuid) -> Result<Vec<Lobby>, AppError> {
         let lobbies = query_as::<_, Lobby>(
             "SELECT * FROM lobbies WHERE creator_id = $1 ORDER BY created_at DESC",
@@ -47,7 +40,7 @@ impl LobbyRepository {
         Ok(lobbies)
     }
 
-    /// Get all lobbies for a specific game
+    /// Get all lobbies for a specific game.
     pub async fn find_by_game_id(&self, game_id: Uuid) -> Result<Vec<Lobby>, AppError> {
         let lobbies = query_as::<_, Lobby>(
             "SELECT * FROM lobbies WHERE game_id = $1 ORDER BY created_at DESC",
@@ -60,7 +53,7 @@ impl LobbyRepository {
         Ok(lobbies)
     }
 
-    /// Get all lobbies with a specific status
+    /// Get all lobbies with a specific status.
     pub async fn find_by_status(&self, status: LobbyStatus) -> Result<Vec<Lobby>, AppError> {
         let lobbies = query_as::<_, Lobby>(
             "SELECT * FROM lobbies WHERE status = $1 ORDER BY created_at DESC",
@@ -75,11 +68,7 @@ impl LobbyRepository {
         Ok(lobbies)
     }
 
-    /// Get all lobbies (with pagination)
-    ///
-    /// # Arguments
-    /// * `limit` - Maximum number of lobbies to return
-    /// * `offset` - Number of lobbies to skip
+    /// List lobbies with pagination (limit/offset).
     pub async fn get_all_lobbies(&self, limit: i64, offset: i64) -> Result<Vec<Lobby>, AppError> {
         let lobbies = query_as::<_, Lobby>(
             "SELECT * FROM lobbies ORDER BY created_at DESC LIMIT $1 OFFSET $2",
@@ -93,9 +82,7 @@ impl LobbyRepository {
         Ok(lobbies)
     }
 
-    /// Get active lobbies (waiting or in progress)
-    ///
-    /// Returns lobbies that players can join or are currently playing.
+    /// Get active lobbies (waiting or in-progress).
     pub async fn get_active_lobbies(&self) -> Result<Vec<Lobby>, AppError> {
         let lobbies = query_as::<_, Lobby>(
             r#"
@@ -111,7 +98,7 @@ impl LobbyRepository {
         Ok(lobbies)
     }
 
-    /// Get public lobbies (not private)
+    /// Get public (non-private) lobbies.
     pub async fn get_public_lobbies(&self) -> Result<Vec<Lobby>, AppError> {
         let lobbies = query_as::<_, Lobby>(
             "SELECT * FROM lobbies WHERE is_private = false ORDER BY created_at DESC",
@@ -123,7 +110,7 @@ impl LobbyRepository {
         Ok(lobbies)
     }
 
-    /// Get sponsored lobbies (free entry)
+    /// Get sponsored (free-entry) lobbies.
     pub async fn get_sponsored_lobbies(&self) -> Result<Vec<Lobby>, AppError> {
         let lobbies = query_as::<_, Lobby>(
             "SELECT * FROM lobbies WHERE is_sponsored = true ORDER BY created_at DESC",
@@ -137,9 +124,7 @@ impl LobbyRepository {
         Ok(lobbies)
     }
 
-    /// Get lobbies by game and status
-    ///
-    /// Useful for finding joinable lobbies for a specific game.
+    /// Get lobbies for a given game and status.
     pub async fn find_by_game_and_status(
         &self,
         game_id: Uuid,
@@ -159,7 +144,7 @@ impl LobbyRepository {
         Ok(lobbies)
     }
 
-    /// Count total lobbies
+    /// Count total lobbies.
     pub async fn count_lobbies(&self) -> Result<i64, AppError> {
         let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM lobbies")
             .fetch_one(&self.pool)
@@ -169,7 +154,7 @@ impl LobbyRepository {
         Ok(count.0)
     }
 
-    /// Count lobbies by status
+    /// Count lobbies by status.
     pub async fn count_by_status(&self, status: LobbyStatus) -> Result<i64, AppError> {
         let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM lobbies WHERE status = $1")
             .bind(status)
@@ -182,7 +167,7 @@ impl LobbyRepository {
         Ok(count.0)
     }
 
-    /// Count lobbies by game
+    /// Count lobbies by game.
     pub async fn count_by_game(&self, game_id: Uuid) -> Result<i64, AppError> {
         let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM lobbies WHERE game_id = $1")
             .bind(game_id)
@@ -195,7 +180,7 @@ impl LobbyRepository {
         Ok(count.0)
     }
 
-    /// Check if a lobby exists
+    /// Check if a lobby exists by ID.
     pub async fn exists(&self, lobby_id: Uuid) -> Result<bool, AppError> {
         let exists: (bool,) = sqlx::query_as("SELECT EXISTS(SELECT 1 FROM lobbies WHERE id = $1)")
             .bind(lobby_id)

@@ -1,4 +1,4 @@
-//! ws core primitives
+// WebSocket core primitives
 pub mod connection;
 pub mod hub;
 

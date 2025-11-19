@@ -4,35 +4,7 @@ use chrono::NaiveDateTime;
 use super::SeasonRepository;
 
 impl SeasonRepository {
-    /// Create a new season
-    ///
-    /// Validates date ranges and checks for duplicate season names.
-    ///
-    /// # Arguments
-    /// * `name` - Season name (must be unique)
-    /// * `description` - Optional season description
-    /// * `start_date` - Season start date
-    /// * `end_date` - Season end date (must be after start_date)
-    ///
-    /// # Returns
-    /// * `Ok(Season)` - Created season
-    /// * `Err(AppError::BadRequest)` - Invalid dates or duplicate name
-    /// * `Err(AppError::DatabaseError)` - Database error
-    ///
-    /// # Examples
-    /// ```rust,ignore
-    /// use chrono::NaiveDate;
-    ///
-    /// let start = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap();
-    /// let end = NaiveDate::from_ymd_opt(2025, 3, 31).unwrap().and_hms_opt(23, 59, 59).unwrap();
-    ///
-    /// let season = repo.create_season(
-    ///     "Winter 2025".into(),
-    ///     Some("First season of the year".into()),
-    ///     start,
-    ///     end
-    /// ).await?;
-    /// ```
+    /// Create a new season after validating dates and uniqueness.
     pub async fn create_season(
         &self,
         name: String,

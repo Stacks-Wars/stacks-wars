@@ -4,15 +4,7 @@ use uuid::Uuid;
 use super::GameRepository;
 
 impl GameRepository {
-    /// Update game name
-    ///
-    /// # Arguments
-    /// * `game_id` - Game ID
-    /// * `name` - New name (must be unique)
-    ///
-    /// # Returns
-    /// * `Ok(Game)` - Updated game
-    /// * `Err(AppError::BadRequest)` - Name already taken
+    /// Update a game's name (must be unique).
     pub async fn update_name(&self, game_id: Uuid, name: String) -> Result<Game, AppError> {
         // Check if name is already taken by another game
         let existing = sqlx::query_scalar::<_, Option<Uuid>>(
@@ -49,14 +41,7 @@ impl GameRepository {
         Ok(game)
     }
 
-    /// Update game description
-    ///
-    /// # Arguments
-    /// * `game_id` - Game ID
-    /// * `description` - New description
-    ///
-    /// # Returns
-    /// * `Ok(Game)` - Updated game
+    /// Update a game's description.
     pub async fn update_description(
         &self,
         game_id: Uuid,
@@ -80,14 +65,7 @@ impl GameRepository {
         Ok(game)
     }
 
-    /// Update game image URL
-    ///
-    /// # Arguments
-    /// * `game_id` - Game ID
-    /// * `image_url` - New image URL
-    ///
-    /// # Returns
-    /// * `Ok(Game)` - Updated game
+    /// Update a game's image URL.
     pub async fn update_image_url(
         &self,
         game_id: Uuid,
@@ -111,16 +89,7 @@ impl GameRepository {
         Ok(game)
     }
 
-    /// Update player limits
-    ///
-    /// # Arguments
-    /// * `game_id` - Game ID
-    /// * `min_players` - Minimum players (must be >= 1)
-    /// * `max_players` - Maximum players (must be >= min_players)
-    ///
-    /// # Returns
-    /// * `Ok(Game)` - Updated game
-    /// * `Err(AppError::BadRequest)` - Invalid player limits
+    /// Update a game's min/max player limits (validates inputs).
     pub async fn update_player_limits(
         &self,
         game_id: Uuid,
@@ -163,14 +132,7 @@ impl GameRepository {
         Ok(game)
     }
 
-    /// Update game category
-    ///
-    /// # Arguments
-    /// * `game_id` - Game ID
-    /// * `category` - New category
-    ///
-    /// # Returns
-    /// * `Ok(Game)` - Updated game
+    /// Update a game's category (optional).
     pub async fn update_category(
         &self,
         game_id: Uuid,
@@ -194,14 +156,7 @@ impl GameRepository {
         Ok(game)
     }
 
-    /// Toggle game active status
-    ///
-    /// # Arguments
-    /// * `game_id` - Game ID
-    /// * `is_active` - New active status
-    ///
-    /// # Returns
-    /// * `Ok(Game)` - Updated game
+    /// Set a game's `is_active` status.
     pub async fn set_active(&self, game_id: Uuid, is_active: bool) -> Result<Game, AppError> {
         let game = sqlx::query_as::<_, Game>(
             "UPDATE games
@@ -221,22 +176,7 @@ impl GameRepository {
         Ok(game)
     }
 
-    /// Update game (partial update)
-    ///
-    /// Updates only the provided fields. None values are ignored.
-    ///
-    /// # Arguments
-    /// * `game_id` - Game ID
-    /// * `name` - Optional new name
-    /// * `description` - Optional new description
-    /// * `image_url` - Optional new image URL
-    /// * `min_players` - Optional new min players
-    /// * `max_players` - Optional new max players
-    /// * `category` - Optional new category
-    /// * `is_active` - Optional new active status
-    ///
-    /// # Returns
-    /// * `Ok(Game)` - Updated game
+    /// Partially update a game's fields; unspecified fields are unchanged.
     pub async fn update_game(
         &self,
         game_id: Uuid,

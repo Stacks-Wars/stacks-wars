@@ -1,8 +1,4 @@
-//! Hub helpers for broadcasting messages to connected clients.
-//!
-//! The hub provides utilities to broadcast to all connected users, to a
-//! specific subset of users (by id), or to a single user. It uses the
-//! `AppState::connections` map which stores a single `ConnectionInfo` per user id.
+// Hub helpers for broadcasting messages to connected clients
 use crate::models::redis::keys::{KeyPart, RedisKey};
 use crate::state::AppState;
 use axum::extract::ws::Message;

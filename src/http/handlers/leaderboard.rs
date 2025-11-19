@@ -1,8 +1,4 @@
-//! DEPRECATED: legacy Redis-backed leaderboard handlers.
-//!
-//! This module is retained only for backward compatibility. New features must
-//! implement a Postgres-backed leaderboard repository under `db/` and expose
-//! new handlers; do not add new code here.
+// Legacy Redis-backed leaderboard handlers (deprecated)
 
 use axum::{
     extract::{Query, State},
@@ -46,45 +42,7 @@ pub struct UserStatQuery {
 // Handlers
 // ============================================================================
 
-/// Get global leaderboard
-///
-/// Returns the ranked list of top players based on wars points.
-/// Includes win rates, total matches, and profit/loss statistics.
-///
-/// # Authentication
-/// - **Required**: No
-///
-/// # Query Parameters
-/// - `limit` (optional): Number of top players to return (default: all, max: 1000)
-///
-/// # Response
-/// - **200 OK**: Leaderboard rankings
-/// ```json
-/// [
-///   {
-///     "user": {
-///       "id": "123e4567-e89b-12d3-a456-426614174000",
-///       "username": "player123",
-///       "displayName": "Pro Player",
-///       "warsPoint": 1500.0
-///     },
-///     "rank": 1,
-///     "winRate": 75.5,
-///     "totalMatch": 100,
-///     "totalWins": 75,
-///     "pnl": 250.50
-///   }
-/// ]
-/// ```
-///
-/// # Errors
-/// - **500 Internal Server Error**: Redis error
-///
-/// # Notes
-/// - Leaderboard is calculated from Redis sorted sets for performance
-/// - Rankings update in real-time as matches complete
-/// - Win rate is calculated as (wins / total_matches) * 100
-/// - PNL (Profit and Loss) represents total STX earned/lost
+/// Get global leaderboard (cached in Redis). Returns top players and stats.
 pub async fn get_leaderboard_rankings(
     Query(query): Query<LeaderboardQuery>,
     State(state): State<AppState>,
@@ -101,46 +59,7 @@ pub async fn get_leaderboard_rankings(
     Ok(Json(leaderboard))
 }
 
-/// Get user statistics and rank
-///
-/// Returns detailed statistics for a specific user including their global rank,
-/// win rate, total matches, and earnings.
-///
-/// # Authentication
-/// - **Required**: No
-///
-/// # Query Parameters
-/// - `user_id` (optional): User UUID
-/// - `identifier` (optional): Username or STX address
-/// - **Note**: Must provide either `user_id` or `identifier`
-///
-/// # Response
-/// - **200 OK**: User statistics found
-/// ```json
-/// {
-///   "user": {
-///     "id": "123e4567-e89b-12d3-a456-426614174000",
-///     "username": "player123",
-///     "displayName": "Pro Player",
-///     "warsPoint": 1500.0
-///   },
-///   "rank": 42,
-///   "winRate": 68.5,
-///   "totalMatch": 150,
-///   "totalWins": 103,
-///   "pnl": 125.75
-/// }
-/// ```
-///
-/// # Errors
-/// - **400 Bad Request**: Neither user_id nor identifier provided, or empty identifier
-/// - **404 Not Found**: User not found
-/// - **500 Internal Server Error**: Redis error
-///
-/// # Examples
-/// - By user_id: `GET /api/leaderboard/user?user_id=123e4567-e89b-12d3-a456-426614174000`
-/// - By username: `GET /api/leaderboard/user?identifier=player123`
-/// - By STX address: `GET /api/leaderboard/user?identifier=SP2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKNRV9EJ7`
+/// Get user statistics and rank by `user_id` or `identifier`.
 pub async fn get_user_statistics(
     Query(query): Query<UserStatQuery>,
     State(state): State<AppState>,

@@ -4,15 +4,7 @@ use chrono::NaiveDateTime;
 use super::SeasonRepository;
 
 impl SeasonRepository {
-    /// Update season name
-    ///
-    /// # Arguments
-    /// * `season_id` - Season ID
-    /// * `name` - New name (must be unique)
-    ///
-    /// # Returns
-    /// * `Ok(Season)` - Updated season
-    /// * `Err(AppError::BadRequest)` - Name already taken
+    /// Update season name (ensures uniqueness).
     pub async fn update_name(&self, season_id: i32, name: String) -> Result<Season, AppError> {
         // Check if name is already taken by another season
         let existing = sqlx::query_scalar::<_, Option<i32>>(
@@ -49,14 +41,7 @@ impl SeasonRepository {
         Ok(season)
     }
 
-    /// Update season description
-    ///
-    /// # Arguments
-    /// * `season_id` - Season ID
-    /// * `description` - New description
-    ///
-    /// # Returns
-    /// * `Ok(Season)` - Updated season
+    /// Update season description.
     pub async fn update_description(
         &self,
         season_id: i32,
@@ -82,18 +67,7 @@ impl SeasonRepository {
         Ok(season)
     }
 
-    /// Update season dates
-    ///
-    /// Validates that end_date is after start_date.
-    ///
-    /// # Arguments
-    /// * `season_id` - Season ID
-    /// * `start_date` - New start date
-    /// * `end_date` - New end date (must be after start_date)
-    ///
-    /// # Returns
-    /// * `Ok(Season)` - Updated season
-    /// * `Err(AppError::BadRequest)` - Invalid date range
+    /// Update season dates (validates end_date > start_date).
     pub async fn update_dates(
         &self,
         season_id: i32,
@@ -126,20 +100,7 @@ impl SeasonRepository {
         Ok(season)
     }
 
-    /// Update season (partial update)
-    ///
-    /// Updates only the provided fields. None values are ignored.
-    ///
-    /// # Arguments
-    /// * `season_id` - Season ID
-    /// * `name` - Optional new name
-    /// * `description` - Optional new description
-    /// * `start_date` - Optional new start date
-    /// * `end_date` - Optional new end date
-    ///
-    /// # Returns
-    /// * `Ok(Season)` - Updated season
-    /// * `Err(AppError::BadRequest)` - Invalid dates or duplicate name
+    /// Partially update a season (only provided fields are changed).
     pub async fn update_season(
         &self,
         season_id: i32,
@@ -202,16 +163,7 @@ impl SeasonRepository {
         Ok(season)
     }
 
-    /// Extend season end date
-    ///
-    /// Adds duration to the current end date. Useful for season extensions.
-    ///
-    /// # Arguments
-    /// * `season_id` - Season ID
-    /// * `days` - Number of days to extend
-    ///
-    /// # Returns
-    /// * `Ok(Season)` - Updated season
+    /// Extend a season's end date by a number of days.
     pub async fn extend_season(&self, season_id: i32, days: i64) -> Result<Season, AppError> {
         let current = self.find_by_id(season_id).await?;
         let new_end = current.end_date + chrono::Duration::days(days);

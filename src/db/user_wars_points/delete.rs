@@ -4,22 +4,7 @@ use uuid::Uuid;
 use super::UserWarsPointsRepository;
 
 impl UserWarsPointsRepository {
-    /// Delete wars points for a specific user and season
-    ///
-    /// **Warning**: This permanently removes the user's seasonal data.
-    ///
-    /// # Arguments
-    /// * `user_id` - UUID of the user
-    /// * `season_id` - Season ID
-    ///
-    /// # Returns
-    /// * `Ok(())` - Successfully deleted
-    /// * `Err(AppError::NotFound)` - Entry not found
-    ///
-    /// # Examples
-    /// ```rust,ignore
-    /// repo.delete_wars_points(user_id, season_id).await?;
-    /// ```
+    /// Delete wars points for a specific user and season.
     pub async fn delete_wars_points(&self, user_id: Uuid, season_id: i32) -> Result<(), AppError> {
         let result = sqlx::query(
             "DELETE FROM user_wars_points
@@ -44,15 +29,7 @@ impl UserWarsPointsRepository {
         Ok(())
     }
 
-    /// Delete all wars points for a user (all seasons)
-    ///
-    /// **Warning**: This removes all seasonal history for the user.
-    ///
-    /// # Arguments
-    /// * `user_id` - UUID of the user
-    ///
-    /// # Returns
-    /// * `Ok(u64)` - Number of entries deleted
+    /// Delete all wars points for a user (all seasons).
     pub async fn delete_all_user_wars_points(&self, user_id: Uuid) -> Result<u64, AppError> {
         let result = sqlx::query(
             "DELETE FROM user_wars_points
@@ -75,16 +52,7 @@ impl UserWarsPointsRepository {
         Ok(deleted)
     }
 
-    /// Delete all wars points for a season
-    ///
-    /// **Warning**: This removes all users' data for the season.
-    /// Use for cleanup or season reset.
-    ///
-    /// # Arguments
-    /// * `season_id` - Season ID
-    ///
-    /// # Returns
-    /// * `Ok(u64)` - Number of entries deleted
+    /// Delete all wars points for a season (cleanup/reset).
     pub async fn delete_season_wars_points(&self, season_id: i32) -> Result<u64, AppError> {
         let result = sqlx::query(
             "DELETE FROM user_wars_points
@@ -107,16 +75,7 @@ impl UserWarsPointsRepository {
         Ok(deleted)
     }
 
-    /// Reset all points to zero for a season
-    ///
-    /// Keeps the entries but resets points and badges.
-    /// Useful for season rollover without losing history structure.
-    ///
-    /// # Arguments
-    /// * `season_id` - Season ID
-    ///
-    /// # Returns
-    /// * `Ok(u64)` - Number of entries reset
+    /// Reset all points to zero for a season (preserve entries).
     pub async fn reset_season_points(&self, season_id: i32) -> Result<u64, AppError> {
         let result = sqlx::query(
             "UPDATE user_wars_points

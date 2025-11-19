@@ -1,4 +1,4 @@
-//! Delete operations for LobbyState
+// Delete operations for LobbyState (Redis)
 
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::errors::AppError;
@@ -7,14 +7,7 @@ use redis::AsyncCommands;
 use uuid::Uuid;
 
 impl LobbyStateRepository {
-    /// Delete lobby state
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    ///
-    /// # Returns
-    /// * `Ok(())` if successful
-    /// * `Err(AppError::NotFound)` if lobby state doesn't exist
+    /// Delete a lobby state; errors if not found.
     pub async fn delete_state(&self, lobby_id: Uuid) -> Result<(), AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -34,13 +27,7 @@ impl LobbyStateRepository {
         Ok(())
     }
 
-    /// Delete lobby state (soft - doesn't error if not found)
-    ///
-    /// # Arguments
-    /// * `lobby_id` - The lobby UUID
-    ///
-    /// # Returns
-    /// * `Ok(bool)` - true if deleted, false if didn't exist
+    /// Soft-delete a lobby state; returns `true` if removed.
     pub async fn delete_state_soft(&self, lobby_id: Uuid) -> Result<bool, AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -53,13 +40,7 @@ impl LobbyStateRepository {
         Ok(deleted > 0)
     }
 
-    /// Cleanup finished lobbies older than a threshold
-    ///
-    /// # Arguments
-    /// * `older_than_secs` - Delete lobbies finished more than this many seconds ago
-    ///
-    /// # Returns
-    /// * `Ok(usize)` - Number of lobbies deleted
+    /// Remove finished lobbies older than `older_than_secs`.
     pub async fn cleanup_finished(&self, older_than_secs: i64) -> Result<usize, AppError> {
         let states = self.get_by_status(LobbyStatus::Finished).await?;
 
@@ -81,13 +62,7 @@ impl LobbyStateRepository {
         Ok(deleted_count)
     }
 
-    /// Cleanup abandoned lobbies (waiting/starting but creator hasn't pinged)
-    ///
-    /// # Arguments
-    /// * `timeout_secs` - Delete lobbies where creator hasn't pinged in this many seconds
-    ///
-    /// # Returns
-    /// * `Ok(usize)` - Number of lobbies deleted
+    /// Cleanup abandoned lobbies where the creator hasn't pinged recently.
     pub async fn cleanup_abandoned(&self, timeout_secs: u64) -> Result<usize, AppError> {
         let waiting = self.get_by_status(LobbyStatus::Waiting).await?;
         let starting = self.get_by_status(LobbyStatus::Starting).await?;
