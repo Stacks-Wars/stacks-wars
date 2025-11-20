@@ -108,6 +108,7 @@ pub async fn migrate_player_states(
                     last_ping: player_data.get("last_ping").and_then(|s| s.parse().ok()),
                     joined_at: chrono::Utc::now().timestamp(),
                     updated_at: chrono::Utc::now().timestamp(),
+                    is_creator: false,
                 };
 
                 if dry_run {
@@ -154,6 +155,7 @@ pub async fn migrate_player_states(
             last_ping: old_player.last_ping,
             joined_at: chrono::Utc::now().timestamp(),
             updated_at: chrono::Utc::now().timestamp(),
+            is_creator: false,
         };
 
         if dry_run {

@@ -104,6 +104,24 @@ impl RedisKey {
         ])
     }
 
+    /// Key for lobby join requests (hash keyed by user id)
+    pub fn lobby_join_requests(lobby_id: impl Into<KeyPart>) -> String {
+        Self::build(&[
+            KeyPart::Str("lobbies".to_string()),
+            lobby_id.into(),
+            KeyPart::Str("join_requests".to_string()),
+        ])
+    }
+
+    /// Key for lobby countdown state
+    pub fn lobby_countdown(lobby_id: impl Into<KeyPart>) -> String {
+        Self::build(&[
+            KeyPart::Str("lobbies".to_string()),
+            lobby_id.into(),
+            KeyPart::Str("countdown".to_string()),
+        ])
+    }
+
     /// Rate limiter key for unauthenticated users by IP.
     pub fn rate_user_ip(ip: &str) -> String {
         Self::build(&[

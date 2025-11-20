@@ -24,6 +24,8 @@ impl SpectatorStateRepository {
             .await
             .map_err(AppError::RedisCommandError)?;
 
+        let _: redis::RedisResult<bool> = conn.expire(&key, 75).await;
+
         Ok(())
     }
 

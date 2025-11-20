@@ -3,6 +3,7 @@
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::errors::AppError;
 use crate::models::redis::LobbyStatus;
+use crate::models::redis::keys::RedisKey;
 use chrono::Utc;
 use redis::AsyncCommands;
 use uuid::Uuid;
@@ -237,6 +238,48 @@ impl LobbyStateRepository {
             .hset(&key, "updated_at", now)
             .await
             .map_err(AppError::RedisCommandError)?;
+
+        Ok(())
+    }
+
+    /// Persist the countdown seconds for a lobby (overwrites) and set a short expiry.
+    pub async fn set_countdown(
+        &self,
+        lobby_id: Uuid,
+        seconds_remaining: u8,
+    ) -> Result<(), AppError> {
+        let mut conn =
+            self.redis.get().await.map_err(|e| {
+                AppError::RedisError(format!("Failed to get Redis connection: {}", e))
+            })?;
+
+        let key = RedisKey::lobby_countdown(lobby_id);
+
+        // Store as integer and set a TTL so cancelled/finished countdowns expire.
+        let _: () = conn
+            .set(&key, seconds_remaining)
+            .await
+            .map_err(AppError::RedisCommandError)?;
+
+        // Keep countdown around for a short period (e.g., 60s) so clients can pick it up.
+        let _: () = conn
+            .expire(&key, 60)
+            .await
+            .map_err(AppError::RedisCommandError)?;
+
+        Ok(())
+    }
+
+    /// Remove the countdown key for a lobby.
+    pub async fn clear_countdown(&self, lobby_id: Uuid) -> Result<(), AppError> {
+        let mut conn =
+            self.redis.get().await.map_err(|e| {
+                AppError::RedisError(format!("Failed to get Redis connection: {}", e))
+            })?;
+
+        let key = RedisKey::lobby_countdown(lobby_id);
+
+        let _: () = conn.del(&key).await.map_err(AppError::RedisCommandError)?;
 
         Ok(())
     }

@@ -90,13 +90,15 @@ pub struct PlayerState {
 
     /// Unix timestamp of last update
     pub updated_at: i64,
+    /// Whether this player is the lobby creator
+    pub is_creator: bool,
 }
 
 impl PlayerState {
     /// Create new player state when joining lobby
     ///
     /// Sets status to `Joined` and initializes timestamps.
-    pub fn new(user_id: Uuid, lobby_id: Uuid, tx_id: Option<String>) -> Self {
+    pub fn new(user_id: Uuid, lobby_id: Uuid, tx_id: Option<String>, is_creator: bool) -> Self {
         let now = Utc::now().timestamp();
         Self {
             user_id,
@@ -109,6 +111,7 @@ impl PlayerState {
             last_ping: Some(Utc::now().timestamp_millis() as u64),
             joined_at: now,
             updated_at: now,
+            is_creator,
         }
     }
 
@@ -121,6 +124,8 @@ impl PlayerState {
         map.insert("status".to_string(), format!("{:?}", self.status));
         map.insert("joined_at".to_string(), self.joined_at.to_string());
         map.insert("updated_at".to_string(), self.updated_at.to_string());
+
+        map.insert("is_creator".to_string(), self.is_creator.to_string());
 
         if let Some(ref tx_id) = self.tx_id {
             map.insert("tx_id".to_string(), tx_id.clone());
@@ -176,6 +181,11 @@ impl PlayerState {
 
         let last_ping = data.get("last_ping").and_then(|p| p.parse::<u64>().ok());
 
+        let is_creator = data
+            .get("is_creator")
+            .and_then(|v| v.parse::<bool>().ok())
+            .unwrap_or(false);
+
         let joined_at = data
             .get("joined_at")
             .and_then(|t| t.parse::<i64>().ok())
@@ -197,6 +207,7 @@ impl PlayerState {
             last_ping,
             joined_at,
             updated_at,
+            is_creator,
         })
     }
 
@@ -246,7 +257,7 @@ mod tests {
         let lobby_id = Uuid::new_v4();
         let tx_id = Some("tx123".to_string());
 
-        let state = PlayerState::new(user_id, lobby_id, tx_id.clone());
+        let state = PlayerState::new(user_id, lobby_id, tx_id.clone(), false);
 
         assert_eq!(state.user_id, user_id);
         assert_eq!(state.lobby_id, lobby_id);
@@ -261,7 +272,7 @@ mod tests {
     fn test_to_redis_hash() {
         let user_id = Uuid::new_v4();
         let lobby_id = Uuid::new_v4();
-        let state = PlayerState::new(user_id, lobby_id, None);
+        let state = PlayerState::new(user_id, lobby_id, None, false);
 
         let hash = state.to_redis_hash();
 
@@ -297,7 +308,7 @@ mod tests {
     fn test_set_result() {
         let user_id = Uuid::new_v4();
         let lobby_id = Uuid::new_v4();
-        let mut state = PlayerState::new(user_id, lobby_id, None);
+        let mut state = PlayerState::new(user_id, lobby_id, None, false);
 
         state.set_result(1, 100.0);
 
@@ -310,7 +321,7 @@ mod tests {
     fn test_mark_claimed() {
         let user_id = Uuid::new_v4();
         let lobby_id = Uuid::new_v4();
-        let mut state = PlayerState::new(user_id, lobby_id, None);
+        let mut state = PlayerState::new(user_id, lobby_id, None, false);
 
         state.set_result(1, 100.0);
         state.mark_claimed("claim_tx_123".to_string());
@@ -326,7 +337,7 @@ mod tests {
     fn test_has_prize() {
         let user_id = Uuid::new_v4();
         let lobby_id = Uuid::new_v4();
-        let mut state = PlayerState::new(user_id, lobby_id, None);
+        let mut state = PlayerState::new(user_id, lobby_id, None, false);
 
         assert!(!state.has_prize());
 

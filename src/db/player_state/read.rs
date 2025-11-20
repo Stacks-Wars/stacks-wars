@@ -90,6 +90,15 @@ impl PlayerStateRepository {
         Ok(keys.len())
     }
 
+    /// Check whether a given user is the creator in this lobby (reads `is_creator` flag).
+    pub async fn is_creator(&self, lobby_id: Uuid, user_id: Uuid) -> Result<bool, AppError> {
+        match self.get_state(lobby_id, user_id).await {
+            Ok(ps) => Ok(ps.is_creator),
+            Err(AppError::NotFound(_)) => Ok(false),
+            Err(e) => Err(e),
+        }
+    }
+
     /// Get players with prizes (winners) in a lobby.
     pub async fn get_winners(&self, lobby_id: Uuid) -> Result<Vec<PlayerState>, AppError> {
         let all_players = self.get_all_in_lobby(lobby_id).await?;
