@@ -71,13 +71,4 @@ impl SpectatorState {
             updated_at,
         })
     }
-
-    pub fn touch(&mut self) {
-        self.updated_at = Utc::now().timestamp();
-    }
-
-    pub fn update_ping(&mut self) {
-        self.last_ping = Some(Utc::now().timestamp_millis() as u64);
-        self.touch();
-    }
 }

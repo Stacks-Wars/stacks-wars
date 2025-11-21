@@ -416,12 +416,11 @@ pub async fn handle_socket(
                     let now_ms = Utc::now().timestamp_millis() as u64;
                     let elapsed = now_ms.saturating_sub(ts);
 
-                    // Only touch spectator if the sender is not a participant
-                    if player_repo.exists(lobby_id, user_id).await.unwrap_or(false) == false {
+                    if player_repo.exists(lobby_id, user_id).await.unwrap_or(false) {
+                        let _ = player_repo.update_ping(lobby_id, user_id).await;
+                    } else {
                         let spec_repo = SpectatorStateRepository::new(state.redis.clone());
-                        let mut spec = SpectatorState::new(user_id, lobby_id);
-                        spec.update_ping();
-                        let _ = spec_repo.upsert_state(spec).await;
+                        let _ = spec_repo.update_ping(lobby_id, user_id).await;
                     }
 
                     let _ = manager::send_to_connection(

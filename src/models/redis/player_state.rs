@@ -211,31 +211,6 @@ impl PlayerState {
         })
     }
 
-    /// Update the updated_at timestamp to now
-    pub fn touch(&mut self) {
-        self.updated_at = Utc::now().timestamp();
-    }
-
-    /// Update last ping timestamp
-    pub fn update_ping(&mut self) {
-        self.last_ping = Some(Utc::now().timestamp_millis() as u64);
-        self.touch();
-    }
-
-    /// Set player rank and prize after game finishes
-    pub fn set_result(&mut self, rank: usize, prize: f64) {
-        self.rank = Some(rank);
-        self.prize = Some(prize);
-        self.claim_state = Some(ClaimState::NotClaimed);
-        self.touch();
-    }
-
-    /// Mark prize as claimed with transaction ID
-    pub fn mark_claimed(&mut self, tx_id: String) {
-        self.claim_state = Some(ClaimState::Claimed { tx_id });
-        self.touch();
-    }
-
     /// Check if player has claimed their prize
     pub fn has_claimed(&self) -> bool {
         matches!(self.claim_state, Some(ClaimState::Claimed { .. }))
@@ -302,49 +277,5 @@ mod tests {
         assert_eq!(state.status, PlayerStatus::Joined);
         assert_eq!(state.joined_at, 1000);
         assert_eq!(state.updated_at, 2000);
-    }
-
-    #[test]
-    fn test_set_result() {
-        let user_id = Uuid::new_v4();
-        let lobby_id = Uuid::new_v4();
-        let mut state = PlayerState::new(user_id, lobby_id, None, false);
-
-        state.set_result(1, 100.0);
-
-        assert_eq!(state.rank, Some(1));
-        assert_eq!(state.prize, Some(100.0));
-        assert!(matches!(state.claim_state, Some(ClaimState::NotClaimed)));
-    }
-
-    #[test]
-    fn test_mark_claimed() {
-        let user_id = Uuid::new_v4();
-        let lobby_id = Uuid::new_v4();
-        let mut state = PlayerState::new(user_id, lobby_id, None, false);
-
-        state.set_result(1, 100.0);
-        state.mark_claimed("claim_tx_123".to_string());
-
-        assert!(state.has_claimed());
-        assert!(matches!(
-            state.claim_state,
-            Some(ClaimState::Claimed { .. })
-        ));
-    }
-
-    #[test]
-    fn test_has_prize() {
-        let user_id = Uuid::new_v4();
-        let lobby_id = Uuid::new_v4();
-        let mut state = PlayerState::new(user_id, lobby_id, None, false);
-
-        assert!(!state.has_prize());
-
-        state.set_result(1, 100.0);
-        assert!(state.has_prize());
-
-        state.prize = Some(0.0);
-        assert!(!state.has_prize());
     }
 }

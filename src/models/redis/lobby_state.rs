@@ -165,37 +165,6 @@ impl LobbyState {
             tg_msg_id,
         })
     }
-
-    /// Update the updated_at timestamp to now
-    pub fn touch(&mut self) {
-        self.updated_at = Utc::now().timestamp();
-    }
-
-    /// Mark lobby as started
-    pub fn mark_started(&mut self) {
-        self.status = LobbyStatus::InProgress;
-        self.started_at = Some(Utc::now().timestamp());
-        self.touch();
-    }
-
-    /// Mark lobby as finished
-    pub fn mark_finished(&mut self) {
-        self.status = LobbyStatus::Finished;
-        self.finished_at = Some(Utc::now().timestamp());
-        self.touch();
-    }
-
-    /// Update participant count
-    pub fn set_participant_count(&mut self, count: usize) {
-        self.participant_count = count;
-        self.touch();
-    }
-
-    /// Update creator's last ping timestamp
-    pub fn update_creator_ping(&mut self) {
-        self.creator_last_ping = Some(Utc::now().timestamp_millis() as u64);
-        self.touch();
-    }
 }
 
 #[cfg(test)]
@@ -250,27 +219,5 @@ mod tests {
         assert_eq!(state.participant_count, 5);
         assert_eq!(state.created_at, 1000);
         assert_eq!(state.updated_at, 2000);
-    }
-
-    #[test]
-    fn test_mark_started() {
-        let lobby_id = Uuid::new_v4();
-        let mut state = LobbyState::new(lobby_id);
-
-        state.mark_started();
-
-        assert_eq!(state.status, LobbyStatus::InProgress);
-        assert!(state.started_at.is_some());
-    }
-
-    #[test]
-    fn test_mark_finished() {
-        let lobby_id = Uuid::new_v4();
-        let mut state = LobbyState::new(lobby_id);
-
-        state.mark_finished();
-
-        assert_eq!(state.status, LobbyStatus::Finished);
-        assert!(state.finished_at.is_some());
     }
 }

@@ -2,6 +2,7 @@
 
 mod create;
 mod read;
+mod update;
 
 use crate::state::RedisClient;
 

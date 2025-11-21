@@ -127,7 +127,7 @@ impl PlayerStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let pattern = format!("lobbies:{}:players:*", lobby_id);
+        let pattern = RedisKey::lobby_player(lobby_id, KeyPart::Wildcard);
 
         let keys: Vec<String> = conn
             .keys(&pattern)
