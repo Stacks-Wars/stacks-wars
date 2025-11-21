@@ -4,10 +4,15 @@ use uuid::Uuid;
 
 use crate::{
     errors::AppError,
-    models::{db::Lobby, redis::LobbyStatus},
+    models::{
+        db::Lobby,
+        redis::{LobbyState, LobbyStatus, PlayerState},
+    },
+    state::RedisClient,
 };
 
 use super::LobbyRepository;
+use crate::db::{lobby_state::LobbyStateRepository, player_state::PlayerStateRepository};
 
 impl LobbyRepository {
     /// Create a new lobby and return the created `Lobby`.
@@ -23,6 +28,7 @@ impl LobbyRepository {
         contract_address: Option<String>,
         is_private: bool,
         is_sponsored: bool,
+        redis: RedisClient,
     ) -> Result<Lobby, AppError> {
         let lobby = query_as::<_, Lobby>(
             r#"
@@ -54,56 +60,28 @@ impl LobbyRepository {
             AppError::DatabaseError(format!("Failed to create lobby '{}': {}", name, e))
         })?;
 
+        let lobby_state_repo = LobbyStateRepository::new(redis.clone());
+        let player_repo = PlayerStateRepository::new(redis.clone());
+
+        let lstate = LobbyState::new(lobby.id);
+        if let Err(e) = lobby_state_repo.create_state(lstate).await {
+            let _ = self.delete_lobby(lobby.id).await;
+            return Err(AppError::RedisError(format!(
+                "Failed to create lobby state in Redis for {}: {}",
+                lobby.id, e
+            )));
+        }
+
+        let creator_pstate = PlayerState::new(creator_id, lobby.id, None, true);
+        if let Err(e) = player_repo.create_state(creator_pstate).await {
+            let _ = self.delete_lobby(lobby.id).await;
+            return Err(AppError::RedisError(format!(
+                "Failed to create creator player state in Redis for {}: {}",
+                lobby.id, e
+            )));
+        }
+
         tracing::info!("Created lobby: {} ({})", lobby.name, lobby.id);
         Ok(lobby)
-    }
-
-    /// Create a sponsored lobby (free entry).
-    pub async fn create_sponsored_lobby(
-        &self,
-        name: String,
-        description: Option<String>,
-        creator_id: Uuid,
-        game_id: Uuid,
-        is_private: bool,
-    ) -> Result<Lobby, AppError> {
-        self.create_lobby(
-            name,
-            description,
-            creator_id,
-            game_id,
-            Some(0.0),
-            None,
-            None,
-            None,
-            is_private,
-            true,
-        )
-        .await
-    }
-
-    /// Create a private (invite-only) lobby.
-    pub async fn create_private_lobby(
-        &self,
-        name: String,
-        description: Option<String>,
-        creator_id: Uuid,
-        game_id: Uuid,
-        entry_amount: Option<f64>,
-        token_symbol: Option<String>,
-    ) -> Result<Lobby, AppError> {
-        self.create_lobby(
-            name,
-            description,
-            creator_id,
-            game_id,
-            entry_amount,
-            token_symbol,
-            None,
-            None,
-            true,
-            false,
-        )
-        .await
     }
 }

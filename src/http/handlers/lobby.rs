@@ -69,6 +69,7 @@ pub async fn create_lobby(
             payload.contract_address,
             payload.is_private.unwrap_or(false),
             is_sponsored,
+            state.redis.clone(),
         )
         .await
         .map_err(|e| {

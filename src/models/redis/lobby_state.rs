@@ -72,7 +72,7 @@ impl LobbyState {
         Self {
             lobby_id,
             status: LobbyStatus::Waiting,
-            participant_count: 0,
+            participant_count: 1,
             created_at: now,
             updated_at: now,
             started_at: None,
@@ -178,7 +178,7 @@ mod tests {
 
         assert_eq!(state.lobby_id, lobby_id);
         assert_eq!(state.status, LobbyStatus::Waiting);
-        assert_eq!(state.participant_count, 0);
+        assert_eq!(state.participant_count, 1);
         assert!(state.started_at.is_none());
         assert!(state.finished_at.is_none());
     }

@@ -8,28 +8,6 @@ use serde::de::DeserializeOwned;
 ///
 /// Each game implements this trait to define its own state structure.
 /// Allows the platform to be generic while games can be specific.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// #[derive(Serialize, Deserialize)]
-/// pub struct ChessGameState {
-///     pub board: [[Option<Piece>; 8]; 8],
-///     pub captured_white: Vec<Piece>,
-///     pub captured_black: Vec<Piece>,
-///     pub move_history: Vec<Move>,
-///     pub current_turn: Color,
-/// }
-///
-/// impl GameState for ChessGameState {
-///     fn initialize() -> Self {
-///         // Create initial board state
-///     }
-///
-///     fn validate(&self) -> Result<(), AppError> {
-///         // Validate board state
-///     }
-/// }
 /// ```
 pub trait GameState: Serialize + DeserializeOwned + Clone + Send + Sync {
     /// Serialize to JSON for Redis storage
