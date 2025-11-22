@@ -6,6 +6,7 @@ use crate::{
     http::handlers::{
         game::{get_game, list_games},
         lobby::{get_lobby, list_lobbies_by_game, list_my_lobbies},
+        platform_rating::{get_rating, list_ratings},
         season::{get_current_season, list_seasons},
         token_info::{get_token_info_mainnet, get_token_info_testnet},
         user::get_user,
@@ -17,6 +18,8 @@ use crate::{
 pub fn routes(state_for_layer: AppState) -> Router<AppState> {
     Router::new()
         .route("/user/{user_id}", get(get_user))
+        .route("/platform-rating", get(list_ratings))
+        .route("/platform-rating/{user_id}", get(get_rating))
         .route("/game", get(list_games))
         .route("/game/{game_id}", get(get_game))
         .route("/game/{game_id}/lobbies", get(list_lobbies_by_game))

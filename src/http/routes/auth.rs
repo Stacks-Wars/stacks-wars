@@ -9,6 +9,7 @@ use crate::{
     http::handlers::{
         game::create_game,
         lobby::{create_lobby, delete_lobby},
+        platform_rating::{create_rating, update_rating, delete_rating},
         season::create_season,
         user::{update_display_name, update_profile, update_username},
     },
@@ -19,6 +20,9 @@ use crate::{
 pub fn routes(state_for_layer: AppState) -> Router<AppState> {
     Router::new()
         .route("/user/profile", patch(update_profile))
+        .route("/platform-rating", post(create_rating))
+        .route("/platform-rating", patch(update_rating))
+        .route("/platform-rating", delete(delete_rating))
         .route("/user/username", patch(update_username))
         .route("/user/display-name", patch(update_display_name))
         .route("/game", post(create_game))
