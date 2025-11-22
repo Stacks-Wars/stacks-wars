@@ -99,6 +99,7 @@ CREATE TABLE platform_ratings (
     rating SMALLINT CHECK (rating BETWEEN 1 AND 5),
     comment TEXT,
     created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(user_id)
 );
 

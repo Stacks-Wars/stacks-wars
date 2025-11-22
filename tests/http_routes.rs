@@ -15,3 +15,6 @@ mod season;
 
 #[path = "http_routes/user.rs"]
 mod user;
+
+#[path = "http_routes/platform_rating.rs"]
+mod platform_rating;
