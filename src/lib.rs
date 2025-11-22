@@ -8,7 +8,7 @@ pub mod http;
 pub mod lobby;
 mod middleware;
 pub use middleware::cors_layer;
-mod models;
+pub mod models;
 pub mod state;
 pub mod ws;
 

@@ -91,6 +91,7 @@ impl TestApp {
         TestFactory {
             pg_pool: self.pg_pool.clone(),
             jwt_secret: self.state.config.jwt_secret.clone(),
+            redis: self.state.redis.clone(),
         }
     }
 }
@@ -101,6 +102,7 @@ impl TestApp {
 pub struct TestFactory {
     pub pg_pool: PgPool,
     pub jwt_secret: String,
+    pub redis: bb8::Pool<bb8_redis::RedisConnectionManager>,
 }
 
 #[allow(dead_code)]
@@ -196,6 +198,33 @@ impl TestFactory {
             .bind(0_f64)
             .bind(0_f64)
             .execute(&self.pg_pool)
+            .await
+            .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
+
+        let mut conn = self
+            .redis
+            .get()
+            .await
+            .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
+
+        // Build canonical keys using RedisKey helper
+        let lobby_key = stacks_wars_be::models::redis::RedisKey::lobby_state(lobby_id);
+        let player_key =
+            stacks_wars_be::models::redis::RedisKey::lobby_player(lobby_id, creator_id);
+
+        let lstate = stacks_wars_be::models::redis::LobbyState::new(lobby_id);
+        let lhash = lstate.to_redis_hash();
+        let _: () = conn
+            .hset_multiple(&lobby_key, &lhash)
+            .await
+            .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
+
+        let pstate =
+            stacks_wars_be::models::redis::PlayerState::new(creator_id, lobby_id, None, true);
+        let phash_map = pstate.to_redis_hash();
+        let phash: Vec<(String, String)> = phash_map.into_iter().collect();
+        let _: () = conn
+            .hset_multiple(&player_key, &phash)
             .await
             .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
 

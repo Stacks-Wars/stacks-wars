@@ -1,3 +1,4 @@
+use redis::AsyncCommands;
 use reqwest;
 use serde_json::json;
 
@@ -8,7 +9,7 @@ async fn create_lobby() {
 
     // create user and token using factory
     let factory = app.factory();
-    let (_user_id, token) = factory
+    let (user_id, token) = factory
         .create_test_user(Some("lobby-test-wallet"))
         .await
         .expect("create user failed");
@@ -46,10 +47,22 @@ async fn create_lobby() {
 
     assert_eq!(resp.status().as_u16(), 201);
     let body: serde_json::Value = resp.json().await.expect("invalid json");
-    let _lobby_id = body
+    let lobby_id = body
         .get("lobbyId")
         .and_then(|v| v.as_str())
         .expect("missing lobbyId");
+
+    // verify Redis runtime state exists for the lobby and creator player
+    {
+        let mut conn = app.state.redis.get().await.expect("redis conn");
+        let lobby_key = stacks_wars_be::models::redis::RedisKey::lobby_state(lobby_id);
+        let exists: bool = conn.exists(&lobby_key).await.expect("redis exists");
+        assert!(exists, "lobby state missing in redis");
+
+        let player_key = stacks_wars_be::models::redis::RedisKey::lobby_player(lobby_id, user_id);
+        let pexists: bool = conn.exists(&player_key).await.expect("redis exists");
+        assert!(pexists, "creator player state missing in redis");
+    }
 
     app.stop().await;
 }
