@@ -4,7 +4,11 @@ use bb8_redis::RedisConnectionManager;
 use futures::stream::SplitSink;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+    time::Duration,
+};
 use teloxide::Bot;
 use tokio::sync::Mutex;
 use uuid::Uuid;
@@ -21,7 +25,8 @@ pub struct AppConfig {
 #[derive(Clone)]
 pub struct AppState {
     pub config: AppConfig,
-    pub connections: ConnectionInfoMap,
+    pub connections: Connections,
+    pub lobby_connections: LobbyConnections,
     pub chat_connections: ChatConnectionInfoMap,
     pub redis: RedisClient,
     pub postgres: PgPool,
@@ -70,12 +75,14 @@ impl AppState {
         // Bot
         let bot = Bot::new(config.telegram_bot_token.clone());
 
-        let connections: ConnectionInfoMap = Default::default();
+        let connections: Connections = Default::default();
+        let lobby_connections: LobbyConnections = Default::default();
         let chat_connections: ChatConnectionInfoMap = Default::default();
 
         Ok(Self {
             config,
             connections,
+            lobby_connections,
             chat_connections,
             redis: redis_pool,
             postgres: postgres_pool,
@@ -85,16 +92,23 @@ impl AppState {
 }
 
 #[derive(Debug)]
-pub struct ConnectionInfo {
-    pub sender: Arc<Mutex<SplitSink<WebSocket, Message>>>,
-}
-
-#[derive(Debug)]
 pub struct ChatConnectionInfo {
     pub sender: Arc<Mutex<SplitSink<WebSocket, Message>>>,
 }
 
-pub type ConnectionInfoMap = Arc<Mutex<HashMap<Uuid, Arc<ConnectionInfo>>>>;
+#[derive(Debug)]
+pub struct ConnectionInfo {
+    pub connection_id: Uuid,
+    pub user_id: Option<Uuid>,
+    pub lobby_id: Uuid,
+    pub sender: Arc<Mutex<SplitSink<WebSocket, Message>>>,
+}
+
+/// Global map of all websocket connections keyed by `connection_id`.
+pub type Connections = Arc<Mutex<HashMap<Uuid, Arc<ConnectionInfo>>>>;
+
+/// For fast broadcasting: for each lobby_id we store the set of connection_ids.
+pub type LobbyConnections = Arc<Mutex<HashMap<Uuid, HashSet<Uuid>>>>;
 
 // Single chat connection per player, but track which lobby they're chatting in
 pub type ChatConnectionInfoMap = Arc<Mutex<HashMap<Uuid, Arc<ChatConnectionInfo>>>>;

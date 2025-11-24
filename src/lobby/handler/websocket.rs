@@ -14,9 +14,9 @@ use crate::ws::core::hub;
 use crate::{
     db::{
         join_request::JoinRequestRepository, lobby_state::LobbyStateRepository,
-        player_state::PlayerStateRepository, spectator_state::SpectatorStateRepository,
+        player_state::PlayerStateRepository,
     },
-    models::redis::{PlayerState, spectator_state::SpectatorState},
+    models::redis::PlayerState,
     state::{AppState, ConnectionInfo},
 };
 use chrono::Utc;
@@ -27,29 +27,41 @@ use crate::db::join_request::JoinRequestDTO;
 use crate::lobby::handler::messages::{LobbyClientMessage, LobbyServerMessage};
 use crate::models::db::LobbyExtended;
 
+async fn require_auth(
+    conn: &std::sync::Arc<ConnectionInfo>,
+    auth_user_id: Option<Uuid>,
+) -> Result<Uuid, ()> {
+    match auth_user_id {
+        Some(uid) => Ok(uid),
+        None => {
+            let err = LobbyError::NotAuthenticated;
+            let msg = LobbyServerMessage::from(err);
+            let _ = manager::send_to_connection(conn, &msg).await;
+            Err(())
+        }
+    }
+}
+
 /// The core websocket loop that listens for client messages and delegates
 /// higher-level actions to `LobbyHandler` methods.
 pub async fn handle_socket(
     socket: axum::extract::ws::WebSocket,
     lobby_id: Uuid,
-    user_id: Uuid,
+    auth_user_id: Option<Uuid>,
     state: AppState,
 ) {
     let (sender, mut receiver) = socket.split();
-
+    let connection_id = Uuid::new_v4();
     let conn = Arc::new(ConnectionInfo {
+        connection_id,
+        user_id: auth_user_id,
+        lobby_id,
         sender: Arc::new(TokioMutex::new(sender)),
     });
-
-    manager::register_connection(&state, user_id, conn.clone()).await;
-
-    // Ensure the connecting user exists as spectator if not a player
     let player_repo = PlayerStateRepository::new(state.redis.clone());
-    if player_repo.exists(lobby_id, user_id).await.unwrap_or(false) == false {
-        let spec_repo = SpectatorStateRepository::new(state.redis.clone());
-        let spec = SpectatorState::new(user_id, lobby_id);
-        let _ = spec_repo.upsert_state(spec).await;
-    }
+
+    // Register the connection (conn_id may be authenticated user_id or generated spectator id)
+    manager::register_connection(&state, connection_id, conn.clone()).await;
 
     // send initial state & players
     let lobby_state_repo = LobbyStateRepository::new(state.redis.clone());
@@ -63,7 +75,7 @@ pub async fn handle_socket(
                     let err = LobbyError::MetadataMissing;
                     let msg = LobbyServerMessage::from(err);
                     let _ = manager::send_to_connection(&conn, &msg).await;
-                    manager::unregister_connection(&state, &user_id).await;
+                    manager::unregister_connection(&state, &connection_id).await;
                     return;
                 }
             };
@@ -94,7 +106,7 @@ pub async fn handle_socket(
             let err = LobbyError::NotFound;
             let msg = LobbyServerMessage::from(err);
             let _ = manager::send_to_connection(&conn, &msg).await;
-            manager::unregister_connection(&state, &user_id).await;
+            manager::unregister_connection(&state, &connection_id).await;
             return;
         }
     }
@@ -104,6 +116,11 @@ pub async fn handle_socket(
             Ok(Message::Text(text)) => match serde_json::from_str::<LobbyClientMessage>(&text) {
                 Ok(LobbyClientMessage::Join) => {
                     let jr_repo = JoinRequestRepository::new(state.redis.clone());
+                    let user_id = match require_auth(&conn, auth_user_id).await {
+                        Ok(uid) => uid,
+                        Err(_) => continue,
+                    };
+
                     let allowed = match jr_repo.get(lobby_id, user_id).await {
                         Some(jr) => matches!(jr.state, JoinRequestState::Accepted),
                         None => true,
@@ -114,12 +131,8 @@ pub async fn handle_socket(
                         let pstate = PlayerState::new(user_id, lobby_id, None, false);
                         let _ = player_repo.upsert_state(pstate).await;
 
-                        // remove spectator key (if any)
-                        let spec_repo = SpectatorStateRepository::new(state.redis.clone());
-                        let _ = spec_repo.remove_from_lobby(lobby_id, user_id).await;
-
                         // broadcast joined and updated player list
-                        let _ = manager::broadcast(
+                        let _ = hub::broadcast_lobby(
                             &state,
                             lobby_id,
                             &LobbyServerMessage::PlayerJoined { player_id: user_id },
@@ -127,7 +140,7 @@ pub async fn handle_socket(
                         .await;
 
                         if let Ok(players) = player_repo.get_all_in_lobby(lobby_id).await {
-                            let _ = manager::broadcast(
+                            let _ = hub::broadcast_lobby(
                                 &state,
                                 lobby_id,
                                 &LobbyServerMessage::PlayerUpdated { players },
@@ -142,7 +155,7 @@ pub async fn handle_socket(
                                 if let Ok(list) = jr_repo.list(lobby_id).await {
                                     let dtos: Vec<JoinRequestDTO> =
                                         list.into_iter().map(Into::into).collect();
-                                    let _ = manager::broadcast(
+                                    let _ = hub::broadcast_lobby(
                                         &state,
                                         lobby_id,
                                         &LobbyServerMessage::JoinRequestsUpdated {
@@ -161,6 +174,11 @@ pub async fn handle_socket(
                 }
 
                 Ok(LobbyClientMessage::Leave) => {
+                    let user_id = match require_auth(&conn, auth_user_id).await {
+                        Ok(uid) => uid,
+                        Err(_) => continue,
+                    };
+
                     // Prevent the creator from leaving the lobby
                     let is_creator = player_repo
                         .is_creator(lobby_id, user_id)
@@ -174,20 +192,17 @@ pub async fn handle_socket(
                         continue;
                     }
 
-                    let spec = SpectatorState::new(user_id, lobby_id);
-                    let spec_repo = SpectatorStateRepository::new(state.redis.clone());
-                    let _ = spec_repo.upsert_state(spec.clone()).await;
                     // remove player state
                     let _ = player_repo.remove_from_lobby(lobby_id, user_id).await.ok();
 
-                    let _ = manager::broadcast(
+                    let _ = hub::broadcast_lobby(
                         &state,
                         lobby_id,
                         &LobbyServerMessage::PlayerLeft { player_id: user_id },
                     )
                     .await;
                     if let Ok(players) = player_repo.get_all_in_lobby(lobby_id).await {
-                        let _ = manager::broadcast(
+                        let _ = hub::broadcast_lobby(
                             &state,
                             lobby_id,
                             &LobbyServerMessage::PlayerUpdated { players },
@@ -197,6 +212,11 @@ pub async fn handle_socket(
                 }
 
                 Ok(LobbyClientMessage::UpdateLobbyStatus { status }) => {
+                    let user_id = match require_auth(&conn, auth_user_id).await {
+                        Ok(uid) => uid,
+                        Err(_) => continue,
+                    };
+
                     // Only the lobby creator can change lobby status
                     let is_creator = player_repo
                         .is_creator(lobby_id, user_id)
@@ -222,7 +242,7 @@ pub async fn handle_socket(
 
                             // Countdown from 5 down to 0
                             for sec in (0..=5).rev() {
-                                let _ = manager::broadcast(
+                                let _ = hub::broadcast_lobby(
                                     &spawn_state,
                                     spawn_lobby,
                                     &LobbyServerMessage::StartCountdown {
@@ -253,7 +273,7 @@ pub async fn handle_socket(
                             // Clear countdown and mark started
                             let _ = spawn_repo.clear_countdown(spawn_lobby).await.ok();
                             let _ = spawn_repo.mark_started(spawn_lobby).await.ok();
-                            let _ = manager::broadcast(
+                            let _ = hub::broadcast_lobby(
                                 &spawn_state,
                                 spawn_lobby,
                                 &LobbyServerMessage::LobbyStateChanged {
@@ -264,7 +284,7 @@ pub async fn handle_socket(
                         });
                     }
 
-                    let _ = manager::broadcast(
+                    let _ = hub::broadcast_lobby(
                         &state,
                         lobby_id,
                         &LobbyServerMessage::LobbyStateChanged { state: status },
@@ -273,11 +293,16 @@ pub async fn handle_socket(
                 }
 
                 Ok(LobbyClientMessage::JoinRequest) => {
+                    let user_id = match require_auth(&conn, auth_user_id).await {
+                        Ok(uid) => uid,
+                        Err(_) => continue,
+                    };
+
                     let jr_repo = JoinRequestRepository::new(state.redis.clone());
                     let _ = jr_repo.create_pending(lobby_id, user_id, 15 * 60).await;
                     if let Ok(list) = jr_repo.list(lobby_id).await {
                         let dtos: Vec<JoinRequestDTO> = list.into_iter().map(Into::into).collect();
-                        let _ = manager::broadcast(
+                        let _ = hub::broadcast_lobby(
                             &state,
                             lobby_id,
                             &LobbyServerMessage::JoinRequestsUpdated {
@@ -289,6 +314,11 @@ pub async fn handle_socket(
                 }
 
                 Ok(LobbyClientMessage::ApproveJoin { player_id }) => {
+                    let user_id = match require_auth(&conn, auth_user_id).await {
+                        Ok(uid) => uid,
+                        Err(_) => continue,
+                    };
+
                     // Only creator can approve join requests
                     let is_creator = player_repo
                         .is_creator(lobby_id, user_id)
@@ -308,6 +338,7 @@ pub async fn handle_socket(
                         .await;
                     let _ = hub::send_to_user(
                         &state,
+                        lobby_id,
                         player_id,
                         &LobbyServerMessage::JoinRequestStatus {
                             player_id,
@@ -317,7 +348,7 @@ pub async fn handle_socket(
                     .await;
                     if let Ok(list) = jr_repo.list(lobby_id).await {
                         let dtos: Vec<JoinRequestDTO> = list.into_iter().map(Into::into).collect();
-                        let _ = manager::broadcast(
+                        let _ = hub::broadcast_lobby(
                             &state,
                             lobby_id,
                             &LobbyServerMessage::JoinRequestsUpdated {
@@ -329,6 +360,11 @@ pub async fn handle_socket(
                 }
 
                 Ok(LobbyClientMessage::RejectJoin { player_id }) => {
+                    let user_id = match require_auth(&conn, auth_user_id).await {
+                        Ok(uid) => uid,
+                        Err(_) => continue,
+                    };
+
                     // Only creator can reject join requests
                     let is_creator = player_repo
                         .is_creator(lobby_id, user_id)
@@ -348,6 +384,7 @@ pub async fn handle_socket(
                         .await;
                     let _ = hub::send_to_user(
                         &state,
+                        lobby_id,
                         player_id,
                         &LobbyServerMessage::JoinRequestStatus {
                             player_id,
@@ -357,7 +394,7 @@ pub async fn handle_socket(
                     .await;
                     if let Ok(list) = jr_repo.list(lobby_id).await {
                         let dtos: Vec<JoinRequestDTO> = list.into_iter().map(Into::into).collect();
-                        let _ = manager::broadcast(
+                        let _ = hub::broadcast_lobby(
                             &state,
                             lobby_id,
                             &LobbyServerMessage::JoinRequestsUpdated {
@@ -369,6 +406,11 @@ pub async fn handle_socket(
                 }
 
                 Ok(LobbyClientMessage::Kick { player_id }) => {
+                    let user_id = match require_auth(&conn, auth_user_id).await {
+                        Ok(uid) => uid,
+                        Err(_) => continue,
+                    };
+
                     // Only creator can kick players
                     let is_creator = player_repo
                         .is_creator(lobby_id, user_id)
@@ -382,22 +424,19 @@ pub async fn handle_socket(
                         continue;
                     }
 
-                    let spec_repo = SpectatorStateRepository::new(state.redis.clone());
-                    let spec = SpectatorState::new(player_id, lobby_id);
-                    let _ = spec_repo.upsert_state(spec).await;
                     // remove player state
                     let _ = player_repo
                         .remove_from_lobby(lobby_id, player_id)
                         .await
                         .ok();
-                    let _ = manager::broadcast(
+                    let _ = hub::broadcast_lobby(
                         &state,
                         lobby_id,
                         &LobbyServerMessage::PlayerKicked { player_id },
                     )
                     .await;
                     if let Ok(players) = player_repo.get_all_in_lobby(lobby_id).await {
-                        let _ = manager::broadcast(
+                        let _ = hub::broadcast_lobby(
                             &state,
                             lobby_id,
                             &LobbyServerMessage::PlayerUpdated { players },
@@ -406,6 +445,7 @@ pub async fn handle_socket(
                     }
                     let _ = hub::send_to_user(
                         &state,
+                        lobby_id,
                         player_id,
                         &LobbyServerMessage::PlayerKicked { player_id },
                     )
@@ -416,11 +456,10 @@ pub async fn handle_socket(
                     let now_ms = Utc::now().timestamp_millis() as u64;
                     let elapsed = now_ms.saturating_sub(ts);
 
-                    if player_repo.exists(lobby_id, user_id).await.unwrap_or(false) {
-                        let _ = player_repo.update_ping(lobby_id, user_id).await;
-                    } else {
-                        let spec_repo = SpectatorStateRepository::new(state.redis.clone());
-                        let _ = spec_repo.update_ping(lobby_id, user_id).await;
+                    if let Some(user_id) = auth_user_id {
+                        if player_repo.exists(lobby_id, user_id).await.unwrap_or(false) {
+                            let _ = player_repo.update_ping(lobby_id, user_id).await;
+                        }
                     }
 
                     let _ = manager::send_to_connection(
@@ -448,11 +487,11 @@ pub async fn handle_socket(
         }
     }
 
-    manager::unregister_connection(&state, &user_id).await;
+    manager::unregister_connection(&state, &connection_id).await;
 
     // Broadcast final player list to lobby
     if let Ok(players) = player_repo.get_all_in_lobby(lobby_id).await {
-        manager::broadcast(
+        hub::broadcast_lobby(
             &state,
             lobby_id,
             &LobbyServerMessage::PlayerUpdated { players },

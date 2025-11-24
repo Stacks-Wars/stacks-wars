@@ -4,6 +4,7 @@ use std::fmt;
 pub enum LobbyError {
     LobbyFull,
     NotCreator,
+    NotAuthenticated,
     NeedAtLeast(usize),
     JoinFailed(String),
     /// Postgres metadata for the lobby is missing.
@@ -19,6 +20,7 @@ impl fmt::Display for LobbyError {
         match self {
             LobbyError::LobbyFull => write!(f, "lobby full"),
             LobbyError::NotCreator => write!(f, "only creator can start"),
+            LobbyError::NotAuthenticated => write!(f, "authentication required"),
             LobbyError::NeedAtLeast(n) => write!(f, "need at least {} players to start", n),
             LobbyError::JoinFailed(s) => write!(f, "join failed: {}", s),
             LobbyError::MetadataMissing => write!(f, "lobby metadata missing from database"),
@@ -37,6 +39,7 @@ impl LobbyError {
             LobbyError::NotCreator => "NOT_CREATOR",
             LobbyError::NeedAtLeast(_) => "NEED_AT_LEAST",
             LobbyError::JoinFailed(_) => "JOIN_FAILED",
+            LobbyError::NotAuthenticated => "NOT_AUTHENTICATED",
             LobbyError::MetadataMissing => "METADATA_MISSING",
             LobbyError::NotFound => "NOT_FOUND",
             LobbyError::InvalidMessage => "INVALID_MESSAGE",

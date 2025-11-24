@@ -8,6 +8,42 @@ use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode};
 
 use super::jwt::Claims;
 
+/// WebSocket auth extractor: optional. If the `Authorization: Bearer <token>` header
+/// is present and valid, returns `WsAuth(Some(AuthClaims))`. If the header is absent
+/// returns `WsAuth(None)`. If the header is present but invalid the extractor
+/// rejects with `UNAUTHORIZED`.
+pub struct WsAuth(pub Option<AuthClaims>);
+
+impl FromRequestParts<crate::state::AppState> for WsAuth {
+    type Rejection = (StatusCode, String);
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &crate::state::AppState,
+    ) -> Result<Self, Self::Rejection> {
+        // Look for Authorization header manually so we can distinguish missing vs present-but-invalid
+        if let Some(hv) = parts.headers.get("authorization") {
+            let hv_str = hv.to_str().map_err(|_| {
+                (StatusCode::BAD_REQUEST, "Invalid Authorization header encoding".to_string())
+            })?;
+
+            // Expect format: "Bearer <token>"
+            let parts: Vec<&str> = hv_str.splitn(2, ' ').collect();
+            if parts.len() != 2 || !parts[0].eq_ignore_ascii_case("bearer") {
+                return Err((StatusCode::BAD_REQUEST, "Invalid Authorization header".to_string()));
+            }
+
+            let token = parts[1];
+            let secret = state.config.jwt_secret.clone();
+            let claims = AuthClaims::from_token_with_secret(token, &secret)?;
+            return Ok(WsAuth(Some(claims)));
+        }
+
+        // No header -> anonymous websocket connection
+        Ok(WsAuth(None))
+    }
+}
+
 /// Axum extractor for authenticated requests
 pub struct AuthClaims(pub Claims);
 

@@ -9,6 +9,7 @@ use axum::{
 use redis::AsyncCommands;
 use std::{net::SocketAddr, time::Duration};
 use tower_http::cors::CorsLayer;
+use uuid::Uuid;
 
 /// Redis-backed, type-safe rate limiting middleware.
 ///
@@ -287,4 +288,66 @@ pub fn cors_layer() -> CorsLayer {
         ])
         .allow_credentials(true)
         .max_age(Duration::from_secs(3600))
+}
+
+/// Programmatic rate-limit check that can be called from non-middleware paths
+/// (for example, before performing a WebSocket upgrade). It applies the
+/// same counting rules as `rate_limit_middleware` and returns an Err with
+/// `(StatusCode, String)` when the limit is exceeded or on fatal Redis errors.
+pub async fn check_rate_limit<T: RateLimitConfig>(
+    state: &AppState,
+    client_ip: &str,
+    user_id_opt: Option<Uuid>,
+) -> Result<(), (StatusCode, String)> {
+    // determine key and limit
+    let (key, limit) = match T::name() {
+        "API" => {
+            if let Some(user_id) = user_id_opt {
+                (RedisKey::rate_user_auth(user_id), 300)
+            } else {
+                (RedisKey::rate_user_ip(client_ip), 60)
+            }
+        }
+        "Auth" | "Strict" => {
+            if let Some(user_id) = user_id_opt {
+                (RedisKey::rate_user_strict(user_id), 30)
+            } else {
+                (RedisKey::rate_user_ip(client_ip), 30)
+            }
+        }
+        _ => (RedisKey::rate_user_ip(client_ip), 60),
+    };
+
+    match state.redis.get().await {
+        Ok(mut conn) => {
+            // INCR and set EXPIRE to 60s when count == 1
+            let count_res: redis::RedisResult<i64> = conn.incr(&key, 1).await;
+            match count_res {
+                Ok(count) => {
+                    if count == 1 {
+                        let _: redis::RedisResult<bool> = conn.expire(&key, 60).await;
+                    }
+
+                    if count as usize > limit {
+                        return Err((
+                            StatusCode::TOO_MANY_REQUESTS,
+                            "rate limit exceeded".to_string(),
+                        ));
+                    }
+
+                    Ok(())
+                }
+                Err(e) => {
+                    tracing::error!("rate_limit: redis incr error: {}", e);
+                    // fail-open: allow request when Redis has transient errors
+                    Ok(())
+                }
+            }
+        }
+        Err(e) => {
+            tracing::warn!("rate_limit: could not get redis connection: {}", e);
+            // fail-open on missing Redis
+            Ok(())
+        }
+    }
 }
