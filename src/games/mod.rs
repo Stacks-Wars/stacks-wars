@@ -1,42 +1,33 @@
-// Game module: extensible GameState trait and helpers
-
+// Game engine infrastructure
 use crate::errors::AppError;
-use serde::Serialize;
-use serde::de::DeserializeOwned;
+use serde::{Serialize, de::DeserializeOwned};
+use serde_json::Value;
+use uuid::Uuid;
 
-/// Base trait for game-specific state
+/// Base trait for all game actions (client -> server messages)
+/// Each game defines its own action enum that implements this trait
+pub trait GameAction: DeserializeOwned + Send + Sync + 'static {}
+
+/// Base trait for all game events (server -> client messages)
+/// Each game defines its own event enum that implements this trait
+pub trait GameEvent: Serialize + Send + Sync + 'static {}
+
+/// Core game engine trait that all games must implement
 ///
-/// Each game implements this trait to define its own state structure.
-/// Allows the platform to be generic while games can be specific.
-/// ```
-pub trait GameState: Serialize + DeserializeOwned + Clone + Send + Sync {
-    /// Serialize to JSON for Redis storage
-    ///
-    /// Stored in Redis at: `lobbies:{lobby_id}:game_state`
-    fn to_json(&self) -> Result<String, AppError> {
-        serde_json::to_string(self).map_err(|e| AppError::Serialization(e.to_string()))
-    }
+/// Actions and events are passed as JSON Value to avoid trait object issues
+pub trait GameEngine: Send + Sync {
+    /// Handle a player action (as JSON) and return events to broadcast (as JSON)
+    fn handle_action(&mut self, user_id: Uuid, action: Value) -> Result<Vec<Value>, AppError>;
 
-    /// Deserialize from JSON
-    fn from_json(json: &str) -> Result<Self, AppError> {
-        serde_json::from_str(json).map_err(|e| AppError::Deserialization(e.to_string()))
-    }
+    /// Initialize game with player list, return initial events (as JSON)
+    fn initialize(&mut self, player_ids: Vec<Uuid>) -> Result<Vec<Value>, AppError>;
 
-    /// Initialize new game state with default values
-    ///
-    /// Called when a lobby starts a new game.
-    fn initialize() -> Self;
+    /// Game tick for time-based events (called periodically), returns events (as JSON)
+    fn tick(&mut self) -> Result<Vec<Value>, AppError>;
 
-    /// Validate state is consistent
-    ///
-    /// Called before saving to ensure data integrity.
-    /// Return `Err` if state is invalid.
-    fn validate(&self) -> Result<(), AppError>;
-
-    /// Get a human-readable summary of the game state
-    ///
-    /// Useful for debugging and logging.
-    fn summary(&self) -> String {
-        format!("GameState: {}", std::any::type_name::<Self>())
-    }
+    /// Check if game is finished
+    fn is_finished(&self) -> bool;
 }
+
+/// Type of factory function that creates game engine instances
+pub type GameFactory = fn() -> Box<dyn GameEngine>;

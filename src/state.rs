@@ -1,3 +1,4 @@
+use crate::games::GameFactory;
 use axum::extract::ws::{Message, WebSocket};
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
@@ -28,6 +29,7 @@ pub struct AppState {
     pub connections: Connections,
     pub lobby_connections: LobbyConnections,
     pub chat_connections: ChatConnectionInfoMap,
+    pub game_registry: Arc<HashMap<Uuid, GameFactory>>,
     pub redis: RedisClient,
     pub postgres: PgPool,
     pub bot: Bot,
@@ -79,11 +81,15 @@ impl AppState {
         let lobby_connections: LobbyConnections = Default::default();
         let chat_connections: ChatConnectionInfoMap = Default::default();
 
+        // Initialize empty game registry (games register themselves during startup)
+        let game_registry: Arc<HashMap<Uuid, GameFactory>> = Arc::new(HashMap::new());
+
         Ok(Self {
             config,
             connections,
             lobby_connections,
             chat_connections,
+            game_registry,
             redis: redis_pool,
             postgres: postgres_pool,
             bot,

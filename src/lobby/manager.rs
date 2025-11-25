@@ -1,5 +1,5 @@
 // Lobby connection manager helpers
-use crate::lobby::handler::LobbyServerMessage;
+use crate::lobby::messages::LobbyServerMessage;
 use crate::state::{AppState, ConnectionInfo};
 use crate::ws::core::connection;
 use std::collections::HashSet;

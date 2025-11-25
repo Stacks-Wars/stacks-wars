@@ -1,5 +1,4 @@
-use std::{net::SocketAddr, time::Duration};
-
+use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 use tokio::sync::oneshot;
 
 use testcontainers_modules::postgres::Postgres;
@@ -390,8 +389,10 @@ pub async fn spawn_app_with_containers() -> TestApp {
 
     let state = stacks_wars_be::state::AppState {
         config,
+        lobby_connections: Default::default(),
         connections: Default::default(),
         chat_connections: Default::default(),
+        game_registry: Arc::new(HashMap::new()),
         redis: redis_pool,
         postgres: pg_pool.clone(),
         bot,

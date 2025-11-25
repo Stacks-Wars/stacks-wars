@@ -11,10 +11,10 @@ use crate::middleware::check_rate_limit;
 use crate::state::AppState;
 use std::net::SocketAddr;
 
-pub use crate::lobby::handler::messages::{LobbyClientMessage, LobbyServerMessage};
+pub use crate::lobby::messages::{LobbyClientMessage, LobbyServerMessage};
 
 /// Lobby websocket entrypoint - upgrades an HTTP request to a websocket and
-/// forwards the socket to the handler loop in `lobby::handler::websocket`.
+/// forwards the socket to the handler loop in `lobby::websocket`.
 pub async fn lobby_ws_handler(
     ws: WebSocketUpgrade,
     Path(lobby_id): Path<uuid::Uuid>,
@@ -32,6 +32,6 @@ pub async fn lobby_ws_handler(
     }
 
     Ok(ws.on_upgrade(move |socket| {
-        crate::lobby::handler::websocket::handle_socket(socket, lobby_id, auth_user_id, state)
+        crate::lobby::websocket::handle_socket(socket, lobby_id, auth_user_id, state)
     }))
 }
