@@ -44,14 +44,11 @@ impl GameRepository {
         }
 
         // Create new game
-        let game_id = Uuid::new_v4();
-
         let game = sqlx::query_as::<_, Game>(
-            "INSERT INTO games (id, name, description, image_url, min_players, max_players, category, creator_id, is_active)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE)
+            "INSERT INTO games (name, description, image_url, min_players, max_players, category, creator_id, is_active)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
             RETURNING id, name, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
         )
-        .bind(game_id)
         .bind(&name)
         .bind(&description)
         .bind(&image_url)
