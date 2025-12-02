@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+	<body>
+		<input id="msg" placeholder="Type message..." />
+		<button onclick="send()">Send</button>
+		<ul id="chat"></ul>
+
+		<script>
+			const socket = new WebSocket("ws://localhost:3001/ws");
+
+			socket.onmessage = (event) => {
+				const li = document.createElement("li");
+				li.textContent = event.data;
+				document.getElementById("chat").appendChild(li);
+			};
+
+			function send() {
+				const val = document.getElementById("msg").value;
+				socket.send(val);
+			}
+		</script>
+	</body>
+</html>
