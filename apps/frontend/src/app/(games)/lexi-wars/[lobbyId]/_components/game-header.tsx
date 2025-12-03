@@ -2,14 +2,14 @@ import { Brain } from "lucide-react";
 
 export default function GameHeader() {
 	return (
-		<div className="w-full border rounded-xl shadow-sm bg-primary/30">
+		<div className="bg-primary/30 w-full rounded-xl border shadow-sm">
 			<div className="flex items-center justify-between gap-2 p-3 sm:p-4">
 				<div className="flex items-center gap-2 sm:gap-3">
-					<div className="size-12 rounded-full bg-primary/10 flex items-center justify-center">
-						<Brain className="size-6 text-primary" />
+					<div className="bg-primary/10 flex size-12 items-center justify-center rounded-full">
+						<Brain className="text-primary size-6" />
 					</div>
 					<div>
-						<p className="font-medium text-xl">Lexi War</p>
+						<p className="text-xl font-medium">Lexi War</p>
 						<p className="text-muted-foreground text-sm">
 							Word Battle Royale
 						</p>

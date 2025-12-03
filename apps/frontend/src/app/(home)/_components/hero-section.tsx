@@ -4,8 +4,8 @@ import Link from "next/link";
 
 export default function HeroSection() {
 	return (
-		<section className="w-full min-h-dvh pb-12 flex items-center bg-primary/30 snap-start">
-			<div className="max-w-7xl mx-auto px-4 md:px-6">
+		<section className="bg-primary/30 flex min-h-dvh w-full snap-start items-center pb-12">
+			<div className="mx-auto max-w-7xl px-4 md:px-6">
 				<div className="grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-12 xl:grid-cols-[1fr_600px]">
 					<Image
 						src="/hero.webp?height=550&width=550"
@@ -19,7 +19,7 @@ export default function HeroSection() {
 							<h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none">
 								Try Out Our First Featured Game!
 							</h1>
-							<p className="max-w-[600px] text-muted-foreground md:text-xl">
+							<p className="text-muted-foreground max-w-[600px] md:text-xl">
 								Experience the thrill of Stacks Wars with our
 								first game. Dive in, test your skills, and claim
 								victory!

@@ -97,20 +97,20 @@ export default function Chat() {
 	};
 
 	return (
-		<div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-7xl pointer-events-none">
+		<div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 mx-auto max-w-7xl">
 			<div className="relative w-full">
 				<Dialog open={open} onOpenChange={setOpen}>
 					<DialogTrigger asChild>
 						<Button
 							variant="outline"
-							className="absolute right-6 bottom-6 rounded-full size-12 p-4 shadow-lg bg-gradient-to-r from-primary/10 to-primary/20 border-primary/20 hover:from-primary/20 hover:to-primary/30 backdrop-blur-sm group pointer-events-auto"
+							className="from-primary/10 to-primary/20 border-primary/20 hover:from-primary/20 hover:to-primary/30 group pointer-events-auto absolute right-6 bottom-6 size-12 rounded-full bg-gradient-to-r p-4 shadow-lg backdrop-blur-sm"
 						>
 							<div className="relative">
-								<FiMessageCircle className="size-6 rounded-full text-primary group-hover:scale-110 transition-transform" />
+								<FiMessageCircle className="text-primary size-6 rounded-full transition-transform group-hover:scale-110" />
 								{unreadCount > 0 && (
 									<Badge
 										variant="destructive"
-										className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 flex items-center justify-center text-xs font-semibold animate-pulse"
+										className="absolute -top-2 -right-2 flex h-6 w-6 animate-pulse items-center justify-center rounded-full p-0 text-xs font-semibold"
 									>
 										{unreadCount > 99 ? "99+" : unreadCount}
 									</Badge>
@@ -125,11 +125,11 @@ export default function Chat() {
 
 					<DialogContent
 						className={cn(
-							"p-0 gap-0 rounded-xl overflow-hidden border-primary/30 transition-all duration-300 sm:max-w-lg w-full max-h-[85vh]"
+							"border-primary/30 max-h-[85vh] w-full gap-0 overflow-hidden rounded-xl p-0 transition-all duration-300 sm:max-w-lg"
 						)}
 						hideClose
 					>
-						<DialogHeader className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground px-6 py-4 border-b border-primary/30">
+						<DialogHeader className="from-primary to-primary/80 text-primary-foreground border-primary/30 border-b bg-gradient-to-r px-6 py-4">
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-3">
 									<Users className="h-5 w-5" />
@@ -137,7 +137,7 @@ export default function Chat() {
 										<DialogTitle className="text-lg font-semibold">
 											Game Chat
 										</DialogTitle>
-										<DialogDescription className="text-sm text-primary-foreground/80">
+										<DialogDescription className="text-primary-foreground/80 text-sm">
 											{messages.length} messages •{" "}
 											{
 												new Set(
@@ -178,21 +178,21 @@ export default function Chat() {
 							</div>
 						</DialogHeader>
 
-						<div className="flex flex-col bg-background/95 backdrop-blur-sm h-full">
+						<div className="bg-background/95 flex h-full flex-col backdrop-blur-sm">
 							<ScrollArea
-								className={cn("w-full px-4 py-3 h-[400px]")}
+								className={cn("h-[400px] w-full px-4 py-3")}
 								ref={viewportRef}
 							>
 								{!chatPermitted ? (
 									<div
 										className={cn(
-											"flex flex-col items-center justify-center h-full gap-4 min-h-72"
+											"flex h-full min-h-72 flex-col items-center justify-center gap-4"
 										)}
 									>
-										<div className="bg-primary/10 p-6 rounded-full">
-											<FiMessageCircle className="h-12 w-12 text-primary" />
+										<div className="bg-primary/10 rounded-full p-6">
+											<FiMessageCircle className="text-primary h-12 w-12" />
 										</div>
-										<div className="text-center space-y-1">
+										<div className="space-y-1 text-center">
 											<h3 className="text-lg font-medium">
 												Chat is not availble
 											</h3>
@@ -205,13 +205,13 @@ export default function Chat() {
 								) : messages.length === 0 ? (
 									<div
 										className={cn(
-											"flex flex-col items-center justify-center h-full gap-4 min-h-72"
+											"flex h-full min-h-72 flex-col items-center justify-center gap-4"
 										)}
 									>
-										<div className="bg-primary/10 p-6 rounded-full">
-											<FiMessageCircle className="h-12 w-12 text-primary" />
+										<div className="bg-primary/10 rounded-full p-6">
+											<FiMessageCircle className="text-primary h-12 w-12" />
 										</div>
-										<div className="text-center space-y-1">
+										<div className="space-y-1 text-center">
 											<h3 className="text-lg font-medium">
 												No messages yet
 											</h3>
@@ -294,7 +294,7 @@ export default function Chat() {
 													>
 														{showSenderInfo &&
 															!isOwnMessage && (
-																<span className="text-xs font-medium text-foreground mb-1">
+																<span className="text-foreground mb-1 text-xs font-medium">
 																	{getDisplayName(
 																		msg.sender
 																	)}
@@ -304,11 +304,11 @@ export default function Chat() {
 														<div
 															className={cn(
 																"rounded-xl px-4 py-2 text-sm shadow-sm",
-																"break-words break-all hyphens-auto overflow-wrap-anywhere whitespace-pre-wrap",
+																"overflow-wrap-anywhere break-words break-all hyphens-auto whitespace-pre-wrap",
 																"max-w-full",
 																isOwnMessage
 																	? "bg-primary text-primary-foreground rounded-br-none"
-																	: "bg-muted text-foreground rounded-bl-none border border-muted-foreground/10"
+																	: "bg-muted text-foreground border-muted-foreground/10 rounded-bl-none border"
 															)}
 														>
 															{msg.text}
@@ -317,7 +317,7 @@ export default function Chat() {
 														{isLastFromSender && (
 															<span
 																className={cn(
-																	"text-xs text-muted-foreground mt-1 px-1",
+																	"text-muted-foreground mt-1 px-1 text-xs",
 																	isOwnMessage
 																		? "text-right"
 																		: "text-left"
@@ -339,7 +339,7 @@ export default function Chat() {
 							{chatPermitted && (
 								<div
 									className={cn(
-										"border-t border-primary/20 bg-background p-4"
+										"border-primary/20 bg-background border-t p-4"
 									)}
 								>
 									<form
@@ -349,7 +349,7 @@ export default function Chat() {
 										}}
 										className="flex items-end gap-3"
 									>
-										<div className="flex-1 relative min-w-0">
+										<div className="relative min-w-0 flex-1">
 											<Input
 												ref={inputRef}
 												value={input}
@@ -366,7 +366,7 @@ export default function Chat() {
 													readyState !==
 													WebSocket.OPEN
 												}
-												className="pr-12 bg-background border-primary/30 focus:border-primary/50 focus:ring-primary/20 break-all"
+												className="bg-background border-primary/30 focus:border-primary/50 focus:ring-primary/20 pr-12 break-all"
 												maxLength={500}
 												onKeyDown={(e) => {
 													if (
@@ -378,7 +378,7 @@ export default function Chat() {
 													}
 												}}
 											/>
-											<div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+											<div className="text-muted-foreground absolute top-1/2 right-3 -translate-y-1/2 text-xs">
 												{input.length}/500
 											</div>
 										</div>
@@ -392,7 +392,7 @@ export default function Chat() {
 														readyState !==
 															WebSocket.OPEN
 													}
-													className="bg-primary hover:bg-primary/90 shrink-0 h-10 w-10"
+													className="bg-primary hover:bg-primary/90 h-10 w-10 shrink-0"
 												>
 													<SendHorizonal className="h-4 w-4" />
 													<span className="sr-only">

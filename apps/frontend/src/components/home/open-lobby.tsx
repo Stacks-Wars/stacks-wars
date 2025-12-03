@@ -17,7 +17,7 @@ export default function OpenLobby({ lobby }: OpenLobbyProps) {
 			{isConnected ? (
 				<Button
 					variant={"default"}
-					className="w-full gap-1.5 "
+					className="w-full gap-1.5"
 					onClick={() => router.push(`/lobby/${lobby.id}`)}
 				>
 					{lobby.state === "waiting"
@@ -35,11 +35,11 @@ export default function OpenLobby({ lobby }: OpenLobbyProps) {
 					onClick={handleConnect}
 					type="button"
 					disabled={isConnecting}
-					className="w-full gap-1.5 "
+					className="w-full gap-1.5"
 				>
 					{isConnecting && (
 						<Loader
-							className="h-4 w-4 mr-1 animate-spin"
+							className="mr-1 h-4 w-4 animate-spin"
 							size={17}
 						/>
 					)}

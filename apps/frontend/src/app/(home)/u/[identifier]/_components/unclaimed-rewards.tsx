@@ -139,9 +139,9 @@ export default function UnclaimedRewards({ userId }: { userId: string }) {
 						Unclaimed Rewards
 					</CardTitle>
 				</CardHeader>
-				<CardContent className="text-center py-8">
+				<CardContent className="py-8 text-center">
 					<div className="text-muted-foreground">
-						<Trophy className="h-12 w-12 mx-auto mb-2 opacity-50" />
+						<Trophy className="mx-auto mb-2 h-12 w-12 opacity-50" />
 						<p>No unclaimed rewards</p>
 						<p className="text-sm">
 							All your rewards have been claimed!
@@ -171,11 +171,11 @@ export default function UnclaimedRewards({ userId }: { userId: string }) {
 						lobby.rank && (
 							<div
 								key={lobby.id}
-								className="flex items-center justify-between p-4 border rounded-lg bg-muted/50"
+								className="bg-muted/50 flex items-center justify-between rounded-lg border p-4"
 							>
-								<div className="flex-1 min-w-0">
-									<div className="flex items-center gap-2 mb-1">
-										<h4 className="font-medium truncate">
+								<div className="min-w-0 flex-1">
+									<div className="mb-1 flex items-center gap-2">
+										<h4 className="truncate font-medium">
 											{lobby.name}
 										</h4>
 										<Badge
@@ -185,12 +185,12 @@ export default function UnclaimedRewards({ userId }: { userId: string }) {
 											{getRankIcon(lobby.rank)}
 										</Badge>
 									</div>
-									<div className="flex items-center gap-4 text-sm text-muted-foreground">
+									<div className="text-muted-foreground flex items-center gap-4 text-sm">
 										<div className="flex items-center gap-1">
 											<Clock className="h-3 w-3" />
 											{formatDate(lobby.createdAt)}
 										</div>
-										<div className="text-green-600 font-medium">
+										<div className="font-medium text-green-600">
 											+
 											{formatNumber(
 												lobby.prizeAmount || 0
@@ -206,12 +206,12 @@ export default function UnclaimedRewards({ userId }: { userId: string }) {
 								>
 									{claimingLobby === lobby.id ? (
 										<>
-											<Loader2 className="h-4 w-4 animate-spin mr-2" />
+											<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 											Claiming...
 										</>
 									) : (
 										<>
-											<Gift className="h-4 w-4 mr-2" />
+											<Gift className="mr-2 h-4 w-4" />
 											Claim
 										</>
 									)}

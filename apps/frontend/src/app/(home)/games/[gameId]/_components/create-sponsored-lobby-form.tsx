@@ -749,13 +749,13 @@ export default function CreateSponsoredLobbyForm({
 																				token.contract
 																			}
 																		>
-																			<div className="flex items-center justify-between w-full">
+																			<div className="flex w-full items-center justify-between">
 																				<span>
 																					{
 																						token.symbol
 																					}
 																				</span>
-																				<span className="text-xs text-muted-foreground ml-2 font-mono">
+																				<span className="text-muted-foreground ml-2 font-mono text-xs">
 																					{formatNumber(
 																						parseInt(
 																							token.balance
@@ -854,7 +854,7 @@ export default function CreateSponsoredLobbyForm({
 									/>
 								</div>
 
-								<p className="text-sm text-muted-foreground">
+								<p className="text-muted-foreground text-sm">
 									This is the total prize pool you&apos;ll
 									sponsor. Players can join for free.
 									{selectedTokenMetadata && (
@@ -889,7 +889,7 @@ export default function CreateSponsoredLobbyForm({
 								>
 									{isConnecting && (
 										<Loader
-											className="h-4 w-4 mr-1 animate-spin"
+											className="mr-1 h-4 w-4 animate-spin"
 											size={17}
 										/>
 									)}
@@ -901,7 +901,7 @@ export default function CreateSponsoredLobbyForm({
 								<Button type="submit" disabled={isLoading}>
 									{isLoading && (
 										<Loader
-											className="h-4 w-4 mr-1 animate-spin"
+											className="mr-1 h-4 w-4 animate-spin"
 											size={17}
 										/>
 									)}

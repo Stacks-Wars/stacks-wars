@@ -514,7 +514,7 @@ export default function CreateLobbyForm({ gameId }: CreateLobbyFormProps) {
 								control={form.control}
 								name="withPool"
 								render={({ field }) => (
-									<FormItem className="flex flex-row items-center space-x-2 space-y-0">
+									<FormItem className="flex flex-row items-center space-y-0 space-x-2">
 										<FormControl>
 											<Switch
 												checked={field.value}
@@ -578,7 +578,7 @@ export default function CreateLobbyForm({ gameId }: CreateLobbyFormProps) {
 								>
 									{isConnecting && (
 										<Loader
-											className="h-4 w-4 mr-1 animate-spin"
+											className="mr-1 h-4 w-4 animate-spin"
 											size={17}
 										/>
 									)}
@@ -590,7 +590,7 @@ export default function CreateLobbyForm({ gameId }: CreateLobbyFormProps) {
 								<Button type="submit" disabled={isLoading}>
 									{isLoading && (
 										<Loader
-											className="h-4 w-4 mr-1 animate-spin"
+											className="mr-1 h-4 w-4 animate-spin"
 											size={17}
 										/>
 									)}

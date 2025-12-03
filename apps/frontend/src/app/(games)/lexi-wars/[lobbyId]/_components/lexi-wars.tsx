@@ -225,8 +225,8 @@ export default function LexiWars({ lobbyId, userId, lobby }: LexiWarsProps) {
 	}
 
 	return (
-		<main className="min-h-screen bg-gradient-to-b from-background to-primary/30">
-			<div className="max-w-3xl mx-auto p-4 sm:p-6 ">
+		<main className="from-background to-primary/30 min-h-screen bg-gradient-to-b">
+			<div className="mx-auto max-w-3xl p-4 sm:p-6">
 				<div className="flex justify-between">
 					<Back
 						isOut={
@@ -252,7 +252,7 @@ export default function LexiWars({ lobbyId, userId, lobby }: LexiWarsProps) {
 					{((turnState.currentPlayer &&
 						turnState.currentPlayer.id === userId) ||
 						isSpectator) && <GameRule currentRule={rule} />}
-					<div className="border border-primary/10 p-3 sm:p-4 bg-primary/10 rounded-xl shadow-sm space-y-4 sm:space-y-5">
+					<div className="border-primary/10 bg-primary/10 space-y-4 rounded-xl border p-3 shadow-sm sm:space-y-5 sm:p-4">
 						<TurnIndicator
 							currentPlayer={turnState.currentPlayer}
 							userId={userId}
@@ -269,15 +269,15 @@ export default function LexiWars({ lobbyId, userId, lobby }: LexiWarsProps) {
 				</div>
 
 				{playersCount && (
-					<div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-10 max-w-3xl w-full px-4">
-						<div className="flex items-center justify-around gap-4 p-3 bg-primary/10 border border-primary/30 rounded-lg shadow-lg">
-							<span className="text-sm font-medium text-muted-foreground">
+					<div className="fixed bottom-6 left-1/2 z-10 w-full max-w-3xl -translate-x-1/2 transform px-4">
+						<div className="bg-primary/10 border-primary/30 flex items-center justify-around gap-4 rounded-lg border p-3 shadow-lg">
+							<span className="text-muted-foreground text-sm font-medium">
 								Total Players:{" "}
 								<span className="text-foreground font-bold">
 									{playersCount.connectedPlayers}
 								</span>
 							</span>
-							<span className="text-sm font-medium text-muted-foreground">
+							<span className="text-muted-foreground text-sm font-medium">
 								Still Playing:{" "}
 								<span className="text-foreground font-bold">
 									{playersCount.remainingPlayers}

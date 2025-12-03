@@ -20,22 +20,22 @@ export default function NotFound({ page }: { page?: string }) {
 	};
 
 	return (
-		<div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-primary/30">
-			<div className="text-center space-y-8 px-4">
+		<div className="from-background to-primary/30 flex min-h-screen items-center justify-center bg-gradient-to-b">
+			<div className="space-y-8 px-4 text-center">
 				{/* Error Code */}
 				<div className="space-y-2">
-					<h1 className="text-8xl font-bold text-primary/20">404</h1>
-					<h2 className="text-2xl sm:text-3xl font-bold text-foreground">
+					<h1 className="text-primary/20 text-8xl font-bold">404</h1>
+					<h2 className="text-foreground text-2xl font-bold sm:text-3xl">
 						{page ? page : "Page Not Found or Lobby does not exist"}
 					</h2>
-					<p className="text-muted-foreground max-w-md mx-auto">
+					<p className="text-muted-foreground mx-auto max-w-md">
 						Sorry, we couldn&apos;t find the page you&apos;re
 						looking for. It might have been moved, deleted, or
 						doesn&apos;t exist.
 					</p>
 				</div>
 
-				<div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+				<div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
 					<Button
 						onClick={handleGoBack}
 						variant="outline"
@@ -60,8 +60,8 @@ export default function NotFound({ page }: { page?: string }) {
 					</Button>
 				</div>
 
-				<div className="pt-4 border-t border-primary/20">
-					<p className="text-sm text-muted-foreground">
+				<div className="border-primary/20 border-t pt-4">
+					<p className="text-muted-foreground text-sm">
 						If you believe this is an error, please contact support
 						or try refreshing the page.
 					</p>

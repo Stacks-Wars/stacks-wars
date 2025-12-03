@@ -301,7 +301,7 @@ export default function JoinLobbyForm({
 						}
 					>
 						{(loading || joinState === "pending") && (
-							<Loader2 className="mr-2 h-4 w-4 animate-spin shrink-0" />
+							<Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
 						)}
 						<span className="truncate">{getButtonText()}</span>
 					</Button>
@@ -314,7 +314,7 @@ export default function JoinLobbyForm({
 			>
 				<DialogContent className="sm:max-w-[425px]">
 					<DialogHeader>
-						<DialogTitle className="flex items-center gap-2 text-destructive">
+						<DialogTitle className="text-destructive flex items-center gap-2">
 							<AlertTriangle className="h-5 w-5" />
 							{isCreator
 								? "Confirm Delete Lobby"

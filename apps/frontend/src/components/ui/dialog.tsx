@@ -67,8 +67,9 @@ function DialogOverlay({
 	);
 }
 
-interface DialogContentProps
-	extends React.ComponentProps<typeof DialogPrimitive.Content> {
+interface DialogContentProps extends React.ComponentProps<
+	typeof DialogPrimitive.Content
+> {
 	hideClose?: boolean;
 	disableOutsideClose?: boolean;
 }

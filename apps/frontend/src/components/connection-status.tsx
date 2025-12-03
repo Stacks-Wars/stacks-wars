@@ -56,10 +56,10 @@ export default function ConnectionStatus({
 						<Button
 							variant="ghost"
 							size="sm"
-							className="h-5 px-2 text-xs text-red-500 hover:text-red-600 hover:bg-red-50"
+							className="h-5 px-2 text-xs text-red-500 hover:bg-red-50 hover:text-red-600"
 							onClick={onReconnect}
 						>
-							<RefreshCw className="h-3 w-3 mr-1" />
+							<RefreshCw className="mr-1 h-3 w-3" />
 							retry
 						</Button>
 					)}

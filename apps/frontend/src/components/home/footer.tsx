@@ -2,9 +2,9 @@
 
 export default function Footer() {
 	return (
-		<footer className="w-full border-t py-6 md:py-0 bg-primary/30">
-			<div className=" flex items-center justify-center gap-4 md:h-24">
-				<p className="text-center text-sm leading-loose text-muted-foreground md:text-left w-fit">
+		<footer className="bg-primary/30 w-full border-t py-6 md:py-0">
+			<div className="flex items-center justify-center gap-4 md:h-24">
+				<p className="text-muted-foreground w-fit text-center text-sm leading-loose md:text-left">
 					© {new Date().getFullYear()} Stacks Wars. All rights
 					reserved.
 				</p>

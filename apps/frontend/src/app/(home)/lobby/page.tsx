@@ -105,13 +105,13 @@ export default function LobbyPage() {
 	return (
 		<>
 			<section className="w-full py-12 md:py-24 lg:py-32">
-				<div className="max-w-5xl mx-auto px-4 md:px-6">
-					<div className="flex flex-col items-start gap-4 md:flex-row md:justify-between md:items-center">
+				<div className="mx-auto max-w-5xl px-4 md:px-6">
+					<div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
 						<div>
 							<h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
 								Lobbies
 							</h1>
-							<p className="mt-2 text-muted-foreground">
+							<p className="text-muted-foreground mt-2">
 								Join a lobby to Battle
 								{showPagination && (
 									<span className="ml-2">
@@ -153,7 +153,7 @@ export default function LobbyPage() {
 									{filterOptions.map((option) => (
 										<div
 											key={option.value}
-											className="flex items-center space-x-2 px-2 py-1.5 hover:bg-accent rounded-sm"
+											className="hover:bg-accent flex items-center space-x-2 rounded-sm px-2 py-1.5"
 										>
 											<Checkbox
 												id={option.value}
@@ -172,7 +172,7 @@ export default function LobbyPage() {
 											/>
 											<label
 												htmlFor={option.value}
-												className="text-sm font-medium cursor-pointer"
+												className="cursor-pointer text-sm font-medium"
 											>
 												{option.label}
 											</label>
@@ -191,8 +191,8 @@ export default function LobbyPage() {
 					{isRefetching ? (
 						<div className="flex items-center justify-center py-16">
 							<div className="flex flex-col items-center gap-2">
-								<Loader2 className="h-8 w-8 animate-spin text-primary" />
-								<p className="text-sm text-muted-foreground font-medium">
+								<Loader2 className="text-primary h-8 w-8 animate-spin" />
+								<p className="text-muted-foreground text-sm font-medium">
 									Updating lobbies...
 								</p>
 							</div>
@@ -204,7 +204,7 @@ export default function LobbyPage() {
 					)}
 
 					{showPagination && (
-						<div className="flex justify-center items-center gap-4 mt-8">
+						<div className="mt-8 flex items-center justify-center gap-4">
 							<Button
 								variant="outline"
 								size="sm"
@@ -216,7 +216,7 @@ export default function LobbyPage() {
 								Previous
 							</Button>
 
-							<span className="text-sm text-muted-foreground px-2">
+							<span className="text-muted-foreground px-2 text-sm">
 								Page {currentPage}
 							</span>
 

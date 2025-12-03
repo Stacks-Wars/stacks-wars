@@ -17,30 +17,30 @@ export default function Loading({
 	onForceReconnect,
 }: LoadingProps) {
 	return (
-		<main className="min-h-screen bg-gradient-to-b from-background to-primary/30">
-			<div className="max-w-3xl mx-auto p-4 sm:p-6">
-				<div className="min-h-[70vh] flex flex-col items-center justify-center space-y-8">
+		<main className="from-background to-primary/30 min-h-screen bg-gradient-to-b">
+			<div className="mx-auto max-w-3xl p-4 sm:p-6">
+				<div className="flex min-h-[70vh] flex-col items-center justify-center space-y-8">
 					<div className="animate-bounce">
 						<Image
 							src="/logos/lexi-wars.webp"
 							alt="Lexi Wars"
 							width={300}
 							height={300}
-							className="w-48 h-48 sm:w-64 sm:h-64 md:w-72 md:h-72"
+							className="h-48 w-48 sm:h-64 sm:w-64 md:h-72 md:w-72"
 							//priority
 						/>
 					</div>
 
 					{/* Loading Content */}
-					<div className="text-center space-y-4">
+					<div className="space-y-4 text-center">
 						<div className="space-y-2">
-							<h2 className="text-2xl sm:text-3xl font-bold text-foreground">
+							<h2 className="text-foreground text-2xl font-bold sm:text-3xl">
 								Preparing Battle Arena
 							</h2>
 							{startCountdown !== undefined && (
-								<p className="text-lg sm:text-xl text-muted-foreground">
+								<p className="text-muted-foreground text-lg sm:text-xl">
 									Game starting in{" "}
-									<span className="font-semibold text-primary">
+									<span className="text-primary font-semibold">
 										{startCountdown}
 									</span>{" "}
 									seconds
@@ -56,16 +56,16 @@ export default function Loading({
 									latency={latency ?? null}
 									reconnecting={reconnecting ?? false}
 									onReconnect={onForceReconnect}
-									className="px-3 py-2 rounded-lg bg-background/50 border border-primary/20"
+									className="bg-background/50 border-primary/20 rounded-lg border px-3 py-2"
 								/>
 							</div>
 						)}
 
 						{/* Game Tip */}
-						<div className="mt-8 p-4 bg-primary/10 rounded-lg border border-primary/20 max-w-md mx-auto">
+						<div className="bg-primary/10 border-primary/20 mx-auto mt-8 max-w-md rounded-lg border p-4">
 							{readyState !== undefined &&
 							readyState !== WebSocket.OPEN ? (
-								<p className="text-sm text-muted-foreground">
+								<p className="text-muted-foreground text-sm">
 									<span className="font-semibold text-yellow-400">
 										⚠️ Connection Issue:
 									</span>
@@ -74,8 +74,8 @@ export default function Loading({
 									button above or refresh the page.
 								</p>
 							) : (
-								<p className="text-sm text-muted-foreground">
-									<span className="font-semibold text-primary">
+								<p className="text-muted-foreground text-sm">
+									<span className="text-primary font-semibold">
 										💡 Game Tip:
 									</span>
 									<br />
@@ -87,9 +87,9 @@ export default function Loading({
 					</div>
 
 					<div className="flex space-x-2">
-						<div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-						<div className="w-2 h-2 bg-primary rounded-full animate-pulse delay-75"></div>
-						<div className="w-2 h-2 bg-primary rounded-full animate-pulse delay-150"></div>
+						<div className="bg-primary h-2 w-2 animate-pulse rounded-full"></div>
+						<div className="bg-primary h-2 w-2 animate-pulse rounded-full delay-75"></div>
+						<div className="bg-primary h-2 w-2 animate-pulse rounded-full delay-150"></div>
 					</div>
 				</div>
 			</div>

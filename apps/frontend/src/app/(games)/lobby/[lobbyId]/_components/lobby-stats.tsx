@@ -11,19 +11,19 @@ interface LobbyStatsProps {
 
 export default function LobbyStats({ lobby, players }: LobbyStatsProps) {
 	return (
-		<div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+		<div className="xs:grid-cols-2 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
 			{lobby.entryAmount !== null && (
-				<Card className="bg-card/50 backdrop-blur-sm border-primary/10 hover:border-primary/20 transition-colors">
+				<Card className="bg-card/50 border-primary/10 hover:border-primary/20 backdrop-blur-sm transition-colors">
 					<CardContent className="p-3 sm:p-4 md:p-6">
 						<div className="flex items-center gap-2 sm:gap-3 md:gap-4">
-							<div className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-								<Trophy className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-primary" />
+							<div className="bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full sm:h-10 sm:w-10 md:h-12 md:w-12">
+								<Trophy className="text-primary h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
 							</div>
 							<div className="min-w-0 flex-1">
-								<p className="text-xs sm:text-sm font-medium text-muted-foreground">
+								<p className="text-muted-foreground text-xs font-medium sm:text-sm">
 									Pool Size
 								</p>
-								<p className="text-base sm:text-xl md:text-2xl font-bold truncate">
+								<p className="truncate text-base font-bold sm:text-xl md:text-2xl">
 									{formatNumber(
 										lobby.entryAmount !== 0
 											? lobby.entryAmount * players.length
@@ -37,17 +37,17 @@ export default function LobbyStats({ lobby, players }: LobbyStatsProps) {
 				</Card>
 			)}
 
-			<Card className="bg-card/50 backdrop-blur-sm border-primary/10 hover:border-primary/20 transition-colors">
+			<Card className="bg-card/50 border-primary/10 hover:border-primary/20 backdrop-blur-sm transition-colors">
 				<CardContent className="p-3 sm:p-4 md:p-6">
 					<div className="flex items-center gap-2 sm:gap-3 md:gap-4">
-						<div className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-							<Users className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-primary" />
+						<div className="bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full sm:h-10 sm:w-10 md:h-12 md:w-12">
+							<Users className="text-primary h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
 						</div>
 						<div className="min-w-0 flex-1">
-							<p className="text-xs sm:text-sm font-medium text-muted-foreground">
+							<p className="text-muted-foreground text-xs font-medium sm:text-sm">
 								Players
 							</p>
-							<p className="text-base sm:text-xl md:text-2xl font-bold">
+							<p className="text-base font-bold sm:text-xl md:text-2xl">
 								{players.length}
 							</p>
 						</div>
@@ -55,20 +55,20 @@ export default function LobbyStats({ lobby, players }: LobbyStatsProps) {
 				</CardContent>
 			</Card>
 
-			<Card className="bg-card/50 backdrop-blur-sm border-primary/10 hover:border-primary/20 transition-colors xs:col-span-2 sm:col-span-1">
+			<Card className="bg-card/50 border-primary/10 hover:border-primary/20 xs:col-span-2 backdrop-blur-sm transition-colors sm:col-span-1">
 				<CardContent className="p-3 sm:p-4 md:p-6">
 					<div className="flex items-center gap-2 sm:gap-3 md:gap-4">
-						<div className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-							<Gamepad2 className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-primary" />
+						<div className="bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full sm:h-10 sm:w-10 md:h-12 md:w-12">
+							<Gamepad2 className="text-primary h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
 						</div>
 						<div className="min-w-0 flex-1">
-							<p className="text-xs sm:text-sm font-medium text-muted-foreground">
+							<p className="text-muted-foreground text-xs font-medium sm:text-sm">
 								Game
 							</p>
-							<p className="text-base sm:text-xl md:text-2xl font-bold truncate">
+							<p className="truncate text-base font-bold sm:text-xl md:text-2xl">
 								{lobby.name}
 							</p>
-							<p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 break-words">
+							<p className="text-muted-foreground line-clamp-2 text-xs break-words sm:text-sm">
 								{lobby.description}
 							</p>
 						</div>

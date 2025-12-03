@@ -21,7 +21,7 @@ export default function GameCard({ game }: { game: GameType }) {
 		<Card className="bg-primary/30">
 			<div className="sm:grid sm:grid-cols-[1fr_300px]">
 				<div>
-					<CardHeader className="flex justify-between items-start">
+					<CardHeader className="flex items-start justify-between">
 						<CardTitle className="text-2xl">{game.name}</CardTitle>
 						<CardDescription className="mt-1">
 							{game.tags &&
@@ -65,7 +65,7 @@ export default function GameCard({ game }: { game: GameType }) {
 						</div>
 					</CardFooter>
 				</div>
-				<div className="relative hidden sm:block mr-6">
+				<div className="relative mr-6 hidden sm:block">
 					<Image
 						src={game.imageUrl}
 						alt={game.name}
@@ -75,7 +75,7 @@ export default function GameCard({ game }: { game: GameType }) {
 						loading="lazy"
 					/>
 				</div>
-				<div className="sm:hidden mt-4">
+				<div className="mt-4 sm:hidden">
 					<Image
 						src={game.imageUrl}
 						alt={game.name}

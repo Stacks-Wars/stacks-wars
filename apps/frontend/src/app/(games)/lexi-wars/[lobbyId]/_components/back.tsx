@@ -33,7 +33,7 @@ export default function Back({
 			{isOut || isSpectator ? (
 				<Button
 					variant={"link"}
-					className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-4 sm:mb-6"
+					className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1 text-sm font-medium transition-colors sm:mb-6"
 					onClick={() => {
 						disconnect();
 						disconnectChat();
@@ -48,13 +48,13 @@ export default function Back({
 					<DialogTrigger asChild>
 						<Button
 							variant={"link"}
-							className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-4 sm:mb-6"
+							className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1 text-sm font-medium transition-colors sm:mb-6"
 						>
 							<ArrowLeft className="h-4 w-4" />
 							<span>Quit game</span>
 						</Button>
 					</DialogTrigger>
-					<DialogContent className="bg-gradient-to-b from-primary/90 to-primary/70 border-0 text-white">
+					<DialogContent className="from-primary/90 to-primary/70 border-0 bg-gradient-to-b text-white">
 						<DialogHeader>
 							<DialogTitle>
 								Are you sure you want to quit?

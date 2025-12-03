@@ -167,20 +167,20 @@ export default function ProfileEdit({ user }: ProfileEditProps) {
 
 						{/* Show validation error if any */}
 						{username && !isUsernameValid && (
-							<p className="text-sm text-destructive">
+							<p className="text-destructive text-sm">
 								{validateUsername(username)}
 							</p>
 						)}
 
 						<div className="space-y-1">
-							<p className="text-sm text-muted-foreground">
+							<p className="text-muted-foreground text-sm">
 								Add a username to make your profile easier to
 								find
 							</p>
-							<p className="text-sm text-muted-foreground">
+							<p className="text-muted-foreground text-sm">
 								Username cannot be changed once set
 							</p>
-							<p className="text-xs text-muted-foreground">
+							<p className="text-muted-foreground text-xs">
 								3-20 characters, letters, numbers, underscore,
 								and hyphen only
 							</p>
@@ -190,7 +190,7 @@ export default function ProfileEdit({ user }: ProfileEditProps) {
 					<div className="space-y-2">
 						<Label>Username</Label>
 						<Input value={`@${user.username}`} disabled />
-						<p className="text-sm text-muted-foreground">
+						<p className="text-muted-foreground text-sm">
 							Username cannot be changed once set
 						</p>
 					</div>
@@ -244,7 +244,7 @@ export default function ProfileEdit({ user }: ProfileEditProps) {
 							</Button>
 						</div>
 					)}
-					<p className="text-sm text-muted-foreground">
+					<p className="text-muted-foreground text-sm">
 						Your display name is shown to other players
 					</p>
 				</div>

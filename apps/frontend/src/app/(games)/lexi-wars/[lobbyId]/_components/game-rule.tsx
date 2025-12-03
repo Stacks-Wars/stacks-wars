@@ -54,18 +54,18 @@ export default function GameRule({ currentRule }: GameRuleProps) {
 	const shouldHideRule = !isPageVisible || !isWindowFocused;
 
 	return (
-		<div className="bg-primary/10 border rounded-xl select-none">
-			<div className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4">
-				<div className="size-12 rounded-full bg-primary/10 flex items-center justify-center">
-					<User className="size-6 text-primary" />
+		<div className="bg-primary/10 rounded-xl border select-none">
+			<div className="flex items-center gap-2 p-3 sm:gap-3 sm:p-4">
+				<div className="bg-primary/10 flex size-12 items-center justify-center rounded-full">
+					<User className="text-primary size-6" />
 				</div>
 				<div>
-					<p className="text-base text-primary font-medium select-none">
+					<p className="text-primary text-base font-medium select-none">
 						Current Rule
 					</p>
 					<p
-						className={`text-sm font-bold select-none unselectable transition-all duration-300 ${
-							shouldHideRule ? "blur-lg opacity-30" : ""
+						className={`unselectable text-sm font-bold transition-all duration-300 select-none ${
+							shouldHideRule ? "opacity-30 blur-lg" : ""
 						}`}
 						onCopy={(e) => {
 							e.preventDefault();
@@ -74,7 +74,7 @@ export default function GameRule({ currentRule }: GameRuleProps) {
 						{shouldHideRule ? "••••••••••••••••••••" : currentRule}
 					</p>
 					{shouldHideRule && (
-						<p className="text-xs text-muted-foreground mt-1">
+						<p className="text-muted-foreground mt-1 text-xs">
 							Rule hidden - focus on game to continue
 						</p>
 					)}

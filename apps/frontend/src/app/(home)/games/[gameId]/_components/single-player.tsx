@@ -24,8 +24,8 @@ export default function SinglePlayer({ game }: { game: GameType | null }) {
 			</CardHeader>
 			<CardContent className="space-y-4">
 				<div className="text-muted-foreground">
-					<h3 className="font-semibold mb-2">Features:</h3>
-					<ul className="list-disc list-inside space-y-1">
+					<h3 className="mb-2 font-semibold">Features:</h3>
+					<ul className="list-inside list-disc space-y-1">
 						<li>Unlimited practice time</li>
 						<li>No entry fees required</li>
 						<li>Track your personal high scores</li>

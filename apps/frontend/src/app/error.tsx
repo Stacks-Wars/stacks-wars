@@ -26,23 +26,23 @@ export default function GlobalError({
 	};
 
 	return (
-		<div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-primary/30">
-			<div className="text-center space-y-8 px-4">
+		<div className="from-background to-primary/30 flex min-h-screen items-center justify-center bg-gradient-to-b">
+			<div className="space-y-8 px-4 text-center">
 				{/* Error Code */}
 				<div className="space-y-2">
-					<h1 className="text-8xl font-bold text-destructive/20">
+					<h1 className="text-destructive/20 text-8xl font-bold">
 						500
 					</h1>
-					<h2 className="text-2xl sm:text-3xl font-bold text-foreground">
+					<h2 className="text-foreground text-2xl font-bold sm:text-3xl">
 						Something Went Wrong
 					</h2>
-					<p className="text-muted-foreground max-w-md mx-auto">
+					<p className="text-muted-foreground mx-auto max-w-md">
 						An unexpected error occurred. We&apos;re working on it,
 						but you can try refreshing or head back home.
 					</p>
 				</div>
 
-				<div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+				<div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
 					<Button
 						onClick={handleRefresh}
 						variant="outline"
@@ -58,10 +58,10 @@ export default function GlobalError({
 					</Button>
 				</div>
 
-				<div className="pt-4 border-t border-destructive/30">
-					<p className="text-sm text-muted-foreground">
+				<div className="border-destructive/30 border-t pt-4">
+					<p className="text-muted-foreground text-sm">
 						If the problem persists, please report it or check back
-						later. <Bug className="inline h-4 w-4 ml-1" />
+						later. <Bug className="ml-1 inline h-4 w-4" />
 					</p>
 				</div>
 			</div>
