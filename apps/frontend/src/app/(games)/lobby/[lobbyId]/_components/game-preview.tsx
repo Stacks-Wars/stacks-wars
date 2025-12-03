@@ -12,7 +12,7 @@ import Image from "next/image";
 
 export default function GamePreview({ game }: { game: GameType }) {
 	return (
-		<Card className="overflow-hidden bg-primary/10">
+		<Card className="bg-primary/10 overflow-hidden">
 			<CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
 				<CardTitle className="text-sm sm:text-base">
 					Game Preview
@@ -24,12 +24,12 @@ export default function GamePreview({ game }: { game: GameType }) {
 					width={500}
 					height={300}
 					alt="Game preview"
-					className="w-full h-auto object-cover"
+					className="h-auto w-full object-cover"
 					priority={false}
 				/>
 			</CardContent>
-			<CardFooter className="flex justify-between p-3 sm:p-4 bg-muted/30">
-				<p className="text-xs sm:text-sm font-medium">{game.name}</p>
+			<CardFooter className="bg-muted/30 flex justify-between p-3 sm:p-4">
+				<p className="text-xs font-medium sm:text-sm">{game.name}</p>
 				{/*<Button
 					variant="ghost"
 					size="sm"

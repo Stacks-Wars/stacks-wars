@@ -11,10 +11,10 @@ export default function Lobbies({ lobbies }: { lobbies: LobbyExtended[] }) {
 			{lobbies.map((lobby) => (
 				<Card
 					key={lobby.lobby.id}
-					className="overflow-hidden bg-primary/30"
+					className="bg-primary/30 overflow-hidden"
 				>
 					<ActiveLobbyHeader lobby={lobby.lobby} />
-					<div className="flex flex-col justify-between h-full">
+					<div className="flex h-full flex-col justify-between">
 						<CardContent className="pb-3">
 							<div className="grid gap-2">
 								<div className="flex justify-between">
@@ -51,12 +51,12 @@ export default function Lobbies({ lobbies }: { lobbies: LobbyExtended[] }) {
 										</span>
 									</div>
 								)}
-								<div className="flex justify-between items-center">
+								<div className="flex items-center justify-between">
 									<span className="text-muted-foreground">
 										Players:
 									</span>
 									<div className="flex items-center gap-1">
-										<Users className="h-4 w-4 text-muted-foreground" />
+										<Users className="text-muted-foreground h-4 w-4" />
 										<span className="font-medium">
 											{lobby.lobby.participants}
 											{/*/{lobby.maxPlayers}*/}

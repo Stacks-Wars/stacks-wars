@@ -130,17 +130,17 @@ export default function ClaimRewardModal({
 				disableOutsideClose
 			>
 				<DialogHeader>
-					<DialogTitle className="flex items-center gap-2 justify-center text-xl">
+					<DialogTitle className="flex items-center justify-center gap-2 text-xl">
 						{hasPrize ? "🏆 Congratulations!" : "🎮 Game Complete!"}
 					</DialogTitle>
-					<DialogDescription className="text-center space-y-2">
+					<DialogDescription className="space-y-2 text-center">
 						{rank && (
 							<div>
 								Your rank: <strong>{rank}</strong>
 							</div>
 						)}
 						{hasPrize && (
-							<div className="text-green-600 font-semibold">
+							<div className="font-semibold text-green-600">
 								🎉 You won{" "}
 								<strong>
 									{formatNumber(prizeAmount)}{" "}

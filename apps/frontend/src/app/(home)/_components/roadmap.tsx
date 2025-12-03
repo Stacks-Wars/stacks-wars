@@ -159,14 +159,14 @@ const phases = [
 
 export default function Roadmap() {
 	return (
-		<section className="w-full min-h-dvh flex justify-center items-center bg-primary/30 snap-start">
-			<div className="max-w-fit px-4 md:px-6 py-12">
+		<section className="bg-primary/30 flex min-h-dvh w-full snap-start items-center justify-center">
+			<div className="max-w-fit px-4 py-12 md:px-6">
 				<div className="flex flex-col items-center justify-center space-y-4 text-center">
 					<div className="space-y-2">
 						<h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">
 							Roadmap
 						</h2>
-						<p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+						<p className="text-muted-foreground max-w-[900px] md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
 							Our journey to revolutionize blockchain gaming
 						</p>
 					</div>
@@ -176,25 +176,25 @@ export default function Roadmap() {
 				<Accordion
 					type="single"
 					collapsible
-					className="max-w-5xl space-y-4 w-full py-12"
+					className="w-full max-w-5xl space-y-4 py-12"
 				>
 					{phases.map((phase) => (
 						<AccordionItem
 							key={phase.id}
 							value={phase.id}
-							className="border rounded-lg bg-card w-full"
+							className="bg-card w-full rounded-lg border"
 						>
-							<AccordionTrigger className="md:px-6 px-4 gap-0 [&>svg]:shrink-0">
-								<div className="flex items-center justify-between w-full gap-4 text-left">
+							<AccordionTrigger className="gap-0 px-4 md:px-6 [&>svg]:shrink-0">
+								<div className="flex w-full items-center justify-between gap-4 text-left">
 									<div className="flex items-center gap-4">
-										<div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+										<div className="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-full">
 											{phase.icon}
 										</div>
 										<div>
 											<h3 className="font-semibold">
 												{phase.title}
 											</h3>
-											<p className="text-sm text-muted-foreground">
+											<p className="text-muted-foreground text-sm">
 												{phase.description}
 											</p>
 										</div>

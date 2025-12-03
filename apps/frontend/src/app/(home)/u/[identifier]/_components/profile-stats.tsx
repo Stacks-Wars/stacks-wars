@@ -41,7 +41,7 @@ export default function ProfileStats({ profile }: ProfileStatsProps) {
 	const lossCount = profile.totalMatch - profile.totalWins;
 
 	return (
-		<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+		<div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
 			<Card>
 				<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 					<CardTitle className="text-sm font-medium">
@@ -50,11 +50,11 @@ export default function ProfileStats({ profile }: ProfileStatsProps) {
 					<Trophy className="h-4 w-4 text-yellow-500" />
 				</CardHeader>
 				<CardContent>
-					<div className="text-2xl font-bold flex items-center gap-2">
+					<div className="flex items-center gap-2 text-2xl font-bold">
 						<span>#{profile.rank}</span>
 						<span>{getRankIcon(profile.rank)}</span>
 					</div>
-					<p className="text-xs text-muted-foreground">
+					<p className="text-muted-foreground text-xs">
 						Global ranking
 					</p>
 				</CardContent>
@@ -65,13 +65,13 @@ export default function ProfileStats({ profile }: ProfileStatsProps) {
 					<CardTitle className="text-sm font-medium">
 						Win Rate
 					</CardTitle>
-					<Target className="h-4 w-4 text-primary" />
+					<Target className="text-primary h-4 w-4" />
 				</CardHeader>
 				<CardContent>
 					<div className="text-2xl font-bold">
 						{profile.winRate.toFixed(1)}%
 					</div>
-					<p className="text-xs text-muted-foreground">
+					<p className="text-muted-foreground text-xs">
 						{profile.totalWins}W - {lossCount}L
 					</p>
 				</CardContent>
@@ -82,13 +82,13 @@ export default function ProfileStats({ profile }: ProfileStatsProps) {
 					<CardTitle className="text-sm font-medium">
 						Total Matches
 					</CardTitle>
-					<div className="h-4 w-4 rounded-full bg-primary/20" />
+					<div className="bg-primary/20 h-4 w-4 rounded-full" />
 				</CardHeader>
 				<CardContent>
 					<div className="text-2xl font-bold">
 						{profile.totalMatch}
 					</div>
-					<p className="text-xs text-muted-foreground">
+					<p className="text-muted-foreground text-xs">
 						Games played
 					</p>
 				</CardContent>
@@ -107,7 +107,7 @@ export default function ProfileStats({ profile }: ProfileStatsProps) {
 					>
 						{formatPnL(profile.pnl)}
 					</div>
-					<p className="text-xs text-muted-foreground">
+					<p className="text-muted-foreground text-xs">
 						Net earnings
 					</p>
 				</CardContent>

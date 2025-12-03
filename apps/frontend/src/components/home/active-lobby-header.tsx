@@ -15,7 +15,7 @@ export default function ActiveLobbyHeader({ lobby }: LobbyProps) {
 
 	return (
 		<CardHeader className="pb-3">
-			<div className="flex justify-between items-start">
+			<div className="flex items-start justify-between">
 				<CardTitle>{lobby.name}</CardTitle>
 				<div className="flex items-center gap-2">
 					{/*<Badge
@@ -41,7 +41,7 @@ export default function ActiveLobbyHeader({ lobby }: LobbyProps) {
 					</Badge>
 				</div>
 			</div>
-			<CardDescription className="flex gap-1 justify-between items-center">
+			<CardDescription className="flex items-center justify-between gap-1">
 				<p>
 					Created by{" "}
 					{lobby.creator.username ||

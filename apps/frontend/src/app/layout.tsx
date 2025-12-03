@@ -176,7 +176,7 @@ export default function RootLayout({
 					enableSystem
 					disableTransitionOnChange={false}
 				>
-					<div className="flex flex-col min-h-screen">{children}</div>
+					<div className="flex min-h-screen flex-col">{children}</div>
 					<Toaster richColors position="top-right" />
 				</ThemeProvider>
 				<SpeedInsights />

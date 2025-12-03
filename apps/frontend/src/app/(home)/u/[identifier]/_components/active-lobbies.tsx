@@ -95,7 +95,7 @@ export default function ActiveLobbies({ identifier }: ActiveLobbiesProps) {
 			<Card>
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
-						<Gamepad2 className="h-5 w-5 text-primary" />
+						<Gamepad2 className="text-primary h-5 w-5" />
 						Active Lobbies
 					</CardTitle>
 				</CardHeader>
@@ -111,13 +111,13 @@ export default function ActiveLobbies({ identifier }: ActiveLobbiesProps) {
 			<Card>
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
-						<Gamepad2 className="h-5 w-5 text-primary" />
+						<Gamepad2 className="text-primary h-5 w-5" />
 						Active Lobbies
 					</CardTitle>
 				</CardHeader>
-				<CardContent className="text-center py-8">
+				<CardContent className="py-8 text-center">
 					<div className="text-muted-foreground">
-						<Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
+						<Users className="mx-auto mb-2 h-12 w-12 opacity-50" />
 						<p>No active lobbies</p>
 						<p className="text-sm">
 							This player is not currently in any games
@@ -132,7 +132,7 @@ export default function ActiveLobbies({ identifier }: ActiveLobbiesProps) {
 		<Card>
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2">
-					<Gamepad2 className="h-5 w-5 text-primary" />
+					<Gamepad2 className="text-primary h-5 w-5" />
 					Active Lobbies
 					<Badge variant="secondary" className="ml-auto">
 						{activeLobbies.length}
@@ -143,11 +143,11 @@ export default function ActiveLobbies({ identifier }: ActiveLobbiesProps) {
 				{activeLobbies.map((lobby) => (
 					<div
 						key={lobby.id}
-						className="flex items-center justify-between p-4 border rounded-lg bg-muted/50 hover:bg-muted/80 transition-colors"
+						className="bg-muted/50 hover:bg-muted/80 flex items-center justify-between rounded-lg border p-4 transition-colors"
 					>
-						<div className="flex-1 min-w-0">
-							<div className="flex items-center gap-2 mb-2">
-								<h4 className="font-medium truncate">
+						<div className="min-w-0 flex-1">
+							<div className="mb-2 flex items-center gap-2">
+								<h4 className="truncate font-medium">
 									{lobby.name}
 								</h4>
 								<Badge
@@ -163,7 +163,7 @@ export default function ActiveLobbies({ identifier }: ActiveLobbiesProps) {
 								</Badge>
 							</div>
 
-							<div className="flex items-center gap-4 text-sm text-muted-foreground">
+							<div className="text-muted-foreground flex items-center gap-4 text-sm">
 								<div className="flex items-center gap-1">
 									<Gamepad2 className="h-3 w-3" />
 									{getGameDisplayName(lobby.game.name)}
@@ -177,7 +177,7 @@ export default function ActiveLobbies({ identifier }: ActiveLobbiesProps) {
 									{formatDate(lobby.createdAt)}
 								</div>
 								{lobby.entryAmount && (
-									<div className="text-green-600 font-medium">
+									<div className="font-medium text-green-600">
 										{formatNumber(lobby.entryAmount)}{" "}
 										{lobby.tokenSymbol}
 									</div>
@@ -185,7 +185,7 @@ export default function ActiveLobbies({ identifier }: ActiveLobbiesProps) {
 							</div>
 
 							{lobby.description && (
-								<p className="text-sm text-muted-foreground mt-1 truncate">
+								<p className="text-muted-foreground mt-1 truncate text-sm">
 									{lobby.description}
 								</p>
 							)}
@@ -193,7 +193,7 @@ export default function ActiveLobbies({ identifier }: ActiveLobbiesProps) {
 
 						<Link href={`/lobby/${lobby.id}`}>
 							<Button variant="outline" className="shrink-0">
-								<ExternalLink className="h-4 w-4 mr-2" />
+								<ExternalLink className="mr-2 h-4 w-4" />
 								View Lobby
 							</Button>
 						</Link>

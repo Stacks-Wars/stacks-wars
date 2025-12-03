@@ -49,9 +49,9 @@ export default function ConnectWallet() {
 				disabled={isConnecting}
 			>
 				{isConnecting ? (
-					<Loader className="size-4 mr-1 animate-spin" />
+					<Loader className="mr-1 size-4 animate-spin" />
 				) : (
-					<Wallet2 className="size-4 mr-1" />
+					<Wallet2 className="mr-1 size-4" />
 				)}
 				{isConnecting ? "Connecting..." : "Connect wallet"}
 			</Button>
@@ -85,19 +85,19 @@ export default function ConnectWallet() {
 					onClick={handleProfileClick}
 					className="cursor-pointer"
 				>
-					<User className="size-4 mr-2" />
+					<User className="mr-2 size-4" />
 					Profile
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem
 					onClick={handleDisconnectClick}
-					className="cursor-pointer text-destructive focus:text-destructive"
+					className="text-destructive focus:text-destructive cursor-pointer"
 					disabled={isConnecting}
 				>
 					{isConnecting ? (
-						<Loader className="size-4 mr-2 animate-spin" />
+						<Loader className="mr-2 size-4 animate-spin" />
 					) : (
-						<LogOut className="size-4 mr-2" />
+						<LogOut className="mr-2 size-4" />
 					)}
 					Disconnect Wallet
 				</DropdownMenuItem>

@@ -23,7 +23,7 @@ export default async function CreateGame({
 		<div className="mx-auto max-w-3xl px-4 py-4 sm:px-6 sm:py-6">
 			<Link
 				href="/games"
-				className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-4 sm:mb-6"
+				className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1 text-sm font-medium transition-colors sm:mb-6"
 			>
 				<ArrowLeft className="h-4 w-4" />
 				<span>Back to Games</span>

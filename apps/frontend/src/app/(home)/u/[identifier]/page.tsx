@@ -29,7 +29,7 @@ export default async function ProfilePage({
 		const isOwner = currentUserId === userProfile.user.id;
 
 		return (
-			<div className="container mx-auto px-4 py-8 max-w-4xl">
+			<div className="container mx-auto max-w-4xl px-4 py-8">
 				<div className="space-y-6">
 					<ProfileHeader user={userProfile.user} isOwner={isOwner} />
 					<ProfileStats profile={userProfile} />

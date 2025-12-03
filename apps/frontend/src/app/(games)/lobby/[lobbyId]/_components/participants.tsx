@@ -117,11 +117,11 @@ export default function Participants({
 	};
 
 	return (
-		<Card className="overflow-hidden bg-primary/10">
+		<Card className="bg-primary/10 overflow-hidden">
 			<CardHeader className="bg-muted/30 p-4 pb-3 sm:p-6 sm:pb-4">
-				<div className="flex items-center justify-between min-w-0">
-					<CardTitle className="flex items-center gap-2 text-base sm:text-lg min-w-0 flex-1">
-						<Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground shrink-0" />
+				<div className="flex min-w-0 items-center justify-between">
+					<CardTitle className="flex min-w-0 flex-1 items-center gap-2 text-base sm:text-lg">
+						<Users className="text-muted-foreground h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
 						<span className="truncate">Current Participants</span>
 					</CardTitle>
 					{/*{userId !== lobby.creator.id &&
@@ -173,26 +173,26 @@ export default function Participants({
 								return (
 									<div
 										key={index}
-										className="flex justify-between items-center p-2 sm:p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors min-w-0"
+										className="bg-muted/30 hover:bg-muted/50 flex min-w-0 items-center justify-between rounded-lg p-2 transition-colors sm:p-3"
 									>
-										<div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-											<div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-												<UserIcon className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+										<div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+											<div className="bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full sm:h-10 sm:w-10">
+												<UserIcon className="text-primary h-4 w-4 sm:h-5 sm:w-5" />
 											</div>
 											<div className="min-w-0 flex-1">
-												<div className="flex items-center gap-2 flex-wrap">
+												<div className="flex flex-wrap items-center gap-2">
 													<Link
 														href={`/u/${identifier}`}
-														className="flex flex-col truncate "
+														className="flex flex-col truncate"
 													>
-														<span className="text-sm sm:text-base font-medium truncate hover:underline">
+														<span className="truncate text-sm font-medium hover:underline sm:text-base">
 															{displayName}
 														</span>
 														{(player.user
 															.displayName ||
 															player.user
 																.username) && (
-															<span className="text-xs text-muted-foreground truncate hover:underline">
+															<span className="text-muted-foreground truncate text-xs hover:underline">
 																{truncateAddress(
 																	player.user
 																		.walletAddress
@@ -200,14 +200,14 @@ export default function Participants({
 															</span>
 														)}
 													</Link>
-													<div className="flex items-center gap-1 flex-wrap shrink-0">
+													<div className="flex shrink-0 flex-wrap items-center gap-1">
 														{isCreator && (
-															<span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary whitespace-nowrap">
+															<span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs whitespace-nowrap">
 																Creator
 															</span>
 														)}
 														{isSelf && (
-															<span className="text-xs px-2 py-0.5 rounded-full bg-accent/90 whitespace-nowrap">
+															<span className="bg-accent/90 rounded-full px-2 py-0.5 text-xs whitespace-nowrap">
 																You
 															</span>
 														)}
@@ -225,7 +225,7 @@ export default function Participants({
 																: "Not Ready"}
 														</span>*/}
 														<span
-															className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
+															className={`rounded-full px-2 py-0.5 text-xs whitespace-nowrap ${
 																isActive
 																	? "bg-emerald-500/10 text-emerald-500"
 																	: "bg-red-500/10 text-red-500"
@@ -239,11 +239,11 @@ export default function Participants({
 												</div>
 											</div>
 										</div>
-										<div className="shrink-0 ml-2 flex items-center gap-2">
+										<div className="ml-2 flex shrink-0 items-center gap-2">
 											{player.txId &&
 												lobby.entryAmount !== null && (
 													<div className="flex flex-col items-end gap-1">
-														<span className="text-sm sm:text-base font-bold whitespace-nowrap">
+														<span className="text-sm font-bold whitespace-nowrap sm:text-base">
 															{formatNumber(
 																isCreator &&
 																	lobby.entryAmount ===
@@ -258,12 +258,12 @@ export default function Participants({
 														<Button
 															variant={"link"}
 															asChild
-															className="!p-0 text-right h-auto text-xs"
+															className="h-auto !p-0 text-right text-xs"
 														>
 															<Link
 																href={`${EXPLORER_BASE_URL}txid/${player.txId}?chain=${network}`}
 																target="_blank"
-																className="truncate max-w-[80px] sm:max-w-none"
+																className="max-w-[80px] truncate sm:max-w-none"
 															>
 																<span className="hidden sm:inline">
 																	View in
@@ -291,7 +291,7 @@ export default function Participants({
 													}
 												>
 													{isKicking && (
-														<Loader2 className="h-4 w-4 mr-2 animate-spin" />
+														<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 													)}
 													Kick
 												</Button>
@@ -303,7 +303,7 @@ export default function Participants({
 						</div>
 						{pendingPlayers.length > 0 && (
 							<>
-								<h4 className="text-sm sm:text-base mt-6 mb-2 text-muted-foreground font-semibold">
+								<h4 className="text-muted-foreground mt-6 mb-2 text-sm font-semibold sm:text-base">
 									Pending Join Requests
 								</h4>
 								<div className="space-y-2 sm:space-y-3">
@@ -321,18 +321,18 @@ export default function Participants({
 										return (
 											<div
 												key={pendingplayer.user.id}
-												className="flex justify-between items-center p-2 sm:p-3 rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors min-w-0"
+												className="bg-muted/20 hover:bg-muted/40 flex min-w-0 items-center justify-between rounded-lg p-2 transition-colors sm:p-3"
 											>
-												<div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-													<div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-														<UserIcon className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+												<div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+													<div className="bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full sm:h-10 sm:w-10">
+														<UserIcon className="text-primary h-4 w-4 sm:h-5 sm:w-5" />
 													</div>
 													<div className="min-w-0 flex-1">
 														<Link
 															href={`/u/${identifier}`}
-															className="flex flex-col truncate "
+															className="flex flex-col truncate"
 														>
-															<span className="text-sm sm:text-base font-medium truncate hover:underline">
+															<span className="truncate text-sm font-medium hover:underline sm:text-base">
 																{displayName}
 															</span>
 															{(pendingplayer.user
@@ -340,7 +340,7 @@ export default function Participants({
 																pendingplayer
 																	.user
 																	.username) && (
-																<span className="text-xs text-muted-foreground truncate hover:underline">
+																<span className="text-muted-foreground truncate text-xs hover:underline">
 																	{truncateAddress(
 																		pendingplayer
 																			.user
@@ -349,14 +349,14 @@ export default function Participants({
 																</span>
 															)}
 														</Link>
-														<p className="text-xs text-muted-foreground">
+														<p className="text-muted-foreground text-xs">
 															Requesting to join
 														</p>
 													</div>
 												</div>
 												{userId ===
 													lobby.creator.id && (
-													<div className="flex gap-2 shrink-0 ml-2">
+													<div className="ml-2 flex shrink-0 gap-2">
 														<Button
 															size="sm"
 															variant="outline"
@@ -373,7 +373,7 @@ export default function Participants({
 															}
 														>
 															{isHandlingJoin && (
-																<Loader2 className="h-4 w-4 mr-2 animate-spin" />
+																<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 															)}
 															Accept
 														</Button>
@@ -393,7 +393,7 @@ export default function Participants({
 															}
 														>
 															{isHandlingJoin && (
-																<Loader2 className="h-4 w-4 mr-2 animate-spin" />
+																<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 															)}
 															Decline
 														</Button>
@@ -407,14 +407,14 @@ export default function Participants({
 						)}
 					</>
 				) : (
-					<div className="flex flex-col items-center justify-center py-6 sm:py-8 text-center">
-						<div className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-muted/50 flex items-center justify-center mb-3 sm:mb-4">
-							<Users className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
+					<div className="flex flex-col items-center justify-center py-6 text-center sm:py-8">
+						<div className="bg-muted/50 mb-3 flex h-12 w-12 items-center justify-center rounded-full sm:mb-4 sm:h-16 sm:w-16">
+							<Users className="text-muted-foreground h-6 w-6 sm:h-8 sm:w-8" />
 						</div>
-						<h3 className="text-base sm:text-lg font-medium mb-1">
+						<h3 className="mb-1 text-base font-medium sm:text-lg">
 							No participants yet
 						</h3>
-						<p className="text-xs sm:text-sm text-muted-foreground max-w-xs break-words">
+						<p className="text-muted-foreground max-w-xs text-xs break-words sm:text-sm">
 							Trust me something is wrong if you see this. Where
 							da creator at?
 						</p>

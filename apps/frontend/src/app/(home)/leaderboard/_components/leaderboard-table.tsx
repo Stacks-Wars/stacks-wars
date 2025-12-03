@@ -91,7 +91,7 @@ export default function LeaderboardTable({ data }: LeaderboardTableProps) {
 				const rank = row.getValue("rank") as number;
 				return (
 					<div className="flex items-center justify-center">
-						<div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-center font-semibold">
+						<div className="bg-muted flex h-8 w-8 items-center justify-center rounded-full text-center font-semibold">
 							{getRankIcon(rank)}
 						</div>
 					</div>
@@ -112,19 +112,19 @@ export default function LeaderboardTable({ data }: LeaderboardTableProps) {
 				return (
 					<Link
 						href={`/u/${identifier}`}
-						className="flex items-center space-x-3 "
+						className="flex items-center space-x-3"
 					>
 						<Avatar className="h-8 w-8">
 							<AvatarFallback className="bg-primary/10">
 								{displayName.charAt(0).toUpperCase()}
 							</AvatarFallback>
 						</Avatar>
-						<div className="min-w-0 flex-1 ">
-							<p className="text-sm font-medium leading-none truncate hover:underline">
+						<div className="min-w-0 flex-1">
+							<p className="truncate text-sm leading-none font-medium hover:underline">
 								{displayName}
 							</p>
 							{(user.displayName || user.username) && (
-								<p className="text-xs text-muted-foreground truncate hover:underline">
+								<p className="text-muted-foreground truncate text-xs hover:underline">
 									{truncateAddress(user.walletAddress)}
 								</p>
 							)}
@@ -179,7 +179,7 @@ export default function LeaderboardTable({ data }: LeaderboardTableProps) {
 				return (
 					<div className="text-center">
 						<div className="text-sm font-medium">{totalMatch}</div>
-						<div className="text-xs text-muted-foreground">
+						<div className="text-muted-foreground text-xs">
 							{totalWins}W - {totalMatch - totalWins}L
 						</div>
 					</div>
@@ -255,7 +255,7 @@ export default function LeaderboardTable({ data }: LeaderboardTableProps) {
 	});
 
 	return (
-		<Card className="w-full bg-primary/30">
+		<Card className="bg-primary/30 w-full">
 			<CardHeader className="flex flex-col space-y-4 pb-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
 				<CardTitle className="flex items-center gap-2">
 					<Trophy className="h-5 w-5 text-yellow-500" />
@@ -263,12 +263,12 @@ export default function LeaderboardTable({ data }: LeaderboardTableProps) {
 				</CardTitle>
 				<div className="flex items-center space-x-2">
 					<div className="relative w-full sm:w-[250px]">
-						<Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+						<Search className="text-muted-foreground absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2" />
 						<Input
 							placeholder="Search by wallet, username..."
 							value={globalFilter ?? ""}
 							onChange={(e) => setGlobalFilter(e.target.value)}
-							className="pl-8 w-full"
+							className="w-full pl-8"
 						/>
 					</div>
 				</div>
@@ -333,8 +333,8 @@ export default function LeaderboardTable({ data }: LeaderboardTableProps) {
 
 				{/* Pagination */}
 				{table.getPageCount() > 1 && (
-					<div className="flex items-center justify-between space-x-2 py-4 px-6 border-t">
-						<div className="text-sm text-muted-foreground">
+					<div className="flex items-center justify-between space-x-2 border-t px-6 py-4">
+						<div className="text-muted-foreground text-sm">
 							Showing {table.getState().pagination.pageIndex + 1}{" "}
 							of {table.getPageCount()} pages
 						</div>

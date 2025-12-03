@@ -9,7 +9,7 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
 	return (
 		<ConnectUserProvider>
-			<main className="flex-1 bg-primary/10">
+			<main className="bg-primary/10 flex-1">
 				<ChatSocketProvider>
 					{children}
 					<Chat />

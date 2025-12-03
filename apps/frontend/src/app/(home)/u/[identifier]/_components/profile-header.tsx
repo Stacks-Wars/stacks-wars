@@ -38,30 +38,30 @@ export default function ProfileHeader({ user, isOwner }: ProfileHeaderProps) {
 	};
 
 	return (
-		<Card className="bg-gradient-to-r from-primary/10 to-primary/5">
+		<Card className="from-primary/10 to-primary/5 bg-gradient-to-r">
 			<CardContent className="p-6">
-				<div className="flex flex-col sm:flex-row items-center gap-6">
-					<Avatar className="h-24 w-24 border-4 border-background">
+				<div className="flex flex-col items-center gap-6 sm:flex-row">
+					<Avatar className="border-background h-24 w-24 border-4">
 						<AvatarFallback className="bg-primary/20 text-2xl font-bold">
 							{displayName.charAt(0).toUpperCase()}
 						</AvatarFallback>
 					</Avatar>
 
-					<div className="flex-1 text-center sm:text-left space-y-2">
+					<div className="flex-1 space-y-2 text-center sm:text-left">
 						<div className="space-y-1">
 							<h1 className="text-3xl font-bold tracking-tight">
 								{displayName}
 							</h1>
 							{user.username && user.displayName && (
-								<p className="text-lg text-muted-foreground">
+								<p className="text-muted-foreground text-lg">
 									@{user.username}
 								</p>
 							)}
 						</div>
 
-						<div className="flex flex-col sm:flex-row items-center gap-2">
+						<div className="flex flex-col items-center gap-2 sm:flex-row">
 							<div
-								className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-lg cursor-pointer hover:bg-muted/80 transition-colors"
+								className="bg-muted hover:bg-muted/80 flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 transition-colors"
 								onClick={copyToClipboard}
 							>
 								<span className="font-mono text-sm">
@@ -70,7 +70,7 @@ export default function ProfileHeader({ user, isOwner }: ProfileHeaderProps) {
 								{copied ? (
 									<Check className="h-4 w-4 text-green-500" />
 								) : (
-									<Copy className="h-4 w-4 text-muted-foreground" />
+									<Copy className="text-muted-foreground h-4 w-4" />
 								)}
 							</div>
 

@@ -98,29 +98,29 @@ export default function LobbyDetails({
 	const isParticipant = players.some((p) => p.id === userId);
 
 	return (
-		<Card className="overflow-hidden bg-primary/10">
+		<Card className="bg-primary/10 overflow-hidden">
 			<CardHeader className="bg-muted/30 p-4 pb-3 sm:p-6 sm:pb-4">
 				<CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-					<Info className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground shrink-0" />
+					<Info className="text-muted-foreground h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
 					<span className="truncate">Lobby Details</span>
 				</CardTitle>
 			</CardHeader>
 			<CardContent className="p-4 sm:p-6">
 				<div className="mt-3">
-					<h3 className="text-xs sm:text-sm font-medium text-muted-foreground mb-2 sm:mb-3">
+					<h3 className="text-muted-foreground mb-2 text-xs font-medium sm:mb-3 sm:text-sm">
 						Created by
 					</h3>
-					<div className="flex justify-between items-center p-2 sm:p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-						<div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-							<div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-								<User className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+					<div className="bg-muted/30 hover:bg-muted/50 flex items-center justify-between rounded-lg p-2 transition-colors sm:p-3">
+						<div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+							<div className="bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full sm:h-10 sm:w-10">
+								<User className="text-primary h-4 w-4 sm:h-5 sm:w-5" />
 							</div>
 							<div className="min-w-0 flex-1">
 								<Link
 									href={`/u/${identifier}`}
-									className="flex flex-col truncate w-fit"
+									className="flex w-fit flex-col truncate"
 								>
-									<span className="text-sm sm:text-base font-medium truncate hover:underline">
+									<span className="truncate text-sm font-medium hover:underline sm:text-base">
 										{creator?.user.displayName ||
 											creator?.user.username ||
 											truncateAddress(
@@ -130,7 +130,7 @@ export default function LobbyDetails({
 									</span>
 									{(creator?.user.displayName ||
 										creator?.user.username) && (
-										<span className="text-xs text-muted-foreground truncate hover:underline">
+										<span className="text-muted-foreground truncate text-xs hover:underline">
 											{truncateAddress(
 												creator.user.walletAddress
 											)}
@@ -140,7 +140,7 @@ export default function LobbyDetails({
 							</div>
 						</div>
 						{lobby.contractAddress && (
-							<div className="shrink-0 ml-2">
+							<div className="ml-2 shrink-0">
 								<Button
 									variant={"link"}
 									asChild
@@ -150,7 +150,7 @@ export default function LobbyDetails({
 									<Link
 										href={`${EXPLORER_BASE_URL}txid/${lobby.contractAddress}?chain=${network}`}
 										target="_blank"
-										className="truncate max-w-[100px] sm:max-w-none"
+										className="max-w-[100px] truncate sm:max-w-none"
 									>
 										<span className="hidden sm:inline">
 											View Pool Contract
@@ -167,10 +167,10 @@ export default function LobbyDetails({
 
 				{/* Countdown Timer */}
 				{lobbyState === "starting" && (
-					<div className="mt-6 p-4 rounded-md bg-muted/40 border border-muted">
+					<div className="bg-muted/40 border-muted mt-6 rounded-md border p-4">
 						<div className="flex items-center justify-center gap-2 text-center">
-							<Timer className="h-5 w-5 text-muted-foreground shrink-0" />
-							<span className="text-sm sm:text-lg md:text-xl font-semibold text-primary">
+							<Timer className="text-muted-foreground h-5 w-5 shrink-0" />
+							<span className="text-primary text-sm font-semibold sm:text-lg md:text-xl">
 								Game starting in {countdown} seconds
 							</span>
 						</div>
@@ -178,15 +178,15 @@ export default function LobbyDetails({
 				)}
 
 				{lobbyState === "inProgress" && (
-					<div className="mt-6 p-4 rounded-md bg-muted/40 border border-muted space-y-3">
+					<div className="bg-muted/40 border-muted mt-6 space-y-3 rounded-md border p-4">
 						<div className="flex items-center justify-center gap-2 text-center">
-							<Info className="h-5 w-5 text-muted-foreground shrink-0" />
-							<span className="text-sm sm:text-lg md:text-xl font-semibold text-primary">
+							<Info className="text-muted-foreground h-5 w-5 shrink-0" />
+							<span className="text-primary text-sm font-semibold sm:text-lg md:text-xl">
 								This game has already started.
 							</span>
 						</div>
-						<div className="text-center space-y-2">
-							<span className="text-xs sm:text-sm text-muted-foreground block">
+						<div className="space-y-2 text-center">
+							<span className="text-muted-foreground block text-xs sm:text-sm">
 								You can spectate this ongoing game.
 							</span>
 							<Button
@@ -203,10 +203,10 @@ export default function LobbyDetails({
 						{isParticipant &&
 							lobby.entryAmount !== null &&
 							lobby.entryAmount > 0 && (
-								<div className="text-center space-y-2">
+								<div className="space-y-2 text-center">
 									{cachedPlayerConnectionStatus === null ? (
 										<div className="space-y-2">
-											<span className="text-xs sm:text-sm text-muted-foreground block">
+											<span className="text-muted-foreground block text-xs sm:text-sm">
 												Checking game state...
 											</span>
 											<Button
@@ -219,7 +219,7 @@ export default function LobbyDetails({
 												className="text-xs"
 											>
 												{connectionCheckLoading && (
-													<Loader2 className="h-3 w-3 mr-1 animate-spin" />
+													<Loader2 className="mr-1 h-3 w-3 animate-spin" />
 												)}
 												Check Status
 											</Button>
@@ -227,7 +227,7 @@ export default function LobbyDetails({
 									) : (
 										cachedPlayerConnectionStatus ===
 											false && (
-											<span className="text-xs sm:text-sm text-muted-foreground">
+											<span className="text-muted-foreground text-xs sm:text-sm">
 												You were unable to play, leave
 												the lobby to withdraw your entry
 												fee.
@@ -240,15 +240,15 @@ export default function LobbyDetails({
 				)}
 
 				{lobbyState === "finished" && (
-					<div className="mt-6 p-4 rounded-md bg-destructive/10 border border-destructive/20 space-y-3">
+					<div className="bg-destructive/10 border-destructive/20 mt-6 space-y-3 rounded-md border p-4">
 						<div className="flex items-center justify-center gap-2 text-center">
-							<Info className="h-5 w-5 text-destructive shrink-0" />
-							<span className="text-sm sm:text-lg font-semibold text-destructive">
+							<Info className="text-destructive h-5 w-5 shrink-0" />
+							<span className="text-destructive text-sm font-semibold sm:text-lg">
 								This lobby has been closed
 							</span>
 						</div>
-						<div className="text-center space-y-2">
-							<span className="text-xs sm:text-sm text-muted-foreground block">
+						<div className="space-y-2 text-center">
+							<span className="text-muted-foreground block text-xs sm:text-sm">
 								You can view the final results of this game.
 							</span>
 							<Button
@@ -265,10 +265,10 @@ export default function LobbyDetails({
 						{isParticipant &&
 							lobby.entryAmount !== null &&
 							lobby.entryAmount > 0 && (
-								<div className="text-center space-y-2">
+								<div className="space-y-2 text-center">
 									{cachedPlayerConnectionStatus === null ? (
 										<div className="space-y-2">
-											<span className="text-xs sm:text-sm text-muted-foreground block">
+											<span className="text-muted-foreground block text-xs sm:text-sm">
 												Checking game state...
 											</span>
 											<Button
@@ -281,7 +281,7 @@ export default function LobbyDetails({
 												className="text-xs"
 											>
 												{connectionCheckLoading && (
-													<Loader2 className="h-3 w-3 mr-1 animate-spin" />
+													<Loader2 className="mr-1 h-3 w-3 animate-spin" />
 												)}
 												Check Status
 											</Button>
@@ -289,7 +289,7 @@ export default function LobbyDetails({
 									) : (
 										cachedPlayerConnectionStatus ===
 											false && (
-											<span className="text-xs sm:text-sm text-muted-foreground">
+											<span className="text-muted-foreground text-xs sm:text-sm">
 												You were unable to play, leave
 												the lobby to withdraw your entry
 												fee.
@@ -307,7 +307,7 @@ export default function LobbyDetails({
 							lobbyState === "waiting" ? "default" : "destructive"
 						}
 						disabled={isDisabled}
-						className="w-full mt-6"
+						className="mt-6 w-full"
 						onClick={() => {
 							if (lobbyState === "waiting") {
 								const now = Date.now();
@@ -361,7 +361,7 @@ export default function LobbyDetails({
 						}}
 					>
 						{loading && (
-							<Loader2 className="h-4 w-4 mr-2 animate-spin" />
+							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 						)}
 						<span className="truncate">{buttonLabel}</span>
 					</Button>

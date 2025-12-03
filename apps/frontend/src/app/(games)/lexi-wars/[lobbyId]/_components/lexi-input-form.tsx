@@ -53,7 +53,7 @@ export default function LexiInputForm({
 				onPaste={handlePaste}
 				onCopy={handleCopy}
 				onCut={handleCut}
-				className="text-lg sm:text-xl sm:px-4 h-12"
+				className="h-12 text-lg sm:px-4 sm:text-xl"
 				inputMode="text"
 				autoComplete="off"
 				aria-autocomplete="none"
@@ -76,7 +76,7 @@ export default function LexiInputForm({
 					className="w-full md:w-fit"
 				>
 					{isLoading && (
-						<Loader2 className="h-4 w-4 mr-2 animate-spin" />
+						<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 					)}
 					{disabled ? "You're Spectating" : "Submit"}
 				</Button>

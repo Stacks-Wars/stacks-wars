@@ -87,7 +87,7 @@ export default function LobbyRecoveryCard({
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+				<div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
 					<div>
 						<span className="font-medium">Lobby Name:</span>
 						<p className="text-muted-foreground">
@@ -120,36 +120,36 @@ export default function LobbyRecoveryCard({
 					</div>
 				</div>
 
-				<div className="flex items-center gap-2 text-sm text-muted-foreground">
+				<div className="text-muted-foreground flex items-center gap-2 text-sm">
 					<Clock className="h-4 w-4" />
 					<span>
 						Started: {formatCreatedAt(recoveryData.createdAt)}
 					</span>
 				</div>
 
-				<div className="p-3 rounded-md bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800">
+				<div className="rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/50">
 					<p className="text-sm text-blue-800 dark:text-blue-200">
 						{getStatusMessage()}
 					</p>
 				</div>
 
 				{recoveryData.deployedContract && (
-					<div className="p-3 rounded-md bg-green-50 dark:bg-green-950/50 border border-green-200 dark:border-green-800">
+					<div className="rounded-md border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-950/50">
 						<p className="text-sm font-medium text-green-800 dark:text-green-200">
 							Contract Deployed
 						</p>
-						<p className="text-xs break-all text-green-700 dark:text-green-300 font-mono">
+						<p className="font-mono text-xs break-all text-green-700 dark:text-green-300">
 							{recoveryData.deployedContract.contractAddress}
 						</p>
 					</div>
 				)}
 
 				{recoveryData.joinedContract && (
-					<div className="p-3 rounded-md bg-green-50 dark:bg-green-950/50 border border-green-200 dark:border-green-800">
+					<div className="rounded-md border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-950/50">
 						<p className="text-sm font-medium text-green-800 dark:text-green-200">
 							Pool Joined
 						</p>
-						<p className="text-xs text-green-700 dark:text-green-300 font-mono">
+						<p className="font-mono text-xs text-green-700 dark:text-green-300">
 							Tx: {recoveryData.joinedContract.txId}
 						</p>
 					</div>
