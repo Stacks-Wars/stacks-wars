@@ -4,7 +4,7 @@ use crate::{
     errors::AppError,
     models::{
         chat::ChatMessage,
-        redis::{KeyPart, RedisKey},
+        redis_key::{KeyPart, RedisKey},
     },
     state::RedisClient,
 };

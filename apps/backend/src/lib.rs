@@ -1,78 +1,39 @@
+// Stacks Wars backend
+
 pub mod auth;
-mod db;
+pub mod db;
 pub mod errors;
 pub mod games;
-mod http;
+pub mod http;
+pub mod lobby;
 mod middleware;
-mod models;
-mod state;
+pub use middleware::cors_layer;
+pub mod models;
+pub mod state;
 pub mod ws;
 
-use axum::{Router, middleware as axum_middleware};
-use bb8::Pool;
-use bb8_redis::RedisConnectionManager;
-use middleware::{cors_layer, create_global_rate_limiter, rate_limit_middleware};
-use state::{AppState, ChatConnectionInfoMap, ConnectionInfoMap};
-use std::{net::SocketAddr, time::Duration};
-use teloxide::{Bot, prelude::*};
+use axum::Router;
+use state::AppState;
+use std::net::SocketAddr;
 use tokio::signal;
 
-use crate::{
-    games::init::initialize_games,
-    http::bot_commands::{Command, handle_command},
-};
-
+/// Start the HTTP API server
 pub async fn start_server() {
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
 
-    let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL must be set");
-    let manager = RedisConnectionManager::new(redis_url).unwrap();
-
-    let bot_token = std::env::var("TELEGRAM_BOT_TOKEN").expect("TELEGRAM_BOT_TOKEN must be set");
-    let bot = Bot::new(bot_token);
-
-    let redis_pool = Pool::builder()
-        .max_size(100)
-        .min_idle(Some(20))
-        .connection_timeout(Duration::from_secs(5))
-        .max_lifetime(Some(Duration::from_secs(300)))
-        .idle_timeout(Some(Duration::from_secs(30)))
-        .build(manager)
+    // Initialize application state (PostgreSQL, Redis, Bot)
+    let state = AppState::new()
         .await
-        .unwrap();
+        .expect("Failed to initialize application state");
 
-    // Initialize games in database
-    if let Err(e) = initialize_games(redis_pool.clone()).await {
-        tracing::error!("Failed to initialize games: {}", e);
-        panic!("Failed to initialize games: {}", e);
-    }
+    tracing::info!("PostgreSQL and Redis connection pools established");
 
-    let connections: ConnectionInfoMap = Default::default();
-    let chat_connections: ChatConnectionInfoMap = Default::default();
-    let state = AppState {
-        connections,
-        chat_connections,
-        redis: redis_pool.clone(),
-        bot: bot.clone(),
-    };
-
-    // Start Telegram bot command handler
-    let bot_clone = bot.clone();
-    let redis_clone = redis_pool.clone();
-    tokio::spawn(async move {
-        start_bot_command_handler(bot_clone, redis_clone).await;
-    });
-
-    // Create rate limiters
-    let global_rate_limiter = create_global_rate_limiter();
-
+    // Build HTTP router
     let app = Router::new()
         .merge(http::create_http_routes(state.clone()))
-        .merge(ws::create_ws_routes(state))
-        .layer(axum_middleware::from_fn(move |req, next| {
-            rate_limit_middleware(global_rate_limiter.clone(), req, next)
-        }))
+        // WebSocket routes (lobbies, games, bots, real-time endpoints)
+        .merge(ws::create_ws_routes(state.clone()))
         .layer(cors_layer())
         .fallback(|| async { "404 Not Found" });
 
@@ -98,6 +59,7 @@ pub async fn start_server() {
     }
 }
 
+/// Handle graceful shutdown on SIGTERM or Ctrl+C
 async fn shutdown_signal() {
     let ctrl_c = async {
         signal::ctrl_c()
@@ -124,22 +86,4 @@ async fn shutdown_signal() {
             tracing::info!("SIGTERM received, shutting down");
         },
     }
-}
-
-async fn start_bot_command_handler(bot: Bot, redis: bb8::Pool<RedisConnectionManager>) {
-    tracing::info!("Starting Telegram bot command handler");
-
-    let handler = Update::filter_message()
-        .filter_command::<Command>()
-        .endpoint(move |bot: Bot, msg: Message, cmd: Command| {
-            let redis_clone = redis.clone();
-            async move { handle_command(bot, msg, cmd, redis_clone).await }
-        });
-
-    Dispatcher::builder(bot, handler)
-        .default_handler(|_| async {})
-        .enable_ctrlc_handler()
-        .build()
-        .dispatch()
-        .await;
 }
