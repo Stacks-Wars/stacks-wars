@@ -1,0 +1,88 @@
+// JWT utilities: token generation and validation (HS256, claims, expiry)
+
+use chrono::{Duration, Utc};
+use jsonwebtoken::{EncodingKey, Header, encode};
+use uuid::Uuid;
+
+use crate::{errors::AppError, models::db::UserV2};
+
+/// JWT Claims structure
+///
+/// Contains user identification, timestamps, and expiration data.
+/// Follows JWT standard claims (RFC 7519).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Claims {
+    /// Subject (user ID)
+    pub sub: String,
+    /// Wallet address (custom claim)
+    pub wallet: String,
+    /// Issued at timestamp (seconds since Unix epoch)
+    pub iat: i64,
+    /// Expiration timestamp (seconds since Unix epoch)
+    pub exp: i64,
+    /// JWT ID for token tracking/revocation (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jti: Option<String>,
+}
+
+impl Claims {
+    /// Get user ID as UUID
+    pub fn user_id(&self) -> Result<Uuid, AppError> {
+        self.sub
+            .parse()
+            .map_err(|_| AppError::BadRequest("Invalid user ID in token".to_string()))
+    }
+
+    /// Check if token is expired
+    pub fn is_expired(&self) -> bool {
+        Utc::now().timestamp() > self.exp
+    }
+
+    /// Get token age in seconds
+    pub fn age_seconds(&self) -> i64 {
+        Utc::now().timestamp() - self.iat
+    }
+}
+
+/// Generate JWT token for user authentication
+pub fn generate_jwt(user: &UserV2, secret: &str) -> Result<String, AppError> {
+    // Validate provided secret meets requirements
+    validate_jwt_secret(secret)?;
+
+    let now = Utc::now();
+    let expiry_days = std::env::var("TOKEN_EXPIRY_DAYS")
+        .ok()
+        .and_then(|s| s.parse::<i64>().ok())
+        .unwrap_or(7);
+
+    let claims = Claims {
+        sub: user.id.to_string(),
+        wallet: user.wallet_address.clone(),
+        iat: now.timestamp(),
+        exp: (now + Duration::days(expiry_days)).timestamp(),
+        jti: Some(Uuid::new_v4().to_string()), // For potential token revocation
+    };
+
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_bytes()),
+    )
+    .map_err(AppError::JwtError)
+}
+
+/// Validate JWT_SECRET meets security requirements
+///
+/// Internal validation that checks:
+/// - Secret is at least 32 characters (256 bits for HS256)
+///
+/// Returns the secret if valid.
+fn validate_jwt_secret(secret: &str) -> Result<(), AppError> {
+    if secret.len() < 32 {
+        return Err(AppError::EnvError(
+            "JWT_SECRET must be at least 32 characters for security".to_string(),
+        ));
+    }
+
+    Ok(())
+}

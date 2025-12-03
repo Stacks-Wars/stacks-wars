@@ -1,14 +1,12 @@
+use crate::{state::AppState, ws::handlers::lobby_ws_handler};
 use axum::{Router, routing::get};
 
-use crate::{
-    state::AppState,
-    ws::handlers::{chat::chat_handler::chat_handler, lexi_wars_handler, lobby_ws_handler},
-};
-
+/// Create WebSocket routes (grouped under `/ws`).
+///
+/// Currently includes:
+/// - GET `/ws/lobby/{lobby_id}`
 pub fn create_ws_routes(state: AppState) -> Router {
     Router::new()
-        .route("/ws/lexiwars/{lobby_id}", get(lexi_wars_handler))
-        .route("/ws/lobby/{lobby_id}", get(lobby_ws_handler))
-        .route("/ws/chat/{lobby_id}", get(chat_handler))
+        .route("/lobby/{lobby_id}", get(lobby_ws_handler))
         .with_state(state)
 }

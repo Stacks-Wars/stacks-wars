@@ -1,0 +1,15 @@
+// Database models mapping to PostgreSQL tables (derive `FromRow`)
+
+pub mod game;
+pub mod lobby;
+pub mod platform_rating;
+pub mod season;
+pub mod user;
+pub mod user_wars_point;
+
+pub use lobby::Lobby;
+pub use lobby::LobbyExtended;
+pub use platform_rating::PlatformRating;
+pub use season::Season;
+pub use user::UserV2;
+pub use user_wars_point::UserWarsPoints;

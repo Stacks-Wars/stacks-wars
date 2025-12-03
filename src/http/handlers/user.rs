@@ -1,113 +1,215 @@
+// User HTTP handlers: registration, profile, and updates
+
 use axum::{
     Json,
     extract::{Path, State},
     http::StatusCode,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    auth::AuthClaims,
-    db::user::{
-        get::get_user_by_id,
-        patch::{update_display_name, update_username},
-        post::create_user,
-    },
-    errors::AppError,
-    models::User,
+    auth::AuthClaims, db::user::UserRepository, errors::AppError, models::db::UserV2,
     state::AppState,
 };
 
-#[derive(Deserialize)]
-pub struct CreateUserPayload {
+// ============================================================================
+// Request/Response Types
+// ============================================================================
+
+/// Request body for creating a new user
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateUserRequest {
+    /// User's Stacks wallet address (principal)
     pub wallet_address: String,
 }
 
-pub async fn create_user_handler(
-    State(state): State<AppState>,
-    Json(payload): Json<CreateUserPayload>,
-) -> Result<Json<String>, (StatusCode, String)> {
-    match create_user(payload.wallet_address.clone(), state.redis.clone()).await {
-        Ok(token) => {
-            tracing::info!(
-                "User created with wallet address: {}",
-                payload.wallet_address
-            );
-            Ok(Json(token))
-        }
-        Err(err) => {
-            tracing::error!("Error creating user: {}", err);
-            Err(err.to_response())
-        }
-    }
+/// Request body for updating username
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateUsernameRequest {
+    /// New username (must be unique)
+    pub username: String,
 }
 
-pub async fn get_user_handler(
+/// Request body for updating display name
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateDisplayNameRequest {
+    /// New display name (for UI)
+    pub display_name: String,
+}
+
+/// Request body for updating user profile (partial update)
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateProfileRequest {
+    /// Optional new username
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+    /// Optional new display name
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    /// Optional new trust rating (admin only)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trust_rating: Option<f64>,
+}
+
+// ============================================================================
+// User Creation
+// ============================================================================
+
+/// Register a new user and return a JWT token.
+///
+/// Public endpoint. Returns a JSON object containing `token` on success.
+pub async fn create_user(
     State(state): State<AppState>,
-    Path(user_id): Path<Uuid>,
-) -> Result<Json<User>, (StatusCode, String)> {
-    let user = get_user_by_id(user_id, state.redis.clone())
+    Json(payload): Json<CreateUserRequest>,
+) -> Result<Json<String>, (StatusCode, String)> {
+    let repo = UserRepository::new(state.postgres.clone());
+
+    // Create user and get JWT token
+    let token = repo
+        .create_user(payload.wallet_address.clone(), &state.config.jwt_secret)
         .await
         .map_err(|e| {
-            tracing::error!("Error retrieving user: {}", e);
+            tracing::error!("Failed to create user: {}", e);
             e.to_response()
         })?;
 
-    tracing::info!("Retrieved user: {:?}", user);
+    tracing::info!(
+        "User created successfully: Wallet: {}",
+        payload.wallet_address
+    );
 
+    Ok(Json(token))
+}
+
+// ============================================================================
+// User Retrieval
+// ============================================================================
+
+/// Get a user's public profile by UUID.
+///
+/// Public endpoint returning `UserV2` or `404` if not found.
+pub async fn get_user(
+    State(state): State<AppState>,
+    Path(user_id): Path<Uuid>,
+) -> Result<Json<UserV2>, (StatusCode, String)> {
+    let repo = UserRepository::new(state.postgres.clone());
+
+    let user = repo.find_by_id(user_id).await.map_err(|e| {
+        tracing::error!("Failed to fetch user {}: {}", user_id, e);
+        e.to_response()
+    })?;
+
+    tracing::debug!("Retrieved user profile for {}", user_id);
     Ok(Json(user))
 }
 
-#[derive(Deserialize)]
-pub struct UsernamePayload {
-    pub username: String,
-}
-pub async fn update_username_handler(
+// ============================================================================
+// User Updates
+// ============================================================================
+
+/// Update the authenticated user's username.
+///
+/// Requires a valid JWT. Returns the updated username on success.
+pub async fn update_username(
     State(state): State<AppState>,
     AuthClaims(claims): AuthClaims,
-    Json(payload): Json<UsernamePayload>,
-) -> Result<Json<String>, (StatusCode, String)> {
+    Json(payload): Json<UpdateUsernameRequest>,
+) -> Result<Json<UpdateUsernameRequest>, (StatusCode, String)> {
     let user_id = Uuid::parse_str(&claims.sub).map_err(|_| {
-        tracing::error!("Unauthorized access attempt");
-        AppError::Unauthorized("Invalid user ID in token".into()).to_response()
+        tracing::error!("Invalid user ID in JWT token");
+        AppError::Unauthorized("Invalid token".into()).to_response()
     })?;
 
-    let username = payload.username;
+    let repo = UserRepository::new(state.postgres.clone());
 
-    update_username(user_id, username.clone(), state.redis)
+    repo.update_username(user_id, &payload.username)
         .await
         .map_err(|e| {
-            tracing::error!("Error updating username: {}", e);
+            tracing::error!("Failed to update username for {}: {}", user_id, e);
             e.to_response()
         })?;
 
-    tracing::info!("Username updated for user ID: {}", user_id);
-    Ok(Json(username))
+    tracing::info!(
+        "Username updated for user {} to '{}'",
+        user_id,
+        payload.username
+    );
+    Ok(Json(payload))
 }
 
-#[derive(Deserialize)]
-pub struct DisplayNamePayload {
-    pub display_name: String,
-}
-pub async fn update_display_name_handler(
+/// Update the authenticated user's display name.
+///
+/// Requires a valid JWT. Display names are not required to be unique.
+pub async fn update_display_name(
     State(state): State<AppState>,
     AuthClaims(claims): AuthClaims,
-    Json(payload): Json<DisplayNamePayload>,
-) -> Result<Json<String>, (StatusCode, String)> {
+    Json(payload): Json<UpdateDisplayNameRequest>,
+) -> Result<Json<UpdateDisplayNameRequest>, (StatusCode, String)> {
     let user_id = Uuid::parse_str(&claims.sub).map_err(|_| {
-        tracing::error!("Unauthorized access attempt");
-        AppError::Unauthorized("Invalid user ID in token".into()).to_response()
+        tracing::error!("Invalid user ID in JWT token");
+        AppError::Unauthorized("Invalid token".into()).to_response()
     })?;
 
-    let display_name = payload.display_name;
+    let repo = UserRepository::new(state.postgres.clone());
 
-    update_display_name(user_id, display_name.clone(), state.redis)
+    repo.update_display_name(user_id, &payload.display_name)
         .await
         .map_err(|e| {
-            tracing::error!("Error updating display name: {}", e);
+            tracing::error!("Failed to update display name for {}: {}", user_id, e);
             e.to_response()
         })?;
 
-    tracing::info!("Display name updated for user ID: {}", user_id);
-    Ok(Json(display_name))
+    tracing::info!(
+        "Display name updated for user {} to '{}'",
+        user_id,
+        payload.display_name
+    );
+    Ok(Json(payload))
+}
+
+// ============================================================================
+// User Profile Update (Partial)
+// ============================================================================
+
+/// Partially update the authenticated user's profile fields.
+///
+/// Accepts optional `username` and `displayName` fields and returns the
+/// updated `UserV2` on success. Requires a valid JWT.
+pub async fn update_profile(
+    State(state): State<AppState>,
+    AuthClaims(claims): AuthClaims,
+    Json(payload): Json<UpdateProfileRequest>,
+) -> Result<Json<UserV2>, (StatusCode, String)> {
+    let user_id = Uuid::parse_str(&claims.sub).map_err(|_| {
+        tracing::error!("Invalid user ID in JWT token");
+        AppError::Unauthorized("Invalid token".into()).to_response()
+    })?;
+
+    let repo = UserRepository::new(state.postgres.clone());
+
+    let user = repo
+        .update_profile(
+            user_id,
+            payload.username.clone(),
+            payload.display_name.clone(),
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to update profile for {}: {}", user_id, e);
+            e.to_response()
+        })?;
+
+    tracing::info!(
+        "Profile updated for user {}: username={:?}, display_name={:?}",
+        user_id,
+        payload.username,
+        payload.display_name
+    );
+
+    Ok(Json(user))
 }

@@ -1,58 +1,40 @@
+// Stacks Wars backend
+
 pub mod auth;
-mod db;
+pub mod db;
 pub mod errors;
 pub mod games;
-mod http;
-mod models;
-mod state;
+pub mod http;
+pub mod lobby;
+mod middleware;
+pub use middleware::cors_layer;
+pub mod models;
+pub mod state;
 pub mod ws;
 
 use axum::Router;
-use bb8::Pool;
-use bb8_redis::RedisConnectionManager;
-use state::{AppState, ChatConnectionInfoMap, ConnectionInfoMap, LexiWarsLobbies, LobbyCountdowns};
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
-use teloxide::Bot;
-use tokio::sync::Mutex;
+use state::AppState;
+use std::net::SocketAddr;
+use tokio::signal;
 
-use crate::{games::init::initialize_games, state::LobbyJoinRequests};
-
+/// Start the HTTP API server
 pub async fn start_server() {
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
 
-    let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL must be set");
-    let manager = RedisConnectionManager::new(redis_url).unwrap();
+    // Initialize application state (PostgreSQL, Redis, Bot)
+    let state = AppState::new()
+        .await
+        .expect("Failed to initialize application state");
 
-    let bot_token = std::env::var("TELEGRAM_BOT_TOKEN").expect("TELEGRAM_BOT_TOKEN must be set");
-    let bot = Bot::new(bot_token);
+    tracing::info!("PostgreSQL and Redis connection pools established");
 
-    let redis_pool = Pool::builder().build(manager).await.unwrap();
-
-    // Initialize games in database
-    if let Err(e) = initialize_games(redis_pool.clone()).await {
-        tracing::error!("Failed to initialize games: {}", e);
-        panic!("Failed to initialize games: {}", e);
-    }
-
-    let lexi_wars_lobbies: LexiWarsLobbies = Default::default();
-    let connections: ConnectionInfoMap = Default::default();
-    let chat_connections: ChatConnectionInfoMap = Default::default();
-    let lobby_join_requests: LobbyJoinRequests = Arc::new(Mutex::new(HashMap::new()));
-    let lobby_countdowns: LobbyCountdowns = Arc::new(Mutex::new(HashMap::new()));
-    let state = AppState {
-        lexi_wars_lobbies,
-        connections,
-        chat_connections,
-        redis: redis_pool,
-        lobby_join_requests,
-        bot,
-        lobby_countdowns,
-    };
-
+    // Build HTTP router
     let app = Router::new()
         .merge(http::create_http_routes(state.clone()))
-        .merge(ws::create_ws_routes(state))
+        // WebSocket routes (lobbies, games, bots, real-time endpoints)
+        .merge(ws::create_ws_routes(state.clone()))
+        .layer(cors_layer())
         .fallback(|| async { "404 Not Found" });
 
     let port = std::env::var("PORT")
@@ -64,10 +46,44 @@ pub async fn start_server() {
         .await
         .expect("Failed to bind address");
 
-    axum::serve(
+    tracing::info!("Server listening on port {}", port);
+
+    let server = axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
-    .await
-    .unwrap();
+    .with_graceful_shutdown(shutdown_signal());
+
+    if let Err(e) = server.await {
+        tracing::error!("Server error: {}", e);
+    }
+}
+
+/// Handle graceful shutdown on SIGTERM or Ctrl+C
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {
+            tracing::info!("Ctrl+C received, shutting down");
+        },
+        _ = terminate => {
+            tracing::info!("SIGTERM received, shutting down");
+        },
+    }
 }

@@ -1,11 +1,14 @@
 use crate::{
-    db::game::{get::get_all_games, post::create_game},
+    db::game::{get::get_all_games, post::create_game, words::add_word_set},
     errors::AppError,
     state::RedisClient,
 };
 
 pub async fn initialize_games(redis: RedisClient) -> Result<(), AppError> {
     tracing::info!("Initializing games...");
+
+    // Initialize word set
+    add_word_set(redis.clone()).await?;
 
     // Try to get all games from Redis
     match get_all_games(redis.clone()).await {

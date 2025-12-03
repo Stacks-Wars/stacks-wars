@@ -1,10 +1,4 @@
-pub mod chat;
-pub mod game;
-pub mod leaderboard;
-pub mod lexi_wars;
-pub mod lobby;
-pub mod redis;
-pub mod user;
-pub mod word_loader;
+// Models module: db, redis and dto organized by storage layer
 
-pub use user::User;
+pub mod db;
+pub mod redis;
