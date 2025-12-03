@@ -1,4 +1,4 @@
-use crate::games::GameFactory;
+use crate::games::{GameEngine, GameFactory, create_game_registry};
 use axum::extract::ws::{Message, WebSocket};
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
@@ -23,6 +23,9 @@ pub struct AppConfig {
     pub telegram_chat_id: String,
 }
 
+/// Active game engines by lobby ID
+pub type ActiveGames = Arc<Mutex<HashMap<Uuid, Box<dyn GameEngine>>>>;
+
 #[derive(Clone)]
 pub struct AppState {
     pub config: AppConfig,
@@ -30,6 +33,7 @@ pub struct AppState {
     pub lobby_connections: LobbyConnections,
     pub chat_connections: ChatConnectionInfoMap,
     pub game_registry: Arc<HashMap<Uuid, GameFactory>>,
+    pub active_games: ActiveGames,
     pub redis: RedisClient,
     pub postgres: PgPool,
     pub bot: Bot,
@@ -81,8 +85,9 @@ impl AppState {
         let lobby_connections: LobbyConnections = Default::default();
         let chat_connections: ChatConnectionInfoMap = Default::default();
 
-        // Initialize empty game registry (games register themselves during startup)
-        let game_registry: Arc<HashMap<Uuid, GameFactory>> = Arc::new(HashMap::new());
+        // Initialize game registry from games module
+        let game_registry: Arc<HashMap<Uuid, GameFactory>> = Arc::new(create_game_registry());
+        let active_games: ActiveGames = Arc::new(Mutex::new(HashMap::new()));
 
         Ok(Self {
             config,
@@ -90,6 +95,7 @@ impl AppState {
             lobby_connections,
             chat_connections,
             game_registry,
+            active_games,
             redis: redis_pool,
             postgres: postgres_pool,
             bot,

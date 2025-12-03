@@ -1,7 +1,7 @@
-// Lobby connection manager helpers
-use crate::lobby::messages::LobbyServerMessage;
+// Connection manager - shared across lobby and game contexts
 use crate::state::{AppState, ConnectionInfo};
 use crate::ws::core::connection;
+use serde::Serialize;
 use std::collections::HashSet;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -38,7 +38,7 @@ pub async fn unregister_connection(state: &AppState, connection_id: &Uuid) {
     }
 }
 
-/// Send a typed server message to a specific connection.
-pub async fn send_to_connection(conn: &Arc<ConnectionInfo>, msg: &LobbyServerMessage) {
+/// Send a typed serializable message to a specific connection.
+pub async fn send_to_connection<M: Serialize>(conn: &Arc<ConnectionInfo>, msg: &M) {
     let _ = connection::send_json(conn, msg).await;
 }

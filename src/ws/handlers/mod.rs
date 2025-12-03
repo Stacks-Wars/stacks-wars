@@ -1,2 +1,3 @@
-pub mod games;
-pub mod lobby;
+pub mod connection;
+
+pub use connection::lobby_ws_handler;

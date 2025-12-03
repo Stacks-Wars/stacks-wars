@@ -1,36 +1,24 @@
-// Clean, single-definition lobby websocket handler loop.
-use axum::extract::ws::Message;
-use futures::StreamExt;
+// Lobby engine - handles lobby-specific messages and state management
 use std::sync::Arc;
-use tokio::sync::Mutex as TokioMutex;
-use uuid::Uuid;
-
-use crate::db::join_request::JoinRequestState;
-use crate::db::lobby::LobbyRepository;
-use crate::lobby::LobbyError;
-use crate::lobby::manager;
-use crate::models::redis::LobbyStatus;
-use crate::ws::core::hub;
-use crate::{
-    db::{
-        join_request::JoinRequestRepository, lobby_state::LobbyStateRepository,
-        player_state::PlayerStateRepository,
-    },
-    models::redis::PlayerState,
-    state::{AppState, ConnectionInfo},
-};
-use chrono::Utc;
 use std::time::Duration;
 use tokio::time::sleep;
+use uuid::Uuid;
 
-use crate::db::join_request::JoinRequestDTO;
-use crate::lobby::messages::{LobbyClientMessage, LobbyServerMessage};
-use crate::models::db::LobbyExtended;
+use crate::db::join_request::{JoinRequestDTO, JoinRequestRepository, JoinRequestState};
+use crate::db::lobby::LobbyRepository;
+use crate::db::lobby_state::LobbyStateRepository;
+use crate::db::player_state::PlayerStateRepository;
+use crate::lobby::{
+    LobbyError,
+    messages::{LobbyClientMessage, LobbyServerMessage},
+};
+use crate::models::redis::{LobbyStatus, PlayerState};
+use crate::state::{AppState, ConnectionInfo};
+use crate::ws::core::{hub, manager};
+use chrono::Utc;
 
-async fn require_auth(
-    conn: &std::sync::Arc<ConnectionInfo>,
-    auth_user_id: Option<Uuid>,
-) -> Result<Uuid, ()> {
+/// Helper to require authentication for a lobby action
+async fn require_auth(conn: &Arc<ConnectionInfo>, auth_user_id: Option<Uuid>) -> Result<Uuid, ()> {
     match auth_user_id {
         Some(uid) => Ok(uid),
         None => {
@@ -42,148 +30,8 @@ async fn require_auth(
     }
 }
 
-/// The core websocket loop that listens for client messages and delegates
-/// higher-level actions to `LobbyHandler` methods.
-pub async fn handle_socket(
-    socket: axum::extract::ws::WebSocket,
-    lobby_id: Uuid,
-    auth_user_id: Option<Uuid>,
-    state: AppState,
-) {
-    let (sender, mut receiver) = socket.split();
-    let connection_id = Uuid::new_v4();
-    let conn = Arc::new(ConnectionInfo {
-        connection_id,
-        user_id: auth_user_id,
-        lobby_id,
-        sender: Arc::new(TokioMutex::new(sender)),
-    });
-    let player_repo = PlayerStateRepository::new(state.redis.clone());
-
-    // Register the connection (conn_id may be authenticated user_id or generated spectator id)
-    manager::register_connection(&state, connection_id, conn.clone()).await;
-
-    // send initial state & players
-    let lobby_state_repo = LobbyStateRepository::new(state.redis.clone());
-
-    // Fetch lobby metadata to get game_id for game message routing
-    let lobby_repo = LobbyRepository::new(state.postgres.clone());
-    let game_id = match lobby_repo.find_by_id(lobby_id).await {
-        Ok(Some(db_lobby)) => Some(db_lobby.game_id),
-        _ => None,
-    };
-
-    match lobby_state_repo.get_state(lobby_id).await {
-        Ok(state_info) => {
-            // Build lobby bootstrap: require Postgres lobby metadata and combine with runtime state.
-            let lobby_repo = LobbyRepository::new(state.postgres.clone());
-            let lobby_ext = match lobby_repo.find_by_id(lobby_id).await {
-                Ok(Some(db_lobby)) => LobbyExtended::from_parts(db_lobby, state_info.clone()),
-                _ => {
-                    let err = LobbyError::MetadataMissing;
-                    let msg = LobbyServerMessage::from(err);
-                    let _ = manager::send_to_connection(&conn, &msg).await;
-                    manager::unregister_connection(&state, &connection_id).await;
-                    return;
-                }
-            };
-
-            // Fetch current players and join-requests so clients receive a full bootstrap.
-            let players = match player_repo.get_all_in_lobby(lobby_id).await {
-                Ok(p) => p,
-                Err(_) => Vec::new(),
-            };
-
-            let jr_repo = JoinRequestRepository::new(state.redis.clone());
-            let join_requests = match jr_repo.list(lobby_id).await {
-                Ok(list) => list.into_iter().map(Into::into).collect(),
-                Err(_) => Vec::new(),
-            };
-
-            let _ = manager::send_to_connection(
-                &conn,
-                &LobbyServerMessage::LobbyBootstrap {
-                    lobby: lobby_ext,
-                    players,
-                    join_requests,
-                },
-            )
-            .await;
-        }
-        Err(_) => {
-            let err = LobbyError::NotFound;
-            let msg = LobbyServerMessage::from(err);
-            let _ = manager::send_to_connection(&conn, &msg).await;
-            manager::unregister_connection(&state, &connection_id).await;
-            return;
-        }
-    }
-
-    while let Some(msg) = receiver.next().await {
-        match msg {
-            Ok(Message::Text(text)) => {
-                // Try parsing as LobbyClientMessage first
-                if let Ok(lobby_msg) = serde_json::from_str::<LobbyClientMessage>(&text) {
-                    handle_lobby_message(
-                        lobby_msg,
-                        lobby_id,
-                        auth_user_id,
-                        &conn,
-                        &state,
-                        &player_repo,
-                        &lobby_state_repo,
-                    )
-                    .await;
-                    continue;
-                }
-
-                // Not a lobby message - check if it's a game message
-                match lobby_state_repo.get_state(lobby_id).await {
-                    Ok(lobby_state) if lobby_state.status == LobbyStatus::InProgress => {
-                        // Game is active - attempt to handle as game message
-                        if let Some(gid) = game_id {
-                            if state.game_registry.contains_key(&gid) {
-                                // TODO: Route to game-specific message handler
-                                // Each game will implement its own message parsing
-                                tracing::debug!("Received game message for game_id: {}", gid);
-                            } else {
-                                tracing::warn!("Game not registered: {}", gid);
-                            }
-                        }
-                    }
-                    _ => {
-                        // Game not active or state fetch failed - invalid message
-                        let err = LobbyError::InvalidMessage;
-                        let msg = LobbyServerMessage::from(err);
-                        let _ = manager::send_to_connection(&conn, &msg).await;
-                    }
-                }
-            }
-
-            Ok(Message::Binary(_)) => {}
-            Ok(Message::Close(_)) | Ok(Message::Pong(_)) | Ok(Message::Ping(_)) => {}
-            Err(e) => {
-                tracing::debug!("ws recv err: {}", e);
-                break;
-            }
-        }
-    }
-
-    manager::unregister_connection(&state, &connection_id).await;
-
-    // Broadcast final player list to lobby
-    if let Ok(players) = player_repo.get_all_in_lobby(lobby_id).await {
-        hub::broadcast_lobby(
-            &state,
-            lobby_id,
-            &LobbyServerMessage::PlayerUpdated { players },
-        )
-        .await;
-    }
-}
-
 /// Handle an individual lobby message
-async fn handle_lobby_message(
+pub async fn handle_lobby_message(
     lobby_msg: LobbyClientMessage,
     lobby_id: Uuid,
     auth_user_id: Option<Uuid>,
@@ -245,7 +93,7 @@ async fn handle_lobby_message(
                 let _ = player_repo.upsert_state(pstate).await;
 
                 // broadcast joined and updated player list
-                let _ = hub::broadcast_lobby(
+                let _ = hub::broadcast_to_lobby(
                     state,
                     lobby_id,
                     &LobbyServerMessage::PlayerJoined { player_id: user_id },
@@ -253,7 +101,7 @@ async fn handle_lobby_message(
                 .await;
 
                 if let Ok(players) = player_repo.get_all_in_lobby(lobby_id).await {
-                    let _ = hub::broadcast_lobby(
+                    let _ = hub::broadcast_to_lobby(
                         state,
                         lobby_id,
                         &LobbyServerMessage::PlayerUpdated { players },
@@ -268,7 +116,7 @@ async fn handle_lobby_message(
                         if let Ok(list) = jr_repo.list(lobby_id).await {
                             let dtos: Vec<JoinRequestDTO> =
                                 list.into_iter().map(Into::into).collect();
-                            let _ = hub::broadcast_lobby(
+                            let _ = hub::broadcast_to_lobby(
                                 state,
                                 lobby_id,
                                 &LobbyServerMessage::JoinRequestsUpdated {
@@ -315,14 +163,14 @@ async fn handle_lobby_message(
             // remove player state
             let _ = player_repo.remove_from_lobby(lobby_id, user_id).await.ok();
 
-            let _ = hub::broadcast_lobby(
+            let _ = hub::broadcast_to_lobby(
                 state,
                 lobby_id,
                 &LobbyServerMessage::PlayerLeft { player_id: user_id },
             )
             .await;
             if let Ok(players) = player_repo.get_all_in_lobby(lobby_id).await {
-                let _ = hub::broadcast_lobby(
+                let _ = hub::broadcast_to_lobby(
                     state,
                     lobby_id,
                     &LobbyServerMessage::PlayerUpdated { players },
@@ -370,7 +218,7 @@ async fn handle_lobby_message(
 
                     // Countdown from 5 down to 0
                     for sec in (0..=5).rev() {
-                        let _ = hub::broadcast_lobby(
+                        let _ = hub::broadcast_to_lobby(
                             &spawn_state,
                             spawn_lobby,
                             &LobbyServerMessage::StartCountdown {
@@ -400,7 +248,7 @@ async fn handle_lobby_message(
                     // Clear countdown and mark started
                     let _ = spawn_repo.clear_countdown(spawn_lobby).await.ok();
                     let _ = spawn_repo.mark_started(spawn_lobby).await.ok();
-                    let _ = hub::broadcast_lobby(
+                    let _ = hub::broadcast_to_lobby(
                         &spawn_state,
                         spawn_lobby,
                         &LobbyServerMessage::LobbyStateChanged {
@@ -409,19 +257,70 @@ async fn handle_lobby_message(
                     )
                     .await;
 
-                    // TODO Phase 4: Initialize game here
-                    // if let Some(gid) = game_id {
-                    //     if let Some(factory) = spawn_state.game_registry.get(&gid) {
-                    //         let mut engine = factory();
-                    //         let players = get_player_ids();
-                    //         let events = engine.initialize(players);
-                    //         // broadcast events
-                    //     }
-                    // }
+                    // Phase 4: Initialize game
+                    let lobby_repo = LobbyRepository::new(spawn_state.postgres.clone());
+                    let game_id = match lobby_repo.find_by_id(spawn_lobby).await {
+                        Ok(Some(db_lobby)) => db_lobby.game_id,
+                        _ => {
+                            tracing::error!(
+                                "Failed to fetch lobby metadata for game initialization"
+                            );
+                            return;
+                        }
+                    };
+
+                    if let Some(factory) = spawn_state.game_registry.get(&game_id) {
+                        let mut engine = factory(spawn_lobby);
+
+                        // Get all player IDs in the lobby
+                        let player_repo = PlayerStateRepository::new(spawn_state.redis.clone());
+                        let player_ids = match player_repo.get_all_in_lobby(spawn_lobby).await {
+                            Ok(players) => players.into_iter().map(|p| p.user_id).collect(),
+                            Err(e) => {
+                                tracing::error!(
+                                    "Failed to fetch players for game initialization: {}",
+                                    e
+                                );
+                                return;
+                            }
+                        };
+
+                        // Initialize the game engine
+                        match engine.initialize(player_ids).await {
+                            Ok(events) => {
+                                tracing::info!(
+                                    "Game initialized successfully for lobby {}",
+                                    spawn_lobby
+                                );
+
+                                // Store the active game engine
+                                {
+                                    let mut active_games = spawn_state.active_games.lock().await;
+                                    active_games.insert(spawn_lobby, engine);
+                                }
+
+                                // Broadcast initialization events to all players
+                                for event in events {
+                                    let game_msg = crate::ws::message::JsonMessage::from(event);
+                                    let _ = hub::broadcast_to_lobby_participants(
+                                        &spawn_state,
+                                        spawn_lobby,
+                                        &game_msg,
+                                    )
+                                    .await;
+                                }
+                            }
+                            Err(e) => {
+                                tracing::error!("Failed to initialize game: {}", e);
+                            }
+                        }
+                    } else {
+                        tracing::warn!("No game factory registered for game_id: {}", game_id);
+                    }
                 });
             }
 
-            let _ = hub::broadcast_lobby(
+            let _ = hub::broadcast_to_lobby(
                 state,
                 lobby_id,
                 &LobbyServerMessage::LobbyStateChanged { state: status },
@@ -447,7 +346,7 @@ async fn handle_lobby_message(
             let _ = jr_repo.create_pending(lobby_id, user_id, 15 * 60).await;
             if let Ok(list) = jr_repo.list(lobby_id).await {
                 let dtos: Vec<JoinRequestDTO> = list.into_iter().map(Into::into).collect();
-                let _ = hub::broadcast_lobby(
+                let _ = hub::broadcast_to_lobby(
                     state,
                     lobby_id,
                     &LobbyServerMessage::JoinRequestsUpdated {
@@ -489,7 +388,7 @@ async fn handle_lobby_message(
             let _ = jr_repo
                 .set_state(lobby_id, player_id, JoinRequestState::Accepted)
                 .await;
-            let _ = hub::send_to_user(
+            let _ = hub::broadcast_to_user(
                 state,
                 lobby_id,
                 player_id,
@@ -501,7 +400,7 @@ async fn handle_lobby_message(
             .await;
             if let Ok(list) = jr_repo.list(lobby_id).await {
                 let dtos: Vec<JoinRequestDTO> = list.into_iter().map(Into::into).collect();
-                let _ = hub::broadcast_lobby(
+                let _ = hub::broadcast_to_lobby(
                     state,
                     lobby_id,
                     &LobbyServerMessage::JoinRequestsUpdated {
@@ -543,7 +442,7 @@ async fn handle_lobby_message(
             let _ = jr_repo
                 .set_state(lobby_id, player_id, JoinRequestState::Rejected)
                 .await;
-            let _ = hub::send_to_user(
+            let _ = hub::broadcast_to_user(
                 state,
                 lobby_id,
                 player_id,
@@ -555,7 +454,7 @@ async fn handle_lobby_message(
             .await;
             if let Ok(list) = jr_repo.list(lobby_id).await {
                 let dtos: Vec<JoinRequestDTO> = list.into_iter().map(Into::into).collect();
-                let _ = hub::broadcast_lobby(
+                let _ = hub::broadcast_to_lobby(
                     state,
                     lobby_id,
                     &LobbyServerMessage::JoinRequestsUpdated {
@@ -598,21 +497,21 @@ async fn handle_lobby_message(
                 .remove_from_lobby(lobby_id, player_id)
                 .await
                 .ok();
-            let _ = hub::broadcast_lobby(
+            let _ = hub::broadcast_to_lobby(
                 state,
                 lobby_id,
                 &LobbyServerMessage::PlayerKicked { player_id },
             )
             .await;
             if let Ok(players) = player_repo.get_all_in_lobby(lobby_id).await {
-                let _ = hub::broadcast_lobby(
+                let _ = hub::broadcast_to_lobby(
                     state,
                     lobby_id,
                     &LobbyServerMessage::PlayerUpdated { players },
                 )
                 .await;
             }
-            let _ = hub::send_to_user(
+            let _ = hub::broadcast_to_user(
                 state,
                 lobby_id,
                 player_id,

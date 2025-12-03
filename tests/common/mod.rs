@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::sync::oneshot;
 
 use testcontainers_modules::postgres::Postgres;
@@ -12,6 +12,10 @@ use sqlx::PgPool;
 use sqlx::Row;
 use std::error::Error;
 use uuid::Uuid;
+
+pub mod lobby_helper;
+#[allow(unused_imports)]
+pub use lobby_helper::WsConnection;
 
 /// Test application harness that keeps container handles alive while tests run.
 #[allow(dead_code)]
@@ -97,6 +101,10 @@ impl TestApp {
 
 /// Lightweight test data factory to insert domain objects directly into Postgres
 /// for integration tests. Avoids repetitive API calls when preparing state.
+
+/// Coin Flip game ID from registry
+pub const COINFLIP_GAME_ID: Uuid = uuid::uuid!("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+
 #[allow(dead_code)]
 pub struct TestFactory {
     pub pg_pool: PgPool,
@@ -154,6 +162,17 @@ impl TestFactory {
         creator_id: Uuid,
         name: Option<&str>,
     ) -> Result<Uuid, Box<dyn Error>> {
+        self.create_game_with_players(creator_id, name, 1, 4).await
+    }
+
+    /// Create a game with custom min/max players
+    pub async fn create_game_with_players(
+        &self,
+        creator_id: Uuid,
+        name: Option<&str>,
+        min_players: i16,
+        max_players: i16,
+    ) -> Result<Uuid, Box<dyn Error>> {
         let game_id = Uuid::new_v4();
         let gname = name
             .map(|s| s.to_string())
@@ -164,8 +183,8 @@ impl TestFactory {
             .bind(&gname)
             .bind("test game")
             .bind("https://example.com/img.png")
-            .bind(1_i16)
-            .bind(4_i16)
+            .bind(min_players)
+            .bind(max_players)
             .bind(creator_id)
             .bind(true)
             .execute(&self.pg_pool)
@@ -173,6 +192,42 @@ impl TestFactory {
             .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
 
         Ok(game_id)
+    }
+
+    /// Ensure Coin Flip game exists in database (idempotent)
+    pub async fn ensure_coinflip_game(&self) -> Result<Uuid, Box<dyn Error>> {
+        // Try to insert, ignore if already exists
+        let system_user_id = uuid::uuid!("00000000-0000-0000-0000-000000000000");
+
+        // Ensure system user exists
+        sqlx::query(
+            "INSERT INTO users (id, wallet_address) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
+        )
+        .bind(system_user_id)
+        .bind("system")
+        .execute(&self.pg_pool)
+        .await
+        .ok();
+
+        sqlx::query(
+            "INSERT INTO games (id, name, description, image_url, min_players, max_players, category, creator_id, is_active)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             ON CONFLICT (id) DO NOTHING"
+        )
+        .bind(COINFLIP_GAME_ID)
+        .bind("Coin Flip")
+        .bind("A fast-paced guessing game where players predict coin flips. Get it wrong and you're eliminated!")
+        .bind("https://stackswars.com/games/coinflip.png")
+        .bind(2_i16)
+        .bind(100_i16)
+        .bind("Guessing Games")
+        .bind(system_user_id)
+        .bind(true)
+        .execute(&self.pg_pool)
+        .await
+        .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
+
+        Ok(COINFLIP_GAME_ID)
     }
 
     /// Insert a lobby directly and return lobby id
@@ -392,7 +447,8 @@ pub async fn spawn_app_with_containers() -> TestApp {
         lobby_connections: Default::default(),
         connections: Default::default(),
         chat_connections: Default::default(),
-        game_registry: Arc::new(HashMap::new()),
+        game_registry: Arc::new(stacks_wars_be::games::create_game_registry()),
+        active_games: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
         redis: redis_pool,
         postgres: pg_pool.clone(),
         bot,
