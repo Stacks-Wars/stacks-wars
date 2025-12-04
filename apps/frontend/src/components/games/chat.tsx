@@ -103,7 +103,7 @@ export default function Chat() {
 					<DialogTrigger asChild>
 						<Button
 							variant="outline"
-							className="from-primary/10 to-primary/20 border-primary/20 hover:from-primary/20 hover:to-primary/30 group pointer-events-auto absolute right-6 bottom-6 size-12 rounded-full bg-gradient-to-r p-4 shadow-lg backdrop-blur-sm"
+							className="from-primary/10 to-primary/20 border-primary/20 hover:from-primary/20 hover:to-primary/30 group pointer-events-auto absolute right-6 bottom-6 size-12 rounded-full bg-linear-to-r p-4 shadow-lg backdrop-blur-sm"
 						>
 							<div className="relative">
 								<FiMessageCircle className="text-primary size-6 rounded-full transition-transform group-hover:scale-110" />
@@ -129,7 +129,7 @@ export default function Chat() {
 						)}
 						hideClose
 					>
-						<DialogHeader className="from-primary to-primary/80 text-primary-foreground border-primary/30 border-b bg-gradient-to-r px-6 py-4">
+						<DialogHeader className="from-primary to-primary/80 text-primary-foreground border-primary/30 border-b bg-linear-to-r px-6 py-4">
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-3">
 									<Users className="h-5 w-5" />
@@ -247,7 +247,7 @@ export default function Chat() {
 													)}
 												>
 													{!isOwnMessage && (
-														<div className="flex-shrink-0">
+														<div className="shrink-0">
 															{showSenderInfo ? (
 																<Tooltip>
 																	<TooltipTrigger
@@ -304,7 +304,7 @@ export default function Chat() {
 														<div
 															className={cn(
 																"rounded-xl px-4 py-2 text-sm shadow-sm",
-																"overflow-wrap-anywhere break-words break-all hyphens-auto whitespace-pre-wrap",
+																"overflow-wrap-anywhere wrap-break-word break-all hyphens-auto whitespace-pre-wrap",
 																"max-w-full",
 																isOwnMessage
 																	? "bg-primary text-primary-foreground rounded-br-none"

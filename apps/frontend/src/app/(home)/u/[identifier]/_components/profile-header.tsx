@@ -38,7 +38,7 @@ export default function ProfileHeader({ user, isOwner }: ProfileHeaderProps) {
 	};
 
 	return (
-		<Card className="from-primary/10 to-primary/5 bg-gradient-to-r">
+		<Card className="from-primary/10 to-primary/5 bg-linear-to-r">
 			<CardContent className="p-6">
 				<div className="flex flex-col items-center gap-6 sm:flex-row">
 					<Avatar className="border-background h-24 w-24 border-4">

@@ -284,7 +284,7 @@ export default function JoinLobbyForm({
 					<CardTitle className="truncate">
 						{joined ? "Leave Lobby" : "Join Lobby"}
 					</CardTitle>
-					<CardDescription className="break-words">
+					<CardDescription className="wrap-break-word">
 						{joined
 							? "You're currently in this lobby"
 							: "Join this lobby to participate in the game"}

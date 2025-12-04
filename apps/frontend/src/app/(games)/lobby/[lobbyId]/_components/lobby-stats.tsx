@@ -68,7 +68,7 @@ export default function LobbyStats({ lobby, players }: LobbyStatsProps) {
 							<p className="truncate text-base font-bold sm:text-xl md:text-2xl">
 								{lobby.name}
 							</p>
-							<p className="text-muted-foreground line-clamp-2 text-xs break-words sm:text-sm">
+							<p className="text-muted-foreground line-clamp-2 text-xs wrap-break-word sm:text-sm">
 								{lobby.description}
 							</p>
 						</div>

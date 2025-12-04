@@ -225,7 +225,7 @@ export default function LexiWars({ lobbyId, userId, lobby }: LexiWarsProps) {
 	}
 
 	return (
-		<main className="from-background to-primary/30 min-h-screen bg-gradient-to-b">
+		<main className="from-background to-primary/30 min-h-screen bg-linear-to-b">
 			<div className="mx-auto max-w-3xl p-4 sm:p-6">
 				<div className="flex justify-between">
 					<Back

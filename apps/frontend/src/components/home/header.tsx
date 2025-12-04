@@ -30,7 +30,7 @@ export default function Header() {
 	const [openSheet, setSheetOpen] = useState(false);
 
 	return (
-		<header className="supports-[backdrop-filter]:bg-primary/30 sticky top-0 z-50 w-full border-b backdrop-blur">
+		<header className="supports-backdrop-filter:bg-primary/30 sticky top-0 z-50 w-full border-b backdrop-blur">
 			<div className="max-w-8xl mx-auto flex h-16 items-center justify-between px-6">
 				<Link href={"/"}>
 					<div className="flex items-center gap-2">
@@ -71,7 +71,7 @@ export default function Header() {
 						</SheetTrigger>
 						<SheetContent
 							side="right"
-							className="supports-[backdrop-filter]:bg-primary/30 backdrop-blur"
+							className="supports-backdrop-filter:bg-primary/30 backdrop-blur"
 						>
 							<SheetHeader>
 								<SheetTitle>Stacks Wars</SheetTitle>

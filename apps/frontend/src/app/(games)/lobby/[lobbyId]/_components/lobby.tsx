@@ -231,7 +231,7 @@ export default function Lobby({
 	]);
 
 	return (
-		<section className="from-primary/10 to-primary/30 bg-gradient-to-b">
+		<section className="from-primary/10 to-primary/30 bg-linear-to-b">
 			<div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6">
 				<div className="flex items-center justify-between">
 					<Link
