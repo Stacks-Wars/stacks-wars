@@ -56,7 +56,7 @@ export default function GameOverModal({
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogContent
-				className="from-primary/90 to-primary/70 border-0 bg-gradient-to-b text-white sm:max-w-md"
+				className="from-primary/90 to-primary/70 border-0 bg-linear-to-b text-white sm:max-w-md"
 				hideClose
 				disableOutsideClose
 			>

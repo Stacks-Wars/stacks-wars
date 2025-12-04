@@ -258,7 +258,7 @@ export default function Participants({
 														<Button
 															variant={"link"}
 															asChild
-															className="h-auto !p-0 text-right text-xs"
+															className="h-auto p-0! text-right text-xs"
 														>
 															<Link
 																href={`${EXPLORER_BASE_URL}txid/${player.txId}?chain=${network}`}
@@ -414,7 +414,7 @@ export default function Participants({
 						<h3 className="mb-1 text-base font-medium sm:text-lg">
 							No participants yet
 						</h3>
-						<p className="text-muted-foreground max-w-xs text-xs break-words sm:text-sm">
+						<p className="text-muted-foreground max-w-xs text-xs wrap-break-word sm:text-sm">
 							Trust me something is wrong if you see this. Where
 							da creator at?
 						</p>

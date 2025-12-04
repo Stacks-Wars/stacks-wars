@@ -54,7 +54,7 @@ export default function Back({
 							<span>Quit game</span>
 						</Button>
 					</DialogTrigger>
-					<DialogContent className="from-primary/90 to-primary/70 border-0 bg-gradient-to-b text-white">
+					<DialogContent className="from-primary/90 to-primary/70 border-0 bg-linear-to-b text-white">
 						<DialogHeader>
 							<DialogTitle>
 								Are you sure you want to quit?

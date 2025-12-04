@@ -2,7 +2,7 @@ import Image from "next/image";
 
 export default function Loading() {
 	return (
-		<main className="from-background to-primary/30 min-h-screen bg-gradient-to-b">
+		<main className="from-background to-primary/30 min-h-screen bg-linear-to-b">
 			<div className="mx-auto max-w-3xl p-4 sm:p-6">
 				<div className="flex min-h-[70vh] flex-col items-center justify-center space-y-8">
 					<div className="animate-bounce">
