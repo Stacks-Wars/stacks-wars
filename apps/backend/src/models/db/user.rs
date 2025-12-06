@@ -9,7 +9,7 @@ use super::WalletAddress;
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct User {
-    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
     pub(crate) id: Uuid,
     pub wallet_address: WalletAddress,
     pub username: Option<String>,

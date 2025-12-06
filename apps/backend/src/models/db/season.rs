@@ -15,7 +15,7 @@ use sqlx::FromRow;
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct Season {
-    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
     pub(crate) id: i32,
     pub name: String,
     pub description: Option<String>,

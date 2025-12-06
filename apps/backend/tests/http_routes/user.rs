@@ -31,11 +31,11 @@ async fn update_or_set_username() {
     // Use factory to create a user directly in DB and obtain token
     let factory = app.factory();
     let (user_id, token) = factory
-        .create_test_user(Some("update-username-wallet"))
+        .create_test_user(Some("SP1AY6K3PQV5MRT6R4S671NWW2FRVPKM0BR162CT6"))
         .await
         .expect("create user failed");
 
-    let payload = json!({ "username": "new-username" });
+    let payload = json!({ "username": "new_username" });
 
     let resp = client
         .patch(format!("{}/api/user/username", app.base_url))
@@ -57,7 +57,7 @@ async fn update_or_set_username() {
     let body: serde_json::Value = resp2.json().await.expect("invalid json");
     assert_eq!(
         body.get("username").and_then(|v| v.as_str()).unwrap_or(""),
-        "new-username"
+        "new_username"
     );
 
     app.stop().await;
@@ -70,7 +70,7 @@ async fn update_or_set_displayname() {
 
     let factory = app.factory();
     let (user_id, token) = factory
-        .create_test_user(Some("update-display-wallet"))
+        .create_test_user(Some("SP2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKNRV9EJ7"))
         .await
         .expect("create user failed");
 
@@ -110,11 +110,11 @@ async fn update_user_profile() {
 
     let factory = app.factory();
     let (user_id, token) = factory
-        .create_test_user(Some("update-profile-wallet"))
+        .create_test_user(Some("SP3N2ZJX0KZR1D4YKN1ZVXMZJVN6H4JTVQPJK4Q6M"))
         .await
         .expect("create user failed");
 
-    let payload = json!({ "username": "profile-user", "displayName": "Profile Player" });
+    let payload = json!({ "username": "profile_user", "displayName": "Profile Player" });
 
     let resp = client
         .patch(format!("{}/api/user/profile", app.base_url))
@@ -135,7 +135,7 @@ async fn update_user_profile() {
     let body: serde_json::Value = resp2.json().await.expect("invalid json");
     assert_eq!(
         body.get("username").and_then(|v| v.as_str()).unwrap_or(""),
-        "profile-user"
+        "profile_user"
     );
     assert_eq!(
         body.get("displayName")

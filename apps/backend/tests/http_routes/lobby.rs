@@ -34,6 +34,7 @@ async fn create_lobby() {
         "tokenContractId": null,
         "contractAddress": null,
         "isPrivate": false,
+        "isSponsored": false,
         "gameId": game_id
     });
 
@@ -162,6 +163,7 @@ async fn list_my_lobbies() {
         "description": "owned lobby",
         "entryAmount": 1.0,
         "tokenSymbol": "STX",
+        "isSponsored": false,
         "gameId": game_id.to_string()
     });
 
@@ -224,6 +226,7 @@ async fn delete_lobby() {
         "description": "to be deleted",
         "entryAmount": 1.0,
         "tokenSymbol": "STX",
+        "isSponsored": false,
         "gameId": game_id.to_string()
     });
 

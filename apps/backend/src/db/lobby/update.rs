@@ -4,7 +4,10 @@ use uuid::Uuid;
 
 use crate::{
     errors::AppError,
-    models::{db::Lobby, redis::LobbyStatus},
+    models::{
+        db::{Lobby, WalletAddress},
+        redis::LobbyStatus,
+    },
 };
 
 use super::LobbyRepository;
@@ -27,17 +30,16 @@ impl LobbyRepository {
         .bind(status)
         .bind(Utc::now().naive_utc())
         .bind(lobby_id)
-        .fetch_optional(&self.pool)
+        .fetch_one(&self.pool)
         .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to update lobby status: {}", e)))?
-        .ok_or_else(|| AppError::NotFound(format!("Lobby {} not found", lobby_id)))?;
+        .map_err(|e| AppError::DatabaseError(format!("Failed to update lobby status: {}", e)))?;
 
         tracing::info!("Updated lobby {} status to {:?}", lobby_id, lobby.status);
         Ok(lobby)
     }
 
     /// Update lobby name.
-    pub async fn update_name(&self, lobby_id: Uuid, name: String) -> Result<Lobby, AppError> {
+    pub async fn update_name(&self, lobby_id: Uuid, name: &str) -> Result<Lobby, AppError> {
         let lobby = sqlx::query_as::<_, Lobby>(
             r#"
             UPDATE lobbies
@@ -46,13 +48,12 @@ impl LobbyRepository {
             RETURNING *
             "#,
         )
-        .bind(&name)
+        .bind(name)
         .bind(Utc::now().naive_utc())
         .bind(lobby_id)
-        .fetch_optional(&self.pool)
+        .fetch_one(&self.pool)
         .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to update lobby name: {}", e)))?
-        .ok_or_else(|| AppError::NotFound(format!("Lobby {} not found", lobby_id)))?;
+        .map_err(|e| AppError::DatabaseError(format!("Failed to update lobby name: {}", e)))?;
 
         Ok(lobby)
     }
@@ -61,7 +62,7 @@ impl LobbyRepository {
     pub async fn update_description(
         &self,
         lobby_id: Uuid,
-        description: Option<String>,
+        description: &str,
     ) -> Result<Lobby, AppError> {
         let lobby = sqlx::query_as::<_, Lobby>(
             r#"
@@ -74,10 +75,11 @@ impl LobbyRepository {
         .bind(description)
         .bind(Utc::now().naive_utc())
         .bind(lobby_id)
-        .fetch_optional(&self.pool)
+        .fetch_one(&self.pool)
         .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to update lobby description: {}", e)))?
-        .ok_or_else(|| AppError::NotFound(format!("Lobby {} not found", lobby_id)))?;
+        .map_err(|e| {
+            AppError::DatabaseError(format!("Failed to update lobby description: {}", e))
+        })?;
 
         Ok(lobby)
     }
@@ -86,8 +88,10 @@ impl LobbyRepository {
     pub async fn update_entry_amount(
         &self,
         lobby_id: Uuid,
-        entry_amount: Option<f64>,
+        entry_amount: f64,
     ) -> Result<Lobby, AppError> {
+        let entry_amount = Lobby::validate_amount(Some(entry_amount))?;
+
         let lobby = sqlx::query_as::<_, Lobby>(
             r#"
             UPDATE lobbies
@@ -99,12 +103,11 @@ impl LobbyRepository {
         .bind(entry_amount)
         .bind(Utc::now().naive_utc())
         .bind(lobby_id)
-        .fetch_optional(&self.pool)
+        .fetch_one(&self.pool)
         .await
         .map_err(|e| {
             AppError::DatabaseError(format!("Failed to update lobby entry amount: {}", e))
-        })?
-        .ok_or_else(|| AppError::NotFound(format!("Lobby {} not found", lobby_id)))?;
+        })?;
 
         Ok(lobby)
     }
@@ -113,8 +116,10 @@ impl LobbyRepository {
     pub async fn update_current_amount(
         &self,
         lobby_id: Uuid,
-        current_amount: Option<f64>,
+        current_amount: f64,
     ) -> Result<Lobby, AppError> {
+        let current_amount = Lobby::validate_amount(Some(current_amount))?;
+
         let lobby = sqlx::query_as::<_, Lobby>(
             r#"
             UPDATE lobbies
@@ -126,12 +131,11 @@ impl LobbyRepository {
         .bind(current_amount)
         .bind(Utc::now().naive_utc())
         .bind(lobby_id)
-        .fetch_optional(&self.pool)
+        .fetch_one(&self.pool)
         .await
         .map_err(|e| {
             AppError::DatabaseError(format!("Failed to update lobby current amount: {}", e))
-        })?
-        .ok_or_else(|| AppError::NotFound(format!("Lobby {} not found", lobby_id)))?;
+        })?;
 
         Ok(lobby)
     }
@@ -142,6 +146,8 @@ impl LobbyRepository {
         lobby_id: Uuid,
         amount: f64,
     ) -> Result<Lobby, AppError> {
+        Lobby::validate_amount(Some(amount))?;
+
         let lobby = sqlx::query_as::<_, Lobby>(
             r#"
             UPDATE lobbies
@@ -153,10 +159,9 @@ impl LobbyRepository {
         .bind(amount)
         .bind(Utc::now().naive_utc())
         .bind(lobby_id)
-        .fetch_optional(&self.pool)
+        .fetch_one(&self.pool)
         .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to increment lobby amount: {}", e)))?
-        .ok_or_else(|| AppError::NotFound(format!("Lobby {} not found", lobby_id)))?;
+        .map_err(|e| AppError::DatabaseError(format!("Failed to increment lobby amount: {}", e)))?;
 
         Ok(lobby)
     }
@@ -165,9 +170,18 @@ impl LobbyRepository {
     pub async fn update_token_info(
         &self,
         lobby_id: Uuid,
-        token_symbol: Option<String>,
-        token_contract_id: Option<String>,
+        token_symbol: Option<&str>,
+        token_contract_id: Option<&str>,
     ) -> Result<Lobby, AppError> {
+        use crate::models::db::WalletAddress;
+
+        // Validate token_contract_id if provided
+        let validated_contract = if let Some(addr) = token_contract_id {
+            Some(WalletAddress::new(addr)?)
+        } else {
+            None
+        };
+
         let lobby = sqlx::query_as::<_, Lobby>(
             r#"
             UPDATE lobbies
@@ -177,7 +191,7 @@ impl LobbyRepository {
             "#,
         )
         .bind(token_symbol)
-        .bind(token_contract_id)
+        .bind(validated_contract.as_ref())
         .bind(Utc::now().naive_utc())
         .bind(lobby_id)
         .fetch_optional(&self.pool)
@@ -192,8 +206,11 @@ impl LobbyRepository {
     pub async fn update_contract_address(
         &self,
         lobby_id: Uuid,
-        contract_address: Option<String>,
+        contract_address: &str,
     ) -> Result<Lobby, AppError> {
+        // Validate contract_address provided
+        let contract_address = WalletAddress::new(contract_address)?;
+
         let lobby = sqlx::query_as::<_, Lobby>(
             r#"
             UPDATE lobbies
@@ -202,15 +219,14 @@ impl LobbyRepository {
             RETURNING *
             "#,
         )
-        .bind(contract_address)
+        .bind(contract_address.as_ref())
         .bind(Utc::now().naive_utc())
         .bind(lobby_id)
-        .fetch_optional(&self.pool)
+        .fetch_one(&self.pool)
         .await
         .map_err(|e| {
             AppError::DatabaseError(format!("Failed to update lobby contract address: {}", e))
-        })?
-        .ok_or_else(|| AppError::NotFound(format!("Lobby {} not found", lobby_id)))?;
+        })?;
 
         Ok(lobby)
     }
@@ -228,10 +244,9 @@ impl LobbyRepository {
         .bind(is_private)
         .bind(Utc::now().naive_utc())
         .bind(lobby_id)
-        .fetch_optional(&self.pool)
+        .fetch_one(&self.pool)
         .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to update lobby privacy: {}", e)))?
-        .ok_or_else(|| AppError::NotFound(format!("Lobby {} not found", lobby_id)))?;
+        .map_err(|e| AppError::DatabaseError(format!("Failed to update lobby privacy: {}", e)))?;
 
         Ok(lobby)
     }
@@ -253,12 +268,11 @@ impl LobbyRepository {
         .bind(is_sponsored)
         .bind(Utc::now().naive_utc())
         .bind(lobby_id)
-        .fetch_optional(&self.pool)
+        .fetch_one(&self.pool)
         .await
         .map_err(|e| {
             AppError::DatabaseError(format!("Failed to update lobby sponsored status: {}", e))
-        })?
-        .ok_or_else(|| AppError::NotFound(format!("Lobby {} not found", lobby_id)))?;
+        })?;
 
         Ok(lobby)
     }

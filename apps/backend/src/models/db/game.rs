@@ -12,7 +12,7 @@ use crate::errors::AppError;
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {
-    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
     pub(crate) id: Uuid,
     pub name: String,
     pub description: String,

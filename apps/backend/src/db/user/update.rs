@@ -18,7 +18,7 @@ impl UserRepository {
         )
         .bind(&username)
         .bind(user_id)
-        .fetch_one(&self.pool)
+        .execute(&self.pool)
         .await
         .map_err(|e| {
             if let sqlx::Error::Database(db_err) = &e {

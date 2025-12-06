@@ -3,15 +3,19 @@ use sqlx::postgres::{PgArgumentBuffer, PgTypeInfo, PgValueRef};
 use sqlx::{Decode, Encode, Postgres, Type};
 use std::fmt;
 
-/// Validated Stacks blockchain wallet address.
+/// Validated Stacks blockchain wallet address or contract identifier.
+///
+/// Supports three formats:
+/// 1. Simple address: SP1AY6K3PQV5MRT6R4S671NWW2FRVPKM0BR162CT6
+/// 2. Contract identifier: SP1AY6K3PQV5MRT6R4S671NWW2FRVPKM0BR162CT6.leo-token
+/// 3. Fully qualified: SP1AY6K3PQV5MRT6R4S671NWW2FRVPKM0BR162CT6.leo-token::LEO
 ///
 /// Format validation:
 /// - Prefix: SP/SM/ST/SN (network identifier)
 /// - Characters: C32 alphabet only (0-9, A-Z excluding O, I, L)
-/// - Length: 40-41 characters total
-///
-/// Note: Full checksum validation requires C32 decode with SHA256 double-hash.
-/// Currently validates format only (prefix + alphabet + length).
+/// - Length: 35-45 characters for address part
+/// - Contract name: alphanumeric, hyphens, underscores (after '.')
+/// - Trait/asset: alphanumeric, hyphens, underscores (after '::')
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct WalletAddress(String);
@@ -22,29 +26,47 @@ impl WalletAddress {
     const MIN_LENGTH: usize = 35; // Minimum address length
     const MAX_LENGTH: usize = 45; // Maximum address length
 
-    /// Create a new validated wallet address.
+    /// Create a new validated wallet address or contract identifier.
     pub fn new(address: impl AsRef<str>) -> Result<Self, WalletAddressError> {
-        let address = address.as_ref().trim().to_uppercase();
+        let address = address.as_ref().trim();
 
-        // Validate length (40-41 characters)
-        if address.len() < Self::MIN_LENGTH || address.len() > Self::MAX_LENGTH {
+        // Split by '::' to separate trait/asset part
+        let (main_part, trait_part) = if let Some(idx) = address.find("::") {
+            let (main, trait_str) = address.split_at(idx);
+            (main, Some(&trait_str[2..])) // Skip '::'
+        } else {
+            (address, None)
+        };
+
+        // Split main part by '.' to separate address and contract name
+        let (addr_part, contract_name) = if let Some(idx) = main_part.find('.') {
+            let (addr, contract) = main_part.split_at(idx);
+            (addr, Some(&contract[1..])) // Skip '.'
+        } else {
+            (main_part, None)
+        };
+
+        // Validate address part
+        let addr_upper = addr_part.to_uppercase();
+
+        if addr_upper.len() < Self::MIN_LENGTH || addr_upper.len() > Self::MAX_LENGTH {
             return Err(WalletAddressError::InvalidLength {
                 min: Self::MIN_LENGTH,
                 max: Self::MAX_LENGTH,
-                actual: address.len(),
+                actual: addr_upper.len(),
             });
         }
 
         // Validate prefix
-        let prefix = &address[..2];
+        let prefix = &addr_upper[..2];
         if !Self::VALID_PREFIXES.contains(&prefix) {
             return Err(WalletAddressError::InvalidPrefix {
                 prefix: prefix.to_string(),
             });
         }
 
-        // Validate C32 alphabet
-        for (idx, ch) in address.chars().enumerate() {
+        // Validate C32 alphabet for address
+        for (idx, ch) in addr_upper.chars().enumerate() {
             if !Self::C32_ALPHABET.contains(ch) {
                 return Err(WalletAddressError::InvalidCharacter {
                     character: ch,
@@ -53,16 +75,98 @@ impl WalletAddress {
             }
         }
 
-        Ok(Self(address))
+        // Validate contract name if present (alphanumeric, hyphens, underscores)
+        if let Some(contract) = contract_name {
+            if contract.is_empty() {
+                return Err(WalletAddressError::InvalidContractName {
+                    reason: "Contract name cannot be empty".to_string(),
+                });
+            }
+            for ch in contract.chars() {
+                if !ch.is_alphanumeric() && ch != '-' && ch != '_' {
+                    return Err(WalletAddressError::InvalidContractName {
+                        reason: format!("Invalid character '{}' in contract name", ch),
+                    });
+                }
+            }
+        }
+
+        // Validate trait/asset part if present
+        if let Some(trait_name) = trait_part {
+            if trait_name.is_empty() {
+                return Err(WalletAddressError::InvalidTraitName {
+                    reason: "Trait/asset name cannot be empty".to_string(),
+                });
+            }
+            for ch in trait_name.chars() {
+                if !ch.is_alphanumeric() && ch != '-' && ch != '_' {
+                    return Err(WalletAddressError::InvalidTraitName {
+                        reason: format!("Invalid character '{}' in trait/asset name", ch),
+                    });
+                }
+            }
+        }
+
+        // Reconstruct the full identifier with normalized address
+        let mut result = addr_upper;
+        if let Some(contract) = contract_name {
+            result.push('.');
+            result.push_str(contract);
+        }
+        if let Some(trait_name) = trait_part {
+            result.push_str("::");
+            result.push_str(trait_name);
+        }
+
+        Ok(Self(result))
     }
     /// Get address as string slice.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    /// Get the base address part (before '.' if present).
+    pub fn address(&self) -> &str {
+        self.0.split('.').next().unwrap_or(&self.0)
+    }
+
+    /// Get contract name if present (part after '.' and before '::').
+    pub fn contract_name(&self) -> Option<&str> {
+        if let Some(after_dot) = self.0.split('.').nth(1) {
+            // Handle case with trait: contract.name::trait
+            if let Some(before_colon) = after_dot.split("::").next() {
+                Some(before_colon)
+            } else {
+                Some(after_dot)
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Get trait/asset name if present (part after '::').
+    pub fn trait_name(&self) -> Option<&str> {
+        self.0.split("::").nth(1)
+    }
+
+    /// Check if this is a simple address (no contract or trait parts).
+    pub fn is_simple_address(&self) -> bool {
+        !self.0.contains('.') && !self.0.contains("::")
+    }
+
+    /// Check if this is a contract identifier (has contract name).
+    pub fn is_contract_identifier(&self) -> bool {
+        self.0.contains('.')
+    }
+
+    /// Check if this is fully qualified (has trait/asset name).
+    pub fn is_fully_qualified(&self) -> bool {
+        self.0.contains("::")
+    }
+
     /// Get network prefix.
     pub fn prefix(&self) -> &str {
-        &self.0[..2]
+        &self.address()[..2]
     }
 
     /// Check if mainnet address.
@@ -155,6 +259,12 @@ pub enum WalletAddressError {
         "Invalid character '{character}' at position {position}: must be C32 alphabet (0-9, A-Z excluding O, I, L)"
     )]
     InvalidCharacter { character: char, position: usize },
+
+    #[error("Invalid contract name: {reason}")]
+    InvalidContractName { reason: String },
+
+    #[error("Invalid trait/asset name: {reason}")]
+    InvalidTraitName { reason: String },
 }
 
 #[cfg(test)]
@@ -280,5 +390,78 @@ mod tests {
                 );
             }
         }
+    }
+
+    // Contract identifier tests
+    #[test]
+    fn test_contract_identifier() {
+        let addr = WalletAddress::new("SP1AY6K3PQV5MRT6R4S671NWW2FRVPKM0BR162CT6.leo-token");
+        assert!(addr.is_ok(), "Valid contract identifier should parse");
+
+        let addr = addr.unwrap();
+        assert_eq!(addr.address(), "SP1AY6K3PQV5MRT6R4S671NWW2FRVPKM0BR162CT6");
+        assert_eq!(addr.contract_name(), Some("leo-token"));
+        assert_eq!(addr.trait_name(), None);
+        assert!(!addr.is_simple_address());
+        assert!(addr.is_contract_identifier());
+        assert!(!addr.is_fully_qualified());
+    }
+
+    #[test]
+    fn test_fully_qualified_contract() {
+        let addr = WalletAddress::new("SP1AY6K3PQV5MRT6R4S671NWW2FRVPKM0BR162CT6.leo-token::LEO");
+        assert!(addr.is_ok(), "Valid fully qualified contract should parse");
+
+        let addr = addr.unwrap();
+        assert_eq!(addr.address(), "SP1AY6K3PQV5MRT6R4S671NWW2FRVPKM0BR162CT6");
+        assert_eq!(addr.contract_name(), Some("leo-token"));
+        assert_eq!(addr.trait_name(), Some("LEO"));
+        assert!(!addr.is_simple_address());
+        assert!(addr.is_contract_identifier());
+        assert!(addr.is_fully_qualified());
+    }
+
+    #[test]
+    fn test_contract_with_underscore() {
+        let addr = WalletAddress::new("SP1AY6K3PQV5MRT6R4S671NWW2FRVPKM0BR162CT6.test_token_v2");
+        assert!(addr.is_ok());
+        assert_eq!(addr.unwrap().contract_name(), Some("test_token_v2"));
+    }
+
+    #[test]
+    fn test_invalid_contract_name_empty() {
+        let addr = WalletAddress::new("SP1AY6K3PQV5MRT6R4S671NWW2FRVPKM0BR162CT6.");
+        assert!(matches!(
+            addr,
+            Err(WalletAddressError::InvalidContractName { .. })
+        ));
+    }
+
+    #[test]
+    fn test_invalid_contract_name_special_char() {
+        let addr = WalletAddress::new("SP1AY6K3PQV5MRT6R4S671NWW2FRVPKM0BR162CT6.leo@token");
+        assert!(matches!(
+            addr,
+            Err(WalletAddressError::InvalidContractName { .. })
+        ));
+    }
+
+    #[test]
+    fn test_invalid_trait_name_empty() {
+        let addr = WalletAddress::new("SP1AY6K3PQV5MRT6R4S671NWW2FRVPKM0BR162CT6.leo-token::");
+        assert!(matches!(
+            addr,
+            Err(WalletAddressError::InvalidTraitName { .. })
+        ));
+    }
+
+    #[test]
+    fn test_simple_address_helpers() {
+        let addr = WalletAddress::new("SPF0V8KWBS70F0WDKTMY65B3G591NN52PTHHN51D").unwrap();
+        assert!(addr.is_simple_address());
+        assert!(!addr.is_contract_identifier());
+        assert!(!addr.is_fully_qualified());
+        assert_eq!(addr.contract_name(), None);
+        assert_eq!(addr.trait_name(), None);
     }
 }
