@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    auth::AuthClaims, db::user::UserRepository, errors::AppError, models::db::UserV2,
+    auth::AuthClaims,
+    db::user::UserRepository,
+    errors::AppError,
+    models::db::{User, Username, WalletAddress},
     state::AppState,
 };
 
@@ -67,22 +70,23 @@ pub async fn create_user(
     State(state): State<AppState>,
     Json(payload): Json<CreateUserRequest>,
 ) -> Result<Json<String>, (StatusCode, String)> {
+    let wallet_address = WalletAddress::new(&payload.wallet_address).map_err(|e| {
+        tracing::warn!("Invalid wallet address: {}", e);
+        AppError::from(e).to_response()
+    })?;
+
     let repo = UserRepository::new(state.postgres.clone());
 
-    // Create user and get JWT token
+    // Create user and get JWT token (pass by reference, no clone)
     let token = repo
-        .create_user(payload.wallet_address.clone(), &state.config.jwt_secret)
+        .create_user(&wallet_address, &state.config.jwt_secret)
         .await
         .map_err(|e| {
             tracing::error!("Failed to create user: {}", e);
             e.to_response()
         })?;
 
-    tracing::info!(
-        "User created successfully: Wallet: {}",
-        payload.wallet_address
-    );
-
+    tracing::info!("User created successfully: Wallet: {}", wallet_address);
     Ok(Json(token))
 }
 
@@ -92,11 +96,11 @@ pub async fn create_user(
 
 /// Get a user's public profile by UUID.
 ///
-/// Public endpoint returning `UserV2` or `404` if not found.
+/// Public endpoint returning `User` or `404` if not found.
 pub async fn get_user(
     State(state): State<AppState>,
     Path(user_id): Path<Uuid>,
-) -> Result<Json<UserV2>, (StatusCode, String)> {
+) -> Result<Json<User>, (StatusCode, String)> {
     let repo = UserRepository::new(state.postgres.clone());
 
     let user = repo.find_by_id(user_id).await.map_err(|e| {
@@ -125,20 +129,21 @@ pub async fn update_username(
         AppError::Unauthorized("Invalid token".into()).to_response()
     })?;
 
+    let username = Username::new(&payload.username).map_err(|e| {
+        tracing::warn!("Invalid username: {}", e);
+        AppError::from(e).to_response()
+    })?;
+
     let repo = UserRepository::new(state.postgres.clone());
 
-    repo.update_username(user_id, &payload.username)
+    repo.update_username(user_id, &username)
         .await
         .map_err(|e| {
             tracing::error!("Failed to update username for {}: {}", user_id, e);
             e.to_response()
         })?;
 
-    tracing::info!(
-        "Username updated for user {} to '{}'",
-        user_id,
-        payload.username
-    );
+    tracing::info!("Username updated for user {} to '{}'", user_id, username);
     Ok(Json(payload))
 }
 
@@ -179,25 +184,30 @@ pub async fn update_display_name(
 /// Partially update the authenticated user's profile fields.
 ///
 /// Accepts optional `username` and `displayName` fields and returns the
-/// updated `UserV2` on success. Requires a valid JWT.
+/// updated `User` on success. Requires a valid JWT.
 pub async fn update_profile(
     State(state): State<AppState>,
     AuthClaims(claims): AuthClaims,
     Json(payload): Json<UpdateProfileRequest>,
-) -> Result<Json<UserV2>, (StatusCode, String)> {
+) -> Result<Json<User>, (StatusCode, String)> {
     let user_id = Uuid::parse_str(&claims.sub).map_err(|_| {
         tracing::error!("Invalid user ID in JWT token");
         AppError::Unauthorized("Invalid token".into()).to_response()
     })?;
 
+    let username = if let Some(ref uname) = payload.username {
+        Some(Username::new(uname).map_err(|e| {
+            tracing::warn!("Invalid username: {}", e);
+            AppError::from(e).to_response()
+        })?)
+    } else {
+        None
+    };
+
     let repo = UserRepository::new(state.postgres.clone());
 
     let user = repo
-        .update_profile(
-            user_id,
-            payload.username.clone(),
-            payload.display_name.clone(),
-        )
+        .update_profile(user_id, username.as_ref(), payload.display_name.as_deref())
         .await
         .map_err(|e| {
             tracing::error!("Failed to update profile for {}: {}", user_id, e);
@@ -207,7 +217,7 @@ pub async fn update_profile(
     tracing::info!(
         "Profile updated for user {}: username={:?}, display_name={:?}",
         user_id,
-        payload.username,
+        username,
         payload.display_name
     );
 

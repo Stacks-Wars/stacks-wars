@@ -1,5 +1,4 @@
 // Database repositories and helpers
-pub mod chat;
 pub mod game;
 pub mod hydration;
 pub mod join_request;

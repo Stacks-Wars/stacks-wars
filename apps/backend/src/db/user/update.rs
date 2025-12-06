@@ -1,22 +1,19 @@
-use crate::{errors::AppError, models::db::UserV2};
+use crate::{
+    errors::AppError,
+    models::db::{User, Username},
+};
 use uuid::Uuid;
 
 use super::UserRepository;
 
 impl UserRepository {
-    /// Update a user's username (ensures uniqueness).
+    /// Update a user's username.
+    /// DB constraint (CITEXT UNIQUE) enforces uniqueness automatically.
     pub async fn update_username(
         &self,
         user_id: Uuid,
-        username: &String,
-    ) -> Result<UserV2, AppError> {
-        // Check if username is already taken by another user
-        if let Ok(existing_id) = self.find_user_id(&username).await {
-            if existing_id != user_id {
-                return Err(AppError::BadRequest("Username already taken".into()));
-            }
-        }
-
+        username: &Username,
+    ) -> Result<User, AppError> {
         sqlx::query(
             "UPDATE users
             SET username = $1, updated_at = NOW()
@@ -26,7 +23,14 @@ impl UserRepository {
         .bind(user_id)
         .execute(&self.pool)
         .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to update username: {}", e)))?;
+        .map_err(|e| {
+            if let sqlx::Error::Database(db_err) = &e {
+                if db_err.is_unique_violation() {
+                    return AppError::BadRequest("Username already taken".into());
+                }
+            }
+            AppError::DatabaseError(format!("Failed to update username: {}", e))
+        })?;
 
         tracing::info!("Updated username for user {}: {}", user_id, username);
         self.find_by_id(user_id).await
@@ -36,8 +40,8 @@ impl UserRepository {
     pub async fn update_display_name(
         &self,
         user_id: Uuid,
-        display_name: &String,
-    ) -> Result<UserV2, AppError> {
+        display_name: &str,
+    ) -> Result<User, AppError> {
         sqlx::query(
             "UPDATE users
             SET display_name = $1, updated_at = NOW()
@@ -62,7 +66,7 @@ impl UserRepository {
         &self,
         user_id: Uuid,
         trust_rating: f64,
-    ) -> Result<UserV2, AppError> {
+    ) -> Result<User, AppError> {
         sqlx::query(
             "UPDATE users
             SET trust_rating = $1, updated_at = NOW()
@@ -86,18 +90,9 @@ impl UserRepository {
     pub async fn update_profile(
         &self,
         user_id: Uuid,
-        username: Option<String>,
-        display_name: Option<String>,
-    ) -> Result<UserV2, AppError> {
-        // Validate username uniqueness if provided
-        if let Some(ref uname) = username {
-            if let Ok(existing_id) = self.find_user_id(uname).await {
-                if existing_id != user_id {
-                    return Err(AppError::BadRequest("Username already taken".into()));
-                }
-            }
-        }
-
+        username: Option<&Username>,
+        display_name: Option<&str>,
+    ) -> Result<User, AppError> {
         // Build dynamic update query
         let mut query = String::from("UPDATE users SET updated_at = NOW()");
         let mut param_count = 1;
@@ -124,10 +119,14 @@ impl UserRepository {
 
         query_builder = query_builder.bind(user_id);
 
-        query_builder
-            .execute(&self.pool)
-            .await
-            .map_err(|e| AppError::DatabaseError(format!("Failed to update profile: {}", e)))?;
+        query_builder.execute(&self.pool).await.map_err(|e| {
+            if let sqlx::Error::Database(db_err) = &e {
+                if db_err.is_unique_violation() {
+                    return AppError::BadRequest("Username already taken".into());
+                }
+            }
+            AppError::DatabaseError(format!("Failed to update profile: {}", e))
+        })?;
 
         tracing::info!("Updated profile for user {}", user_id);
         self.find_by_id(user_id).await

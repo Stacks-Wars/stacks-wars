@@ -2,6 +2,9 @@ use axum::http::StatusCode;
 use redis::RedisError;
 use thiserror::Error;
 
+use crate::models::db::username::UsernameError;
+use crate::models::db::wallet_address::WalletAddressError;
+
 #[derive(Error, Debug)]
 pub enum AppError {
     #[error("Redis error: {0}")]
@@ -45,6 +48,12 @@ pub enum AppError {
 
     #[error("Not found")]
     NotFound(String),
+
+    #[error("Invalid wallet address: {0}")]
+    WalletAddressError(#[from] WalletAddressError),
+
+    #[error("Invalid username: {0}")]
+    UsernameError(#[from] UsernameError),
 }
 
 impl AppError {
@@ -67,6 +76,8 @@ impl AppError {
                 "Unexpected server error".into(),
             ),
             AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
+            AppError::WalletAddressError(e) => (StatusCode::BAD_REQUEST, e.to_string()),
+            AppError::UsernameError(e) => (StatusCode::BAD_REQUEST, e.to_string()),
         }
     }
 }

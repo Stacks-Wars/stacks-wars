@@ -1,12 +1,12 @@
-use crate::{errors::AppError, models::db::UserV2};
+use crate::{errors::AppError, models::db::User};
 use uuid::Uuid;
 
 use super::UserRepository;
 
 impl UserRepository {
     /// Find a user by ID (returns user profile data).
-    pub async fn find_by_id(&self, user_id: Uuid) -> Result<UserV2, AppError> {
-        let user = sqlx::query_as::<_, UserV2>(
+    pub async fn find_by_id(&self, user_id: Uuid) -> Result<User, AppError> {
+        let user = sqlx::query_as::<_, User>(
             "SELECT id, wallet_address, username, display_name, trust_rating, created_at, updated_at
             FROM users
             WHERE id = $1",
@@ -21,7 +21,7 @@ impl UserRepository {
     }
 
     /// Find a user by wallet address.
-    pub async fn find_by_wallet(&self, wallet_address: &str) -> Result<UserV2, AppError> {
+    pub async fn find_by_wallet(&self, wallet_address: &str) -> Result<User, AppError> {
         let user_id =
             sqlx::query_scalar::<_, Uuid>("SELECT id FROM users WHERE wallet_address = $1")
                 .bind(wallet_address)
@@ -36,7 +36,7 @@ impl UserRepository {
     }
 
     /// Find a user by username (case-insensitive).
-    pub async fn find_by_username(&self, username: &str) -> Result<UserV2, AppError> {
+    pub async fn find_by_username(&self, username: &str) -> Result<User, AppError> {
         let normalized_username = username.to_lowercase();
 
         let user_id =
