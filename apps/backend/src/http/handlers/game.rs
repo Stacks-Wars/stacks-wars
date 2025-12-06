@@ -12,7 +12,7 @@ use crate::{
     auth::AuthClaims,
     db::game::GameRepository,
     errors::AppError,
-    models::db::game::{Game, Order, Pagination},
+    models::game::{Game, Order, Pagination},
     state::AppState,
 };
 

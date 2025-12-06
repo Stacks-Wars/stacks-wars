@@ -2,7 +2,7 @@
 
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::errors::AppError;
-use crate::models::redis::LobbyStatus;
+use crate::models::LobbyStatus;
 use redis::AsyncCommands;
 use uuid::Uuid;
 

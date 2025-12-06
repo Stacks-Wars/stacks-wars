@@ -1,6 +1,6 @@
 use super::PlatformRatingRepository;
 use crate::errors::AppError;
-use crate::models::db::PlatformRating;
+use crate::models::PlatformRating;
 
 impl PlatformRatingRepository {
     /// Create or replace a platform rating for the given user.

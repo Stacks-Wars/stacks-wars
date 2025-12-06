@@ -1,4 +1,4 @@
-use crate::models::redis::keys::RedisKey;
+use crate::models::keys::RedisKey;
 use crate::state::AppState;
 use axum::{
     extract::{ConnectInfo, Request},

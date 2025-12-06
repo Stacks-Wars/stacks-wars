@@ -2,8 +2,8 @@
 
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::errors::AppError;
-use crate::models::redis::LobbyStatus;
-use crate::models::redis::keys::RedisKey;
+use crate::models::LobbyStatus;
+use crate::models::keys::RedisKey;
 use chrono::Utc;
 use redis::AsyncCommands;
 use uuid::Uuid;

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    auth::AuthClaims, db::user::UserRepository, errors::AppError, models::db::User, state::AppState,
+    auth::AuthClaims, db::user::UserRepository, errors::AppError, models::User, state::AppState,
 };
 
 // ============================================================================

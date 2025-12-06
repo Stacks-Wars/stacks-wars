@@ -2,11 +2,11 @@ use axum::http::StatusCode;
 use redis::RedisError;
 use thiserror::Error;
 
-use crate::models::db::game::PlayerCountError;
-use crate::models::db::lobby::LobbyAmountError;
-use crate::models::db::season::DateRangeError;
-use crate::models::db::username::UsernameError;
-use crate::models::db::wallet_address::WalletAddressError;
+use crate::models::game::PlayerCountError;
+use crate::models::lobby::LobbyAmountError;
+use crate::models::season::DateRangeError;
+use crate::models::username::UsernameError;
+use crate::models::wallet_address::WalletAddressError;
 
 #[derive(Error, Debug)]
 pub enum AppError {

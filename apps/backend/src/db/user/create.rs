@@ -1,7 +1,7 @@
 use crate::{
     auth::generate_jwt,
     errors::AppError,
-    models::db::{User, WalletAddress},
+    models::{User, WalletAddress},
 };
 
 use super::UserRepository;
@@ -57,7 +57,7 @@ impl UserRepository {
 
         // Validate username if provided
         let username = if let Some(uname) = username {
-            Some(crate::models::db::Username::new(uname)?)
+            Some(crate::models::Username::new(uname)?)
         } else {
             None
         };

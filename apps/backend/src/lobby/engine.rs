@@ -12,7 +12,7 @@ use crate::lobby::{
     LobbyError,
     messages::{LobbyClientMessage, LobbyServerMessage},
 };
-use crate::models::redis::{LobbyStatus, PlayerState};
+use crate::models::{LobbyStatus, PlayerState};
 use crate::state::{AppState, ConnectionInfo};
 use crate::ws::core::{hub, manager};
 use chrono::Utc;

@@ -8,7 +8,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{auth::AuthClaims, db::lobby::LobbyRepository, models::db::Lobby, state::AppState};
+use crate::{auth::AuthClaims, db::lobby::LobbyRepository, models::Lobby, state::AppState};
 
 // ============================================================================
 // Request/Response Types
@@ -89,7 +89,9 @@ pub async fn create_lobby(
 
     Ok((
         StatusCode::CREATED,
-        Json(CreateLobbyResponse { lobby_id: lobby.id() }),
+        Json(CreateLobbyResponse {
+            lobby_id: lobby.id(),
+        }),
     ))
 }
 

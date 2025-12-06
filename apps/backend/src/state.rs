@@ -31,7 +31,6 @@ pub struct AppState {
     pub config: AppConfig,
     pub connections: Connections,
     pub lobby_connections: LobbyConnections,
-    pub chat_connections: ChatConnectionInfoMap,
     pub game_registry: Arc<HashMap<Uuid, GameFactory>>,
     pub active_games: ActiveGames,
     pub redis: RedisClient,
@@ -83,7 +82,6 @@ impl AppState {
 
         let connections: Connections = Default::default();
         let lobby_connections: LobbyConnections = Default::default();
-        let chat_connections: ChatConnectionInfoMap = Default::default();
 
         // Initialize game registry from games module
         let game_registry: Arc<HashMap<Uuid, GameFactory>> = Arc::new(create_game_registry());
@@ -93,7 +91,6 @@ impl AppState {
             config,
             connections,
             lobby_connections,
-            chat_connections,
             game_registry,
             active_games,
             redis: redis_pool,
@@ -101,11 +98,6 @@ impl AppState {
             bot,
         })
     }
-}
-
-#[derive(Debug)]
-pub struct ChatConnectionInfo {
-    pub sender: Arc<Mutex<SplitSink<WebSocket, Message>>>,
 }
 
 #[derive(Debug)]
@@ -121,8 +113,5 @@ pub type Connections = Arc<Mutex<HashMap<Uuid, Arc<ConnectionInfo>>>>;
 
 /// For fast broadcasting: for each lobby_id we store the set of connection_ids.
 pub type LobbyConnections = Arc<Mutex<HashMap<Uuid, HashSet<Uuid>>>>;
-
-// Single chat connection per player, but track which lobby they're chatting in
-pub type ChatConnectionInfoMap = Arc<Mutex<HashMap<Uuid, Arc<ChatConnectionInfo>>>>;
 
 pub type RedisClient = Pool<RedisConnectionManager>;

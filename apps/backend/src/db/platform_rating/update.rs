@@ -1,6 +1,6 @@
 use super::PlatformRatingRepository;
 use crate::errors::AppError;
-use crate::models::db::PlatformRating;
+use crate::models::PlatformRating;
 
 impl PlatformRatingRepository {
     /// Update an existing platform rating (by user_id). Returns the updated row.

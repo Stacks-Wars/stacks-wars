@@ -1,5 +1,5 @@
 // Small repository for lobby join-request lifecycle stored in Redis.
-use crate::models::redis::keys::RedisKey;
+use crate::models::keys::RedisKey;
 use crate::state::RedisClient;
 use chrono::Utc;
 use redis::AsyncCommands;

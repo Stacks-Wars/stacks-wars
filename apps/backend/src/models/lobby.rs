@@ -4,7 +4,7 @@ use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
 use super::WalletAddress;
-use crate::models::redis::{LobbyState, LobbyStatus};
+use crate::models::{LobbyState, LobbyStatus};
 
 /// Lobby model mapping to the `lobbies` table (room metadata and status).
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]

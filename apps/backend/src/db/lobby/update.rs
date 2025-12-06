@@ -4,10 +4,7 @@ use uuid::Uuid;
 
 use crate::{
     errors::AppError,
-    models::{
-        db::{Lobby, WalletAddress},
-        redis::LobbyStatus,
-    },
+    models::{Lobby, LobbyStatus, WalletAddress},
 };
 
 use super::LobbyRepository;
@@ -173,7 +170,7 @@ impl LobbyRepository {
         token_symbol: Option<&str>,
         token_contract_id: Option<&str>,
     ) -> Result<Lobby, AppError> {
-        use crate::models::db::WalletAddress;
+        use crate::models::WalletAddress;
 
         // Validate token_contract_id if provided
         let validated_contract = if let Some(addr) = token_contract_id {

@@ -1,6 +1,6 @@
 use crate::{
     errors::AppError,
-    models::db::game::{Game, Order, Pagination},
+    models::game::{Game, Order, Pagination},
 };
 use uuid::Uuid;
 

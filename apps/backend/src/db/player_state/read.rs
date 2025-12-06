@@ -2,8 +2,8 @@
 
 use crate::db::player_state::PlayerStateRepository;
 use crate::errors::AppError;
-use crate::models::redis::PlayerState;
-use crate::models::redis::keys::{KeyPart, RedisKey};
+use crate::models::PlayerState;
+use crate::models::keys::{KeyPart, RedisKey};
 use redis::AsyncCommands;
 use std::collections::HashMap;
 use uuid::Uuid;

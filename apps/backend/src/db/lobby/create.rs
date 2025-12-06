@@ -3,10 +3,7 @@ use uuid::Uuid;
 
 use crate::{
     errors::AppError,
-    models::{
-        db::{Lobby, WalletAddress},
-        redis::{LobbyState, LobbyStatus, PlayerState},
-    },
+    models::{Lobby, LobbyState, LobbyStatus, PlayerState, WalletAddress},
     state::RedisClient,
 };
 

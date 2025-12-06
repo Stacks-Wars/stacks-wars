@@ -1,5 +1,5 @@
 use crate::errors::AppError;
-use crate::models::db::PlatformRating;
+use crate::models::PlatformRating;
 use super::PlatformRatingRepository;
 
 impl PlatformRatingRepository {

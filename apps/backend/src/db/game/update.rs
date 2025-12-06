@@ -1,4 +1,4 @@
-use crate::{errors::AppError, models::db::game::Game};
+use crate::{errors::AppError, models::game::Game};
 use uuid::Uuid;
 
 use super::GameRepository;

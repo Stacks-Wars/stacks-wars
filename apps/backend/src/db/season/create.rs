@@ -1,4 +1,4 @@
-use crate::{errors::AppError, models::db::Season};
+use crate::{errors::AppError, models::Season};
 
 use super::SeasonRepository;
 

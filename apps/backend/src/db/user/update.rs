@@ -1,6 +1,6 @@
 use crate::{
     errors::AppError,
-    models::db::{User, Username},
+    models::{User, Username},
 };
 use uuid::Uuid;
 

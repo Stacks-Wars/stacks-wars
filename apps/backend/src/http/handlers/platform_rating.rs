@@ -44,7 +44,7 @@ pub async fn create_rating(
 pub async fn get_rating(
     State(state): State<AppState>,
     Path(user_id): Path<Uuid>,
-) -> Result<Json<crate::models::db::PlatformRating>, (StatusCode, String)> {
+) -> Result<Json<crate::models::PlatformRating>, (StatusCode, String)> {
     let repo = PlatformRatingRepository::new(state.postgres.clone());
 
     match repo.get_by_user(user_id).await.map_err(|e| {
@@ -66,7 +66,7 @@ pub struct ListRatingsQuery {
 pub async fn list_ratings(
     State(state): State<AppState>,
     Query(query): Query<ListRatingsQuery>,
-) -> Result<Json<Vec<crate::models::db::PlatformRating>>, (StatusCode, String)> {
+) -> Result<Json<Vec<crate::models::PlatformRating>>, (StatusCode, String)> {
     if let Some(r) = query.rating {
         if !(1..=5).contains(&r) {
             return Err((
@@ -91,7 +91,7 @@ pub async fn update_rating(
     State(state): State<AppState>,
     AuthClaims(claims): AuthClaims,
     Json(payload): Json<UpdatePlatformRatingRequest>,
-) -> Result<Json<crate::models::db::PlatformRating>, (StatusCode, String)> {
+) -> Result<Json<crate::models::PlatformRating>, (StatusCode, String)> {
     let user_id = Uuid::parse_str(&claims.sub)
         .map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid token".to_string()))?;
 

@@ -4,7 +4,7 @@ use chrono::{Duration, Utc};
 use jsonwebtoken::{EncodingKey, Header, encode};
 use uuid::Uuid;
 
-use crate::{errors::AppError, models::db::User};
+use crate::{errors::AppError, models::User};
 
 /// JWT Claims structure
 ///

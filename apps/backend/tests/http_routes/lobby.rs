@@ -56,11 +56,11 @@ async fn create_lobby() {
     // verify Redis runtime state exists for the lobby and creator player
     {
         let mut conn = app.state.redis.get().await.expect("redis conn");
-        let lobby_key = stacks_wars_be::models::redis::RedisKey::lobby_state(lobby_id);
+        let lobby_key = stacks_wars_be::models::RedisKey::lobby_state(lobby_id);
         let exists: bool = conn.exists(&lobby_key).await.expect("redis exists");
         assert!(exists, "lobby state missing in redis");
 
-        let player_key = stacks_wars_be::models::redis::RedisKey::lobby_player(lobby_id, user_id);
+        let player_key = stacks_wars_be::models::RedisKey::lobby_player(lobby_id, user_id);
         let pexists: bool = conn.exists(&player_key).await.expect("redis exists");
         assert!(pexists, "creator player state missing in redis");
     }

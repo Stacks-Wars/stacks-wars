@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::{
     errors::AppError,
-    models::{db::Lobby, redis::LobbyStatus},
+    models::{Lobby, LobbyStatus},
 };
 
 use super::LobbyRepository;

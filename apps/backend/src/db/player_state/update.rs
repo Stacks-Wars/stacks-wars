@@ -2,7 +2,7 @@
 
 use crate::db::player_state::PlayerStateRepository;
 use crate::errors::AppError;
-use crate::models::redis::player_state::{ClaimState, PlayerStatus};
+use crate::models::player_state::{ClaimState, PlayerStatus};
 use chrono::Utc;
 use redis::AsyncCommands;
 use uuid::Uuid;

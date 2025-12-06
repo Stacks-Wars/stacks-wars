@@ -20,14 +20,14 @@ use crate::auth::extractors::WsAuth;
 use crate::db::lobby::LobbyRepository;
 use crate::lobby::{LobbyError, engine::handle_lobby_message, messages::LobbyServerMessage};
 use crate::middleware::{ApiRateLimit, check_rate_limit};
-use crate::models::redis::LobbyStatus;
+use crate::models::LobbyStatus;
 use crate::ws::core::{hub, manager};
 use crate::{
     db::{
         join_request::JoinRequestRepository, lobby_state::LobbyStateRepository,
         player_state::PlayerStateRepository,
     },
-    models::db::LobbyExtended,
+    models::LobbyExtended,
     state::{AppState, ConnectionInfo},
 };
 

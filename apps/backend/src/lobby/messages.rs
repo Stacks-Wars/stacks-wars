@@ -1,9 +1,9 @@
 // Lobby message types (client -> server, server -> client)
 use crate::db::join_request::JoinRequestDTO;
 use crate::lobby::error::LobbyError;
-use crate::models::db::LobbyExtended;
-use crate::models::redis::PlayerState;
-use crate::models::redis::lobby_state::LobbyStatus;
+use crate::models::LobbyExtended;
+use crate::models::PlayerState;
+use crate::models::lobby_state::LobbyStatus;
 use uuid::Uuid;
 
 /// Messages sent from clients to the lobby websocket.
