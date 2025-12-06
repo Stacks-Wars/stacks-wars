@@ -12,7 +12,8 @@ use crate::errors::AppError;
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {
-    pub id: Uuid,
+    #[serde(skip_serializing)]
+    pub(crate) id: Uuid,
     pub name: String,
     pub description: String,
     pub image_url: String,
@@ -23,6 +24,46 @@ pub struct Game {
     pub is_active: bool,
     pub updated_at: NaiveDateTime,
     pub created_at: NaiveDateTime,
+}
+
+impl Game {
+    /// Get game ID.
+    pub fn id(&self) -> Uuid {
+        self.id
+    }
+
+    /// Validate player count range.
+    pub fn validate_player_count(
+        min_players: i16,
+        max_players: i16,
+    ) -> Result<(i16, i16), PlayerCountError> {
+        if min_players < 1 {
+            return Err(PlayerCountError::MinTooLow { min: min_players });
+        }
+        if max_players < min_players {
+            return Err(PlayerCountError::MaxLessThanMin {
+                min: min_players,
+                max: max_players,
+            });
+        }
+        if max_players > 100 {
+            return Err(PlayerCountError::MaxTooHigh { max: max_players });
+        }
+        Ok((min_players, max_players))
+    }
+}
+
+/// Player count validation errors.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum PlayerCountError {
+    #[error("Minimum players must be at least 1, got {min}")]
+    MinTooLow { min: i16 },
+
+    #[error("Maximum players ({max}) must be >= minimum players ({min})")]
+    MaxLessThanMin { min: i16, max: i16 },
+
+    #[error("Maximum players cannot exceed 100, got {max}")]
+    MaxTooHigh { max: i16 },
 }
 
 #[derive(Debug, Clone, Copy)]

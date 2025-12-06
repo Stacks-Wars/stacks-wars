@@ -15,7 +15,8 @@ use sqlx::FromRow;
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct Season {
-    pub id: i32,
+    #[serde(skip_serializing)]
+    pub(crate) id: i32,
     pub name: String,
     pub description: Option<String>,
     pub start_date: NaiveDateTime,
@@ -24,6 +25,11 @@ pub struct Season {
 }
 
 impl Season {
+    /// Get season ID.
+    pub fn id(&self) -> i32 {
+        self.id
+    }
+
     /// Validate that end_date is after start_date.
     pub fn validate_date_range(
         start_date: NaiveDateTime,

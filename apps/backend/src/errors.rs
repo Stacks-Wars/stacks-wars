@@ -2,6 +2,7 @@ use axum::http::StatusCode;
 use redis::RedisError;
 use thiserror::Error;
 
+use crate::models::db::game::PlayerCountError;
 use crate::models::db::season::DateRangeError;
 use crate::models::db::username::UsernameError;
 use crate::models::db::wallet_address::WalletAddressError;
@@ -58,6 +59,9 @@ pub enum AppError {
 
     #[error("Invalid date range: {0}")]
     DateRangeError(#[from] DateRangeError),
+
+    #[error("Invalid player count: {0}")]
+    PlayerCountError(#[from] PlayerCountError),
 }
 
 impl AppError {
@@ -83,6 +87,7 @@ impl AppError {
             AppError::WalletAddressError(e) => (StatusCode::BAD_REQUEST, e.to_string()),
             AppError::UsernameError(e) => (StatusCode::BAD_REQUEST, e.to_string()),
             AppError::DateRangeError(e) => (StatusCode::BAD_REQUEST, e.to_string()),
+            AppError::PlayerCountError(e) => (StatusCode::BAD_REQUEST, e.to_string()),
         }
     }
 }

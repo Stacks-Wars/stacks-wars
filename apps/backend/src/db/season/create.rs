@@ -37,7 +37,7 @@ impl SeasonRepository {
             AppError::DatabaseError(format!("Failed to create season: {}", e))
         })?;
 
-        tracing::info!("Created new season: {} (ID: {})", season.name, season.id);
+        tracing::info!("Created new season: {} (ID: {})", season.name, season.id());
         Ok(season)
     }
 }

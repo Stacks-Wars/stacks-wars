@@ -54,7 +54,7 @@ pub async fn create_season(
             e.to_response()
         })?;
 
-    tracing::info!("Season created: {} (ID: {})", season.name, season.id);
+    tracing::info!("Season created: {} (ID: {})", season.name, season.id());
     Ok(Json(CreateSeasonResponse { season }))
 }
 

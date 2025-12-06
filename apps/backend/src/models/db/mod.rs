@@ -9,8 +9,8 @@ pub mod user_wars_point;
 pub mod username;
 pub mod wallet_address;
 
-pub use lobby::Lobby;
-pub use lobby::LobbyExtended;
+pub use game::Game;
+pub use lobby::{Lobby, LobbyExtended};
 pub use platform_rating::PlatformRating;
 pub use season::Season;
 pub use user::User;
