@@ -2,6 +2,7 @@ use axum::http::StatusCode;
 use redis::RedisError;
 use thiserror::Error;
 
+use crate::models::db::season::DateRangeError;
 use crate::models::db::username::UsernameError;
 use crate::models::db::wallet_address::WalletAddressError;
 
@@ -54,6 +55,9 @@ pub enum AppError {
 
     #[error("Invalid username: {0}")]
     UsernameError(#[from] UsernameError),
+
+    #[error("Invalid date range: {0}")]
+    DateRangeError(#[from] DateRangeError),
 }
 
 impl AppError {
@@ -78,6 +82,7 @@ impl AppError {
             AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
             AppError::WalletAddressError(e) => (StatusCode::BAD_REQUEST, e.to_string()),
             AppError::UsernameError(e) => (StatusCode::BAD_REQUEST, e.to_string()),
+            AppError::DateRangeError(e) => (StatusCode::BAD_REQUEST, e.to_string()),
         }
     }
 }

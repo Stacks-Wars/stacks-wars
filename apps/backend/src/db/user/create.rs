@@ -10,9 +10,10 @@ impl UserRepository {
     /// Create a new user or return an existing user's JWT token.
     pub async fn create_user(
         &self,
-        wallet_address: &WalletAddress,
+        wallet_address: &str,
         jwt_secret: &str,
     ) -> Result<String, AppError> {
+        let wallet_address = WalletAddress::new(wallet_address)?;
         // Try to insert user
         let result = sqlx::query_as::<_, User>(
             "INSERT INTO users (wallet_address)
@@ -48,10 +49,19 @@ impl UserRepository {
     /// Create a new user (returns the created `User`).
     pub async fn create_user_with_details(
         &self,
-        wallet_address: &WalletAddress,
+        wallet_address: &str,
         username: Option<&str>,
         display_name: Option<&str>,
     ) -> Result<User, AppError> {
+        let wallet_address = WalletAddress::new(wallet_address)?;
+
+        // Validate username if provided
+        let username = if let Some(uname) = username {
+            Some(crate::models::db::Username::new(uname)?)
+        } else {
+            None
+        };
+
         let trust_rating = 10.0;
 
         // Try to insert user with optional fields
@@ -61,7 +71,7 @@ impl UserRepository {
             RETURNING id, wallet_address, username, display_name, trust_rating, created_at, updated_at",
         )
         .bind(&wallet_address)
-        .bind(username)
+        .bind(username.as_ref())
         .bind(display_name)
         .bind(trust_rating)
         .fetch_one(&self.pool)

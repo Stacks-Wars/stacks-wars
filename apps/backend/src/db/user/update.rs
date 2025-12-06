@@ -8,20 +8,17 @@ use super::UserRepository;
 
 impl UserRepository {
     /// Update a user's username.
-    /// DB constraint (CITEXT UNIQUE) enforces uniqueness automatically.
-    pub async fn update_username(
-        &self,
-        user_id: Uuid,
-        username: &Username,
-    ) -> Result<User, AppError> {
+    /// Validates username internally. DB constraint (CITEXT UNIQUE) enforces uniqueness.
+    pub async fn update_username(&self, user_id: Uuid, username: &str) -> Result<User, AppError> {
+        let username = Username::new(username)?;
         sqlx::query(
             "UPDATE users
             SET username = $1, updated_at = NOW()
             WHERE id = $2",
         )
-        .bind(username)
+        .bind(&username)
         .bind(user_id)
-        .execute(&self.pool)
+        .fetch_one(&self.pool)
         .await
         .map_err(|e| {
             if let sqlx::Error::Database(db_err) = &e {
@@ -32,7 +29,6 @@ impl UserRepository {
             AppError::DatabaseError(format!("Failed to update username: {}", e))
         })?;
 
-        tracing::info!("Updated username for user {}: {}", user_id, username);
         self.find_by_id(user_id).await
     }
 
@@ -90,9 +86,16 @@ impl UserRepository {
     pub async fn update_profile(
         &self,
         user_id: Uuid,
-        username: Option<&Username>,
+        username: Option<&str>,
         display_name: Option<&str>,
     ) -> Result<User, AppError> {
+        // Validate username if provided
+        let username = if let Some(uname) = username {
+            Some(Username::new(uname)?)
+        } else {
+            None
+        };
+
         // Build dynamic update query
         let mut query = String::from("UPDATE users SET updated_at = NOW()");
         let mut param_count = 1;
@@ -110,7 +113,7 @@ impl UserRepository {
 
         let mut query_builder = sqlx::query(&query);
 
-        if let Some(uname) = username {
+        if let Some(ref uname) = username {
             query_builder = query_builder.bind(uname);
         }
         if let Some(dname) = display_name {

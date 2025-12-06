@@ -9,11 +9,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    auth::AuthClaims,
-    db::user::UserRepository,
-    errors::AppError,
-    models::db::{User, Username, WalletAddress},
-    state::AppState,
+    auth::AuthClaims, db::user::UserRepository, errors::AppError, models::db::User, state::AppState,
 };
 
 // ============================================================================
@@ -70,23 +66,20 @@ pub async fn create_user(
     State(state): State<AppState>,
     Json(payload): Json<CreateUserRequest>,
 ) -> Result<Json<String>, (StatusCode, String)> {
-    let wallet_address = WalletAddress::new(&payload.wallet_address).map_err(|e| {
-        tracing::warn!("Invalid wallet address: {}", e);
-        AppError::from(e).to_response()
-    })?;
-
     let repo = UserRepository::new(state.postgres.clone());
 
-    // Create user and get JWT token (pass by reference, no clone)
     let token = repo
-        .create_user(&wallet_address, &state.config.jwt_secret)
+        .create_user(&payload.wallet_address, &state.config.jwt_secret)
         .await
         .map_err(|e| {
             tracing::error!("Failed to create user: {}", e);
             e.to_response()
         })?;
 
-    tracing::info!("User created successfully: Wallet: {}", wallet_address);
+    tracing::info!(
+        "User created successfully: Wallet: {}",
+        payload.wallet_address
+    );
     Ok(Json(token))
 }
 
@@ -129,21 +122,20 @@ pub async fn update_username(
         AppError::Unauthorized("Invalid token".into()).to_response()
     })?;
 
-    let username = Username::new(&payload.username).map_err(|e| {
-        tracing::warn!("Invalid username: {}", e);
-        AppError::from(e).to_response()
-    })?;
-
     let repo = UserRepository::new(state.postgres.clone());
 
-    repo.update_username(user_id, &username)
+    repo.update_username(user_id, &payload.username)
         .await
         .map_err(|e| {
             tracing::error!("Failed to update username for {}: {}", user_id, e);
             e.to_response()
         })?;
 
-    tracing::info!("Username updated for user {} to '{}'", user_id, username);
+    tracing::info!(
+        "Username updated for user {} to '{}'",
+        user_id,
+        payload.username
+    );
     Ok(Json(payload))
 }
 
@@ -195,19 +187,14 @@ pub async fn update_profile(
         AppError::Unauthorized("Invalid token".into()).to_response()
     })?;
 
-    let username = if let Some(ref uname) = payload.username {
-        Some(Username::new(uname).map_err(|e| {
-            tracing::warn!("Invalid username: {}", e);
-            AppError::from(e).to_response()
-        })?)
-    } else {
-        None
-    };
-
     let repo = UserRepository::new(state.postgres.clone());
 
     let user = repo
-        .update_profile(user_id, username.as_ref(), payload.display_name.as_deref())
+        .update_profile(
+            user_id,
+            payload.username.as_deref(),
+            payload.display_name.as_deref(),
+        )
         .await
         .map_err(|e| {
             tracing::error!("Failed to update profile for {}: {}", user_id, e);
@@ -217,7 +204,7 @@ pub async fn update_profile(
     tracing::info!(
         "Profile updated for user {}: username={:?}, display_name={:?}",
         user_id,
-        username,
+        payload.username,
         payload.display_name
     );
 
