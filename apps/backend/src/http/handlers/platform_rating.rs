@@ -1,4 +1,4 @@
-use axum::{Json, extract::Path, extract::State, extract::Query, http::StatusCode};
+use axum::{Json, extract::Path, extract::Query, extract::State, http::StatusCode};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -30,7 +30,7 @@ pub async fn create_rating(
 
     let repo = PlatformRatingRepository::new(state.postgres.clone());
 
-    repo.create_rating(user_id, payload.rating, payload.comment)
+    repo.create_rating(user_id, payload.rating, payload.comment.as_deref())
         .await
         .map_err(|e| {
             tracing::error!("Failed to create platform rating: {}", e);
@@ -69,19 +69,19 @@ pub async fn list_ratings(
 ) -> Result<Json<Vec<crate::models::db::PlatformRating>>, (StatusCode, String)> {
     if let Some(r) = query.rating {
         if !(1..=5).contains(&r) {
-            return Err((StatusCode::BAD_REQUEST, "rating must be between 1 and 5".to_string()));
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "rating must be between 1 and 5".to_string(),
+            ));
         }
     }
 
     let repo = PlatformRatingRepository::new(state.postgres.clone());
 
-    let list = repo
-        .list(query.rating)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to list platform ratings: {}", e);
-            e.to_response()
-        })?;
+    let list = repo.list(query.rating).await.map_err(|e| {
+        tracing::error!("Failed to list platform ratings: {}", e);
+        e.to_response()
+    })?;
 
     Ok(Json(list))
 }
@@ -98,7 +98,7 @@ pub async fn update_rating(
     let repo = PlatformRatingRepository::new(state.postgres.clone());
 
     let updated = repo
-        .update_rating(user_id, payload.rating, payload.comment)
+        .update_rating(user_id, payload.rating, payload.comment.as_deref())
         .await
         .map_err(|e| {
             tracing::error!("Failed to update platform rating: {}", e);

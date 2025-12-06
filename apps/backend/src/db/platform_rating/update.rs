@@ -1,6 +1,6 @@
+use super::PlatformRatingRepository;
 use crate::errors::AppError;
 use crate::models::db::PlatformRating;
-use super::PlatformRatingRepository;
 
 impl PlatformRatingRepository {
     /// Update an existing platform rating (by user_id). Returns the updated row.
@@ -8,7 +8,7 @@ impl PlatformRatingRepository {
         &self,
         user_id: uuid::Uuid,
         rating: i16,
-        comment: Option<String>,
+        comment: Option<&str>,
     ) -> Result<PlatformRating, AppError> {
         let rec = sqlx::query_as::<_, PlatformRating>(
             r#"UPDATE platform_ratings SET rating = $1, comment = $2, updated_at = NOW()
