@@ -27,14 +27,15 @@ pub async fn broadcast_to_all<M: BroadcastMessage>(state: &AppState, msg: &M) {
 
 /// Broadcast to all participants (players + spectators) of a specific lobby.
 pub async fn broadcast_to_lobby<M: BroadcastMessage>(state: &AppState, lobby_id: Uuid, msg: &M) {
-    // Use the lobby_connections index to find all connection ids in the lobby,
-    // then send the message to each connection directly.
     if let Ok(json) = msg.to_json() {
-        let lmap = state.lobby_connections.lock().await;
-        if let Some(set) = lmap.get(&lobby_id) {
+        let indices = state.indices.lock().await;
+
+        // Get all connection IDs for this lobby via index (O(1) lookup)
+        if let Some(conn_ids) = indices.get_lobby_connections(&lobby_id) {
             let conns = state.connections.lock().await;
-            for cid in set.iter() {
-                if let Some(conn) = conns.get(cid) {
+
+            for conn_id in conn_ids.iter() {
+                if let Some(conn) = conns.get(conn_id) {
                     let sender = conn.sender.clone();
                     let json_clone = json.clone();
                     tokio::spawn(async move {
@@ -47,28 +48,27 @@ pub async fn broadcast_to_lobby<M: BroadcastMessage>(state: &AppState, lobby_id:
     }
 }
 
-/// Broadcast to a specific list of user ids. Lookup connections in `state.connections`.
+/// Broadcast to a specific list of user ids.
 pub async fn broadcast_to_user_ids<M: BroadcastMessage>(
     state: &AppState,
-    lobby_id: Uuid,
     user_ids: &[Uuid],
     msg: &M,
 ) {
     if let Ok(json) = msg.to_json() {
+        let indices = state.indices.lock().await;
         let conns = state.connections.lock().await;
-        for uid in user_ids.iter() {
-            // find any connection in this lobby that belongs to uid
-            for (_cid, conn) in conns.iter() {
-                if conn.lobby_id == lobby_id {
-                    if let Some(conn_user) = conn.user_id {
-                        if &conn_user == uid {
-                            let sender = conn.sender.clone();
-                            let json_clone = json.clone();
-                            tokio::spawn(async move {
-                                let mut s = sender.lock().await;
-                                let _ = s.send(Message::Text(json_clone.into())).await;
-                            });
-                        }
+
+        for user_id in user_ids.iter() {
+            // Use index for O(1) lookup per user
+            if let Some(conn_ids) = indices.get_user_connections(user_id) {
+                for conn_id in conn_ids.iter() {
+                    if let Some(conn) = conns.get(conn_id) {
+                        let sender = conn.sender.clone();
+                        let json_clone = json.clone();
+                        tokio::spawn(async move {
+                            let mut s = sender.lock().await;
+                            let _ = s.send(Message::Text(json_clone.into())).await;
+                        });
                     }
                 }
             }
@@ -76,23 +76,22 @@ pub async fn broadcast_to_user_ids<M: BroadcastMessage>(
     }
 }
 
-/// Send a message to a single connected user (if present).
-pub async fn broadcast_to_user<M: BroadcastMessage>(
-    state: &AppState,
-    lobby_id: Uuid,
-    user_id: Uuid,
-    msg: &M,
-) {
+/// Send a message to all connections for a specific user.
+pub async fn broadcast_to_user<M: BroadcastMessage>(state: &AppState, user_id: Uuid, msg: &M) {
     if let Ok(json) = msg.to_json() {
+        let indices = state.indices.lock().await;
         let conns = state.connections.lock().await;
-        for (_cid, conn) in conns.iter() {
-            if conn.lobby_id == lobby_id {
-                if let Some(conn_user) = conn.user_id {
-                    if conn_user == user_id {
-                        let mut s = conn.sender.lock().await;
-                        let _ = s.send(Message::Text(json.into())).await;
-                        return;
-                    }
+
+        // Use index for O(1) lookup
+        if let Some(conn_ids) = indices.get_user_connections(&user_id) {
+            for conn_id in conn_ids.iter() {
+                if let Some(conn) = conns.get(conn_id) {
+                    let sender = conn.sender.clone();
+                    let json_clone = json.clone();
+                    tokio::spawn(async move {
+                        let mut s = sender.lock().await;
+                        let _ = s.send(Message::Text(json_clone.into())).await;
+                    });
                 }
             }
         }
@@ -100,7 +99,7 @@ pub async fn broadcast_to_user<M: BroadcastMessage>(
 }
 
 /// Broadcast to all participants (players) in a lobby by fetching
-/// their user IDs from Redis and calling broadcast_to_user_ids.
+/// their user IDs from Redis and using efficient index lookups.
 pub async fn broadcast_to_lobby_participants<M: BroadcastMessage>(
     state: &AppState,
     lobby_id: Uuid,
@@ -116,7 +115,7 @@ pub async fn broadcast_to_lobby_participants<M: BroadcastMessage>(
 
         // Broadcast to all player user IDs
         if !user_ids.is_empty() {
-            broadcast_to_user_ids(state, lobby_id, &user_ids, msg).await;
+            broadcast_to_user_ids(state, &user_ids, msg).await;
         }
     }
 }

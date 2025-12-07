@@ -442,8 +442,8 @@ pub async fn spawn_app_with_containers() -> TestApp {
 
     let state = stacks_wars_be::state::AppState {
         config,
-        lobby_connections: Default::default(),
         connections: Default::default(),
+        indices: Default::default(),
         game_registry: Arc::new(stacks_wars_be::games::create_game_registry()),
         active_games: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
         redis: redis_pool,

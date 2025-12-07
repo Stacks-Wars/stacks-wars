@@ -30,7 +30,7 @@ pub type ActiveGames = Arc<Mutex<HashMap<Uuid, Box<dyn GameEngine>>>>;
 pub struct AppState {
     pub config: AppConfig,
     pub connections: Connections,
-    pub lobby_connections: LobbyConnections,
+    pub indices: Arc<Mutex<ConnectionIndices>>,
     pub game_registry: Arc<HashMap<Uuid, GameFactory>>,
     pub active_games: ActiveGames,
     pub redis: RedisClient,
@@ -81,7 +81,7 @@ impl AppState {
         let bot = Bot::new(config.telegram_bot_token.clone());
 
         let connections: Connections = Default::default();
-        let lobby_connections: LobbyConnections = Default::default();
+        let indices: Arc<Mutex<ConnectionIndices>> = Default::default();
 
         // Initialize game registry from games module
         let game_registry: Arc<HashMap<Uuid, GameFactory>> = Arc::new(create_game_registry());
@@ -90,7 +90,7 @@ impl AppState {
         Ok(Self {
             config,
             connections,
-            lobby_connections,
+            indices,
             game_registry,
             active_games,
             redis: redis_pool,
@@ -100,18 +100,133 @@ impl AppState {
     }
 }
 
+/// Context type for WebSocket connections
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ConnectionContext {
+    /// Lobby/game connection for a specific lobby
+    Lobby(Uuid),
+}
+
+impl ConnectionContext {
+    /// Extract lobby_id if this is a Lobby context
+    pub fn lobby_id(&self) -> Option<Uuid> {
+        match self {
+            ConnectionContext::Lobby(id) => Some(*id),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ConnectionInfo {
     pub connection_id: Uuid,
     pub user_id: Option<Uuid>,
-    pub lobby_id: Uuid,
+    pub context: ConnectionContext,
     pub sender: Arc<Mutex<SplitSink<WebSocket, Message>>>,
+}
+
+impl ConnectionInfo {
+    /// Get lobby_id if this connection is in a lobby context
+    pub fn lobby_id(&self) -> Option<Uuid> {
+        self.context.lobby_id()
+    }
 }
 
 /// Global map of all websocket connections keyed by `connection_id`.
 pub type Connections = Arc<Mutex<HashMap<Uuid, Arc<ConnectionInfo>>>>;
 
-/// For fast broadcasting: for each lobby_id we store the set of connection_ids.
-pub type LobbyConnections = Arc<Mutex<HashMap<Uuid, HashSet<Uuid>>>>;
+/// Connection indices for efficient lookups across different dimensions.
+/// Enables O(1) broadcast operations by pre-indexing connections.
+#[derive(Debug, Default)]
+pub struct ConnectionIndices {
+    /// Index by lobby_id -> set of connection_ids
+    pub by_lobby: HashMap<Uuid, HashSet<Uuid>>,
+    /// Index by user_id -> set of connection_ids (for multi-tab support)
+    pub by_user: HashMap<Uuid, HashSet<Uuid>>,
+    /// Index by context type -> set of connection_ids
+    pub by_context: HashMap<String, HashSet<Uuid>>,
+}
+
+impl ConnectionIndices {
+    /// Add a connection to all relevant indices
+    pub fn insert(&mut self, conn: &ConnectionInfo) {
+        // Index by lobby if applicable
+        if let Some(lobby_id) = conn.lobby_id() {
+            self.by_lobby
+                .entry(lobby_id)
+                .or_insert_with(HashSet::new)
+                .insert(conn.connection_id);
+        }
+
+        // Index by user if authenticated
+        if let Some(user_id) = conn.user_id {
+            self.by_user
+                .entry(user_id)
+                .or_insert_with(HashSet::new)
+                .insert(conn.connection_id);
+        }
+
+        // Index by context type
+        let context_key = match &conn.context {
+            ConnectionContext::Lobby(_) => "lobby".to_string(),
+        };
+        self.by_context
+            .entry(context_key)
+            .or_insert_with(HashSet::new)
+            .insert(conn.connection_id);
+    }
+
+    /// Remove a connection from all indices
+    pub fn remove(&mut self, conn: &ConnectionInfo) {
+        // Remove from lobby index
+        if let Some(lobby_id) = conn.lobby_id() {
+            if let Some(set) = self.by_lobby.get_mut(&lobby_id) {
+                set.remove(&conn.connection_id);
+                if set.is_empty() {
+                    self.by_lobby.remove(&lobby_id);
+                }
+            }
+        }
+
+        // Remove from user index
+        if let Some(user_id) = conn.user_id {
+            if let Some(set) = self.by_user.get_mut(&user_id) {
+                set.remove(&conn.connection_id);
+                if set.is_empty() {
+                    self.by_user.remove(&user_id);
+                }
+            }
+        }
+
+        // Remove from context index
+        let context_key = match &conn.context {
+            ConnectionContext::Lobby(_) => "lobby".to_string(),
+        };
+        if let Some(set) = self.by_context.get_mut(&context_key) {
+            set.remove(&conn.connection_id);
+            if set.is_empty() {
+                self.by_context.remove(&context_key);
+            }
+        }
+    }
+
+    /// Remove all connections for a lobby and return count removed
+    pub fn remove_lobby(&mut self, lobby_id: Uuid) -> usize {
+        if let Some(set) = self.by_lobby.remove(&lobby_id) {
+            set.len()
+        } else {
+            0
+        }
+    }
+
+    /// Get all connection_ids for a lobby
+    pub fn get_lobby_connections(&self, lobby_id: &Uuid) -> Option<&HashSet<Uuid>> {
+        self.by_lobby.get(lobby_id)
+    }
+
+    /// Get all connection_ids for a user
+    pub fn get_user_connections(&self, user_id: &Uuid) -> Option<&HashSet<Uuid>> {
+        self.by_user.get(user_id)
+    }
+}
 
 pub type RedisClient = Pool<RedisConnectionManager>;

@@ -28,7 +28,7 @@ use crate::{
         player_state::PlayerStateRepository,
     },
     models::LobbyExtended,
-    state::{AppState, ConnectionInfo},
+    state::{AppState, ConnectionContext, ConnectionInfo},
 };
 
 /// HTTP endpoint: Upgrades an HTTP request to a WebSocket connection for lobby/game communication.
@@ -76,7 +76,7 @@ async fn handle_socket(
     let conn = Arc::new(ConnectionInfo {
         connection_id,
         user_id: auth_user_id,
-        lobby_id,
+        context: ConnectionContext::Lobby(lobby_id),
         sender: Arc::new(TokioMutex::new(sender)),
     });
     let player_repo = PlayerStateRepository::new(state.redis.clone());
@@ -263,9 +263,7 @@ async fn handle_game_action(
                     "message": e.to_string()
                 });
                 let game_error = crate::ws::message::JsonMessage::from(error_msg);
-                let _ =
-                    crate::ws::core::hub::broadcast_to_user(state, lobby_id, user_id, &game_error)
-                        .await;
+                let _ = crate::ws::core::hub::broadcast_to_user(state, user_id, &game_error).await;
             }
         }
     } else {

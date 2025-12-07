@@ -390,7 +390,6 @@ pub async fn handle_lobby_message(
                 .await;
             let _ = hub::broadcast_to_user(
                 state,
-                lobby_id,
                 player_id,
                 &LobbyServerMessage::JoinRequestStatus {
                     player_id,
@@ -444,7 +443,6 @@ pub async fn handle_lobby_message(
                 .await;
             let _ = hub::broadcast_to_user(
                 state,
-                lobby_id,
                 player_id,
                 &LobbyServerMessage::JoinRequestStatus {
                     player_id,
@@ -513,7 +511,6 @@ pub async fn handle_lobby_message(
             }
             let _ = hub::broadcast_to_user(
                 state,
-                lobby_id,
                 player_id,
                 &LobbyServerMessage::PlayerKicked { player_id },
             )
