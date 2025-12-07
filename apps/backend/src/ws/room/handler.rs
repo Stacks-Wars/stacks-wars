@@ -1,3 +1,4 @@
+// Room WebSocket handler - manages lobby room connections (game + chat)
 // Connection handlers - manages lobby and game WebSocket connections
 //
 // This module handles the full lifecycle of WebSocket connections:
@@ -18,10 +19,10 @@ use uuid::Uuid;
 
 use crate::auth::extractors::WsAuth;
 use crate::db::lobby::LobbyRepository;
-use crate::lobby::{LobbyError, engine::handle_lobby_message, messages::LobbyServerMessage};
 use crate::middleware::{ApiRateLimit, check_rate_limit};
 use crate::models::LobbyStatus;
-use crate::ws::core::{hub, manager};
+use crate::ws::core::manager;
+use crate::ws::room::{RoomError, engine::handle_room_message, messages::RoomServerMessage};
 use crate::{
     db::{
         join_request::JoinRequestRepository, lobby_state::LobbyStateRepository,
@@ -35,7 +36,7 @@ use crate::{
 ///
 /// This is the entry point for all WebSocket connections. After rate limiting and authentication,
 /// it upgrades the connection and hands off to `handle_socket` for message handling.
-pub async fn lobby_ws_handler(
+pub async fn room_handler(
     ws: WebSocketUpgrade,
     Path(lobby_id): Path<uuid::Uuid>,
     State(state): State<AppState>,
@@ -62,7 +63,7 @@ pub async fn lobby_ws_handler(
 /// - Connection cleanup on disconnect
 ///
 /// Message routing logic:
-/// - Try parsing as LobbyClientMessage first
+/// - Try parsing as RoomClientMessage first
 /// - If that fails and lobby status is InProgress, try game-specific parsing
 /// - Otherwise, send invalid message error
 async fn handle_socket(
@@ -76,12 +77,12 @@ async fn handle_socket(
     let conn = Arc::new(ConnectionInfo {
         connection_id,
         user_id: auth_user_id,
-        context: ConnectionContext::Lobby(lobby_id),
+        context: ConnectionContext::Room(lobby_id),
         sender: Arc::new(TokioMutex::new(sender)),
     });
     let player_repo = PlayerStateRepository::new(state.redis.clone());
 
-    // Register the connection (conn_id may be authenticated user_id or generated spectator id)
+    // Register the connection
     manager::register_connection(&state, connection_id, conn.clone()).await;
 
     // send initial state & players
@@ -101,8 +102,8 @@ async fn handle_socket(
             let lobby_ext = match lobby_repo.find_by_id(lobby_id).await {
                 Ok(Some(db_lobby)) => LobbyExtended::from_parts(db_lobby, state_info.clone()),
                 _ => {
-                    let err = LobbyError::MetadataMissing;
-                    let msg = LobbyServerMessage::from(err);
+                    let err = RoomError::MetadataMissing;
+                    let msg = RoomServerMessage::from(err);
                     let _ = manager::send_to_connection(&conn, &msg).await;
                     manager::unregister_connection(&state, &connection_id).await;
                     return;
@@ -121,19 +122,29 @@ async fn handle_socket(
                 Err(_) => Vec::new(),
             };
 
+            // Fetch recent chat history
+            let chat_history =
+                match crate::db::lobby_chat::get_chat_history(&state.redis, lobby_id, Some(50))
+                    .await
+                {
+                    Ok(history) => history,
+                    Err(_) => Vec::new(),
+                };
+
             let _ = manager::send_to_connection(
                 &conn,
-                &LobbyServerMessage::LobbyBootstrap {
+                &RoomServerMessage::LobbyBootstrap {
                     lobby: lobby_ext,
                     players,
                     join_requests,
+                    chat_history,
                 },
             )
             .await;
         }
         Err(_) => {
-            let err = LobbyError::NotFound;
-            let msg = LobbyServerMessage::from(err);
+            let err = RoomError::NotFound;
+            let msg = RoomServerMessage::from(err);
             let _ = manager::send_to_connection(&conn, &msg).await;
             manager::unregister_connection(&state, &connection_id).await;
             return;
@@ -153,10 +164,10 @@ async fn handle_socket(
                     }
                 };
 
-                // Try parsing as LobbyClientMessage first
-                if let Ok(lobby_msg) = serde_json::from_str(&text) {
-                    handle_lobby_message(
-                        lobby_msg,
+                // Try parsing as RoomClientMessage first
+                if let Ok(room_msg) = serde_json::from_str(&text) {
+                    handle_room_message(
+                        room_msg,
                         lobby_id,
                         auth_user_id,
                         &conn,
@@ -202,8 +213,8 @@ async fn handle_socket(
                     }
                     _ => {
                         // Game not active or state fetch failed - invalid message
-                        let err = LobbyError::InvalidMessage;
-                        let msg = LobbyServerMessage::from(err);
+                        let err = RoomError::InvalidMessage;
+                        let msg = RoomServerMessage::from(err);
                         let _ = manager::send_to_connection(&conn, &msg).await;
                     }
                 }
@@ -223,10 +234,10 @@ async fn handle_socket(
 
     // Broadcast final player list to lobby
     if let Ok(players) = player_repo.get_all_in_lobby(lobby_id).await {
-        hub::broadcast_to_lobby(
+        crate::ws::broadcast::broadcast_room(
             &state,
             lobby_id,
-            &LobbyServerMessage::PlayerUpdated { players },
+            &RoomServerMessage::PlayerUpdated { players },
         )
         .await;
     }
@@ -247,8 +258,8 @@ async fn handle_game_action(
             Ok(events) => {
                 // Broadcast all response events to lobby participants
                 for event in events {
-                    let game_msg = crate::ws::message::JsonMessage::from(event);
-                    let _ = crate::ws::core::hub::broadcast_to_lobby_participants(
+                    let game_msg = crate::ws::core::message::JsonMessage::from(event);
+                    let _ = crate::ws::broadcast::broadcast_room_participants(
                         state, lobby_id, &game_msg,
                     )
                     .await;
@@ -262,8 +273,8 @@ async fn handle_game_action(
                     "type": "game_error",
                     "message": e.to_string()
                 });
-                let game_error = crate::ws::message::JsonMessage::from(error_msg);
-                let _ = crate::ws::core::hub::broadcast_to_user(state, user_id, &game_error).await;
+                let game_error = crate::ws::core::message::JsonMessage::from(error_msg);
+                let _ = crate::ws::broadcast::broadcast_user(state, user_id, &game_error).await;
             }
         }
     } else {

@@ -103,15 +103,32 @@ impl AppState {
 /// Context type for WebSocket connections
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ConnectionContext {
-    /// Lobby/game connection for a specific lobby
-    Lobby(Uuid),
+    /// Room connection for a specific lobby (game + chat)
+    Room(Uuid),
+    /// Lobby list connection with optional status filter
+    Lobby(Option<Vec<String>>), // e.g., Some(vec!["waiting", "starting"])
 }
 
 impl ConnectionContext {
-    /// Extract lobby_id if this is a Lobby context
+    /// Extract lobby_id if this is a Room context
     pub fn lobby_id(&self) -> Option<Uuid> {
         match self {
-            ConnectionContext::Lobby(id) => Some(*id),
+            ConnectionContext::Room(id) => Some(*id),
+            ConnectionContext::Lobby(_) => None,
+        }
+    }
+    
+    /// Get context keys for indexing (can return multiple for status filters)
+    pub fn context_keys(&self) -> Vec<String> {
+        match self {
+            ConnectionContext::Room(_) => vec!["room".to_string()],
+            ConnectionContext::Lobby(Some(statuses)) => {
+                // Create a key for each status filter
+                statuses.iter()
+                    .map(|status| format!("lobby:{}", status))
+                    .collect()
+            }
+            ConnectionContext::Lobby(None) => vec!["lobby".to_string()],
         }
     }
 }
@@ -165,14 +182,13 @@ impl ConnectionIndices {
                 .insert(conn.connection_id);
         }
 
-        // Index by context type
-        let context_key = match &conn.context {
-            ConnectionContext::Lobby(_) => "lobby".to_string(),
-        };
-        self.by_context
-            .entry(context_key)
-            .or_insert_with(HashSet::new)
-            .insert(conn.connection_id);
+        // Index by context type(s) - can have multiple keys for status filters
+        for context_key in conn.context.context_keys() {
+            self.by_context
+                .entry(context_key)
+                .or_insert_with(HashSet::new)
+                .insert(conn.connection_id);
+        }
     }
 
     /// Remove a connection from all indices
@@ -197,14 +213,13 @@ impl ConnectionIndices {
             }
         }
 
-        // Remove from context index
-        let context_key = match &conn.context {
-            ConnectionContext::Lobby(_) => "lobby".to_string(),
-        };
-        if let Some(set) = self.by_context.get_mut(&context_key) {
-            set.remove(&conn.connection_id);
-            if set.is_empty() {
-                self.by_context.remove(&context_key);
+        // Remove from context index(es)
+        for context_key in conn.context.context_keys() {
+            if let Some(set) = self.by_context.get_mut(&context_key) {
+                set.remove(&conn.connection_id);
+                if set.is_empty() {
+                    self.by_context.remove(&context_key);
+                }
             }
         }
     }
@@ -226,6 +241,11 @@ impl ConnectionIndices {
     /// Get all connection_ids for a user
     pub fn get_user_connections(&self, user_id: &Uuid) -> Option<&HashSet<Uuid>> {
         self.by_user.get(user_id)
+    }
+
+    /// Get all connection_ids for a specific context type
+    pub fn get_context_connections(&self, context: &str) -> Option<&HashSet<Uuid>> {
+        self.by_context.get(context)
     }
 }
 

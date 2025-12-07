@@ -1,8 +1,7 @@
 // WebSocket core primitives
-pub mod connection;
-pub mod hub;
+// Core WebSocket utilities
 pub mod manager;
+pub mod message;
 
-pub use connection::*;
-pub use hub::*;
 pub use manager::*;
+pub use message::BroadcastMessage;

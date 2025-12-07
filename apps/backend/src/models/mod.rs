@@ -7,6 +7,7 @@ pub mod user_wars_point;
 pub mod username;
 pub mod wallet_address;
 
+pub mod chat_message;
 pub mod keys;
 pub mod lobby_state;
 pub mod player_state;
@@ -20,6 +21,7 @@ pub use user_wars_point::UserWarsPoints;
 pub use username::Username;
 pub use wallet_address::WalletAddress;
 
+pub use chat_message::{ChatMessage, ChatMessageError, Reaction, ReactionType};
 pub use keys::{KeyPart, RedisKey};
 pub use lobby_state::{LobbyState, LobbyStatus};
 pub use player_state::PlayerState;

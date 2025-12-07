@@ -1,9 +1,20 @@
-// Connection manager - shared across lobby and game contexts
 use crate::state::{AppState, ConnectionInfo};
-use crate::ws::core::connection;
+use axum::extract::ws::Message;
+use futures::SinkExt;
 use serde::Serialize;
 use std::sync::Arc;
 use uuid::Uuid;
+
+/// Send a serializable message to a connection
+pub async fn send_to_connection<M: Serialize>(
+    conn: &Arc<ConnectionInfo>,
+    msg: &M,
+) -> Result<(), serde_json::Error> {
+    let json = serde_json::to_string(msg)?;
+    let mut s = conn.sender.lock().await;
+    let _ = s.send(Message::Text(json.into())).await;
+    Ok(())
+}
 
 /// Register a connection under its `connection_id` and add it to all relevant indices.
 pub async fn register_connection(state: &AppState, connection_id: Uuid, conn: Arc<ConnectionInfo>) {
@@ -74,9 +85,4 @@ pub async fn unregister_user_connections(state: &AppState, user_id: Uuid) -> usi
     }
 
     count
-}
-
-/// Send a typed serializable message to a specific connection.
-pub async fn send_to_connection<M: Serialize>(conn: &Arc<ConnectionInfo>, msg: &M) {
-    let _ = connection::send_json(conn, msg).await;
 }

@@ -8,7 +8,10 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{auth::AuthClaims, db::lobby::LobbyRepository, models::Lobby, state::AppState};
+use crate::{
+    auth::AuthClaims, db::lobby::LobbyRepository, models::Lobby, state::AppState,
+    ws::lobby::LobbyServerMessage,
+};
 
 // ============================================================================
 // Request/Response Types
@@ -87,12 +90,23 @@ pub async fn create_lobby(
             e.to_response()
         })?;
 
-    Ok((
-        StatusCode::CREATED,
-        Json(CreateLobbyResponse {
-            lobby_id: lobby.id(),
-        }),
-    ))
+    // Broadcast lobby creation to lobby list subscribers
+    let lobby_id = lobby.id();
+    tokio::spawn({
+        let state_clone = state.clone();
+        let lobby_clone = lobby.clone();
+        async move {
+            use crate::ws::broadcast;
+
+            let _ = broadcast::broadcast_lobby_list(
+                &state_clone,
+                &LobbyServerMessage::LobbyCreated { lobby: lobby_clone },
+            )
+            .await;
+        }
+    });
+
+    Ok((StatusCode::CREATED, Json(CreateLobbyResponse { lobby_id })))
 }
 
 /// Get lobby details by UUID. Public endpoint returning `Lobby`.
