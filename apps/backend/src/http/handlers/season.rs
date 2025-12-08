@@ -1,10 +1,9 @@
 // Season management handlers: create/list/get current season
 
 use axum::{Json, extract::State, http::StatusCode};
-use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 
-use crate::{db::season::SeasonRepository, models::db::Season, state::AppState};
+use crate::{db::season::SeasonRepository, models::Season, state::AppState};
 
 // ============================================================================
 // Request/Response Types
@@ -37,54 +36,17 @@ pub struct CreateSeasonResponse {
 // ============================================================================
 
 /// Create a new competitive season (admin only)
-///
-/// Validates dates and inserts a new `Season` row in Postgres.
 pub async fn create_season(
     State(state): State<AppState>,
     Json(payload): Json<CreateSeasonRequest>,
 ) -> Result<Json<CreateSeasonResponse>, (StatusCode, String)> {
-    // Parse and validate dates
-    let start_date = NaiveDateTime::parse_from_str(&payload.start_date, "%Y-%m-%d %H:%M:%S")
-        .map_err(|e| {
-            tracing::error!("Invalid start_date format: {}", e);
-            (
-                StatusCode::BAD_REQUEST,
-                format!(
-                    "Invalid start_date format: {}. Expected: YYYY-MM-DD HH:MM:SS",
-                    e
-                ),
-            )
-        })?;
-
-    let end_date =
-        NaiveDateTime::parse_from_str(&payload.end_date, "%Y-%m-%d %H:%M:%S").map_err(|e| {
-            tracing::error!("Invalid end_date format: {}", e);
-            (
-                StatusCode::BAD_REQUEST,
-                format!(
-                    "Invalid end_date format: {}. Expected: YYYY-MM-DD HH:MM:SS",
-                    e
-                ),
-            )
-        })?;
-
-    // Validate date logic
-    if end_date <= start_date {
-        tracing::error!("End date must be after start date");
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "End date must be after start date".to_string(),
-        ));
-    }
-
-    // Create season using repository
     let repo = SeasonRepository::new(state.postgres.clone());
     let season = repo
         .create_season(
-            payload.name.clone(),
-            payload.description,
-            start_date,
-            end_date,
+            &payload.name,
+            payload.description.as_deref(),
+            &payload.start_date,
+            &payload.end_date,
         )
         .await
         .map_err(|e| {
@@ -92,7 +54,7 @@ pub async fn create_season(
             e.to_response()
         })?;
 
-    tracing::info!("Season created: {} (ID: {})", season.name, season.id);
+    tracing::info!("Season created: {} (ID: {})", season.name, season.id());
     Ok(Json(CreateSeasonResponse { season }))
 }
 

@@ -1,7 +1,7 @@
 use sqlx::query;
 use uuid::Uuid;
 
-use crate::{errors::AppError, models::redis::LobbyStatus};
+use crate::{errors::AppError, models::LobbyStatus};
 
 use super::LobbyRepository;
 

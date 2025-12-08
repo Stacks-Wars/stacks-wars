@@ -1,8 +1,8 @@
-// Lobby integration tests
-// Run with: `cargo test --test lobby`
+// Room WebSocket integration tests (/ws/room/{lobby_id})
+// Tests for lobby management and game message handling
+// Run with: `cargo test --test ws::room`
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use serde_json::json;
 use std::time::Duration;
@@ -41,13 +41,13 @@ async fn test_lobby_creation_and_join() {
 
     // Creator connects to lobby
     let mut creator_ws =
-        common::WsConnection::connect_to_lobby(&app.base_url, lobby_id, &creator_token)
+        common::WsConnection::connect_to_room(&app.base_url, lobby_id, &creator_token)
             .await
             .expect("Creator failed to connect");
 
     // Player 1 connects to lobby
     let mut player1_ws =
-        common::WsConnection::connect_to_lobby(&app.base_url, lobby_id, &player1_token)
+        common::WsConnection::connect_to_room(&app.base_url, lobby_id, &player1_token)
             .await
             .expect("Player 1 failed to connect");
 
@@ -114,12 +114,12 @@ async fn test_lobby_start_game() {
 
     // Both players connect
     let mut creator_ws =
-        common::WsConnection::connect_to_lobby(&app.base_url, lobby_id, &creator_token)
+        common::WsConnection::connect_to_room(&app.base_url, lobby_id, &creator_token)
             .await
             .expect("Creator failed to connect");
 
     let mut player1_ws =
-        common::WsConnection::connect_to_lobby(&app.base_url, lobby_id, &player1_token)
+        common::WsConnection::connect_to_room(&app.base_url, lobby_id, &player1_token)
             .await
             .expect("Player failed to connect");
 
@@ -209,12 +209,12 @@ async fn test_lobby_not_creator_cannot_start() {
 
     // Both connect
     let mut _creator_ws =
-        common::WsConnection::connect_to_lobby(&app.base_url, lobby_id, &creator_token)
+        common::WsConnection::connect_to_room(&app.base_url, lobby_id, &creator_token)
             .await
             .expect("Creator failed to connect");
 
     let mut player_ws =
-        common::WsConnection::connect_to_lobby(&app.base_url, lobby_id, &player_token)
+        common::WsConnection::connect_to_room(&app.base_url, lobby_id, &player_token)
             .await
             .expect("Player failed to connect");
 
@@ -282,7 +282,7 @@ async fn test_lobby_need_at_least_min_players() {
 
     // Creator connects
     let mut creator_ws =
-        common::WsConnection::connect_to_lobby(&app.base_url, lobby_id, &creator_token)
+        common::WsConnection::connect_to_room(&app.base_url, lobby_id, &creator_token)
             .await
             .expect("Creator failed to connect");
 

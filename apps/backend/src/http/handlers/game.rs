@@ -12,7 +12,7 @@ use crate::{
     auth::AuthClaims,
     db::game::GameRepository,
     errors::AppError,
-    models::db::game::{Game, Order, Pagination},
+    models::game::{Game, Order, Pagination},
     state::AppState,
 };
 
@@ -82,12 +82,12 @@ pub async fn create_game(
 
     let game = repo
         .create_game(
-            payload.name,
-            payload.description,
-            payload.image_url,
+            &payload.name,
+            &payload.description,
+            &payload.image_url,
             payload.min_players as i16,
             payload.max_players as i16,
-            payload.category,
+            payload.category.as_deref(),
             creator_id,
         )
         .await
@@ -96,7 +96,7 @@ pub async fn create_game(
             e.to_response()
         })?;
 
-    tracing::info!("Game created - ID: {}, Name: '{}'", game.id, game.name);
+    tracing::info!("Game created - ID: {}, Name: '{}'", game.id(), game.name);
     Ok(Json(game))
 }
 

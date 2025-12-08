@@ -2,8 +2,8 @@
 
 use crate::db::hydration::types::LobbyInfo;
 use crate::errors::AppError;
-use crate::models::redis::LobbyStatus;
-use crate::models::redis::keys::{KeyPart, RedisKey};
+use crate::models::LobbyStatus;
+use crate::models::keys::{KeyPart, RedisKey};
 use crate::state::RedisClient;
 use ::redis::AsyncCommands;
 use sqlx::PgPool;

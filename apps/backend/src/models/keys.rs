@@ -122,6 +122,30 @@ impl RedisKey {
         ])
     }
 
+    /// Key for lobby chat messages sorted set (pattern: `lobbies:{lobby_id}:chat`).
+    /// Uses Redis sorted set with timestamp as score for chronological ordering.
+    pub fn lobby_chat(lobby_id: impl Into<KeyPart>) -> String {
+        Self::build(&[
+            KeyPart::Str("lobbies".to_string()),
+            lobby_id.into(),
+            KeyPart::Str("chat".to_string()),
+        ])
+    }
+
+    /// Key for individual chat message data (pattern: `lobbies:{lobby_id}:chat:messages:{message_id}`).
+    pub fn lobby_chat_message(
+        lobby_id: impl Into<KeyPart>,
+        message_id: impl Into<KeyPart>,
+    ) -> String {
+        Self::build(&[
+            KeyPart::Str("lobbies".to_string()),
+            lobby_id.into(),
+            KeyPart::Str("chat".to_string()),
+            KeyPart::Str("messages".to_string()),
+            message_id.into(),
+        ])
+    }
+
     /// Rate limiter key for unauthenticated users by IP.
     pub fn rate_user_ip(ip: &str) -> String {
         Self::build(&[

@@ -1,4 +1,4 @@
-use crate::{errors::AppError, models::db::UserV2};
+use crate::{errors::AppError, models::User};
 
 use super::UserRepository;
 
@@ -14,7 +14,7 @@ pub struct UserSearchFilters {
 
 impl UserRepository {
     /// Search for users with filters (pagination and trust-rating filters supported).
-    pub async fn search_users(&self, filters: UserSearchFilters) -> Result<Vec<UserV2>, AppError> {
+    pub async fn search_users(&self, filters: UserSearchFilters) -> Result<Vec<User>, AppError> {
         let mut query = String::from("SELECT id FROM users WHERE 1=1");
         let mut param_count = 0;
 
@@ -82,7 +82,7 @@ impl UserRepository {
     }
 
     /// Get all users (paginated). Use limit/offset to avoid large results.
-    pub async fn get_all_users(&self, limit: i64, offset: i64) -> Result<Vec<UserV2>, AppError> {
+    pub async fn get_all_users(&self, limit: i64, offset: i64) -> Result<Vec<User>, AppError> {
         let user_ids: Vec<uuid::Uuid> =
             sqlx::query_scalar("SELECT id FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2")
                 .bind(limit)
@@ -117,7 +117,7 @@ impl UserRepository {
         min_rating: f64,
         max_rating: f64,
         limit: i64,
-    ) -> Result<Vec<UserV2>, AppError> {
+    ) -> Result<Vec<User>, AppError> {
         let filters = UserSearchFilters {
             min_trust_rating: Some(min_rating),
             max_trust_rating: Some(max_rating),

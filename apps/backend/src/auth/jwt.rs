@@ -4,7 +4,7 @@ use chrono::{Duration, Utc};
 use jsonwebtoken::{EncodingKey, Header, encode};
 use uuid::Uuid;
 
-use crate::{errors::AppError, models::db::UserV2};
+use crate::{errors::AppError, models::User};
 
 /// JWT Claims structure
 ///
@@ -45,7 +45,7 @@ impl Claims {
 }
 
 /// Generate JWT token for user authentication
-pub fn generate_jwt(user: &UserV2, secret: &str) -> Result<String, AppError> {
+pub fn generate_jwt(user: &User, secret: &str) -> Result<String, AppError> {
     // Validate provided secret meets requirements
     validate_jwt_secret(secret)?;
 
@@ -56,11 +56,11 @@ pub fn generate_jwt(user: &UserV2, secret: &str) -> Result<String, AppError> {
         .unwrap_or(7);
 
     let claims = Claims {
-        sub: user.id.to_string(),
-        wallet: user.wallet_address.clone(),
+        sub: user.id().to_string(),
+        wallet: user.wallet_address.to_string(),
         iat: now.timestamp(),
         exp: (now + Duration::days(expiry_days)).timestamp(),
-        jti: Some(Uuid::new_v4().to_string()), // For potential token revocation
+        jti: Some(Uuid::new_v4().to_string()),
     };
 
     encode(

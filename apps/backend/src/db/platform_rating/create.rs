@@ -1,6 +1,6 @@
-use crate::errors::AppError;
-use crate::models::db::PlatformRating;
 use super::PlatformRatingRepository;
+use crate::errors::AppError;
+use crate::models::PlatformRating;
 
 impl PlatformRatingRepository {
     /// Create or replace a platform rating for the given user.
@@ -11,7 +11,7 @@ impl PlatformRatingRepository {
         &self,
         user_id: uuid::Uuid,
         rating: i16,
-        comment: Option<String>,
+        comment: Option<&str>,
     ) -> Result<PlatformRating, AppError> {
         let rec = sqlx::query_as::<_, PlatformRating>(
             r#"INSERT INTO platform_ratings (user_id, rating, comment)

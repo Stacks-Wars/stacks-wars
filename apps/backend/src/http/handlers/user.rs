@@ -9,8 +9,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    auth::AuthClaims, db::user::UserRepository, errors::AppError, models::db::UserV2,
-    state::AppState,
+    auth::AuthClaims, db::user::UserRepository, errors::AppError, models::User, state::AppState,
 };
 
 // ============================================================================
@@ -69,9 +68,8 @@ pub async fn create_user(
 ) -> Result<Json<String>, (StatusCode, String)> {
     let repo = UserRepository::new(state.postgres.clone());
 
-    // Create user and get JWT token
     let token = repo
-        .create_user(payload.wallet_address.clone(), &state.config.jwt_secret)
+        .create_user(&payload.wallet_address, &state.config.jwt_secret)
         .await
         .map_err(|e| {
             tracing::error!("Failed to create user: {}", e);
@@ -82,7 +80,6 @@ pub async fn create_user(
         "User created successfully: Wallet: {}",
         payload.wallet_address
     );
-
     Ok(Json(token))
 }
 
@@ -92,11 +89,11 @@ pub async fn create_user(
 
 /// Get a user's public profile by UUID.
 ///
-/// Public endpoint returning `UserV2` or `404` if not found.
+/// Public endpoint returning `User` or `404` if not found.
 pub async fn get_user(
     State(state): State<AppState>,
     Path(user_id): Path<Uuid>,
-) -> Result<Json<UserV2>, (StatusCode, String)> {
+) -> Result<Json<User>, (StatusCode, String)> {
     let repo = UserRepository::new(state.postgres.clone());
 
     let user = repo.find_by_id(user_id).await.map_err(|e| {
@@ -179,12 +176,12 @@ pub async fn update_display_name(
 /// Partially update the authenticated user's profile fields.
 ///
 /// Accepts optional `username` and `displayName` fields and returns the
-/// updated `UserV2` on success. Requires a valid JWT.
+/// updated `User` on success. Requires a valid JWT.
 pub async fn update_profile(
     State(state): State<AppState>,
     AuthClaims(claims): AuthClaims,
     Json(payload): Json<UpdateProfileRequest>,
-) -> Result<Json<UserV2>, (StatusCode, String)> {
+) -> Result<Json<User>, (StatusCode, String)> {
     let user_id = Uuid::parse_str(&claims.sub).map_err(|_| {
         tracing::error!("Invalid user ID in JWT token");
         AppError::Unauthorized("Invalid token".into()).to_response()
@@ -195,8 +192,8 @@ pub async fn update_profile(
     let user = repo
         .update_profile(
             user_id,
-            payload.username.clone(),
-            payload.display_name.clone(),
+            payload.username.as_deref(),
+            payload.display_name.as_deref(),
         )
         .await
         .map_err(|e| {

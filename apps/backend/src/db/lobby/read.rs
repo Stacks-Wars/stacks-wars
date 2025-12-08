@@ -1,9 +1,9 @@
-use sqlx::query_as;
+use sqlx::{Row, query, query_as};
 use uuid::Uuid;
 
 use crate::{
     errors::AppError,
-    models::{db::Lobby, redis::LobbyStatus},
+    models::{Lobby, LobbyStatus},
 };
 
 use super::LobbyRepository;
@@ -182,7 +182,7 @@ impl LobbyRepository {
 
     /// Check if a lobby exists by ID.
     pub async fn exists(&self, lobby_id: Uuid) -> Result<bool, AppError> {
-        let exists: (bool,) = sqlx::query_as("SELECT EXISTS(SELECT 1 FROM lobbies WHERE id = $1)")
+        let result = query("SELECT EXISTS(SELECT 1 FROM lobbies WHERE lobby_id = $1)")
             .bind(lobby_id)
             .fetch_one(&self.pool)
             .await
@@ -190,6 +190,50 @@ impl LobbyRepository {
                 AppError::DatabaseError(format!("Failed to check lobby existence: {}", e))
             })?;
 
-        Ok(exists.0)
+        Ok(result.get(0))
+    }
+
+    /// Get lobbies by multiple statuses with pagination
+    pub async fn find_by_statuses(
+        &self,
+        statuses: &[LobbyStatus],
+        offset: usize,
+        limit: usize,
+    ) -> Result<Vec<Lobby>, AppError> {
+        if statuses.is_empty() {
+            return self.find_all(offset, limit).await;
+        }
+
+        // Build dynamic query with status array
+        let lobbies = query_as::<_, Lobby>(
+            "SELECT * FROM lobbies
+             WHERE status = ANY($1)
+             ORDER BY created_at DESC
+             LIMIT $2 OFFSET $3",
+        )
+        .bind(statuses)
+        .bind(limit as i64)
+        .bind(offset as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| {
+            AppError::DatabaseError(format!("Failed to fetch lobbies by statuses: {}", e))
+        })?;
+
+        Ok(lobbies)
+    }
+
+    /// Get all lobbies with pagination (no status filter)
+    pub async fn find_all(&self, offset: usize, limit: usize) -> Result<Vec<Lobby>, AppError> {
+        let lobbies = query_as::<_, Lobby>(
+            "SELECT * FROM lobbies ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+        )
+        .bind(limit as i64)
+        .bind(offset as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| AppError::DatabaseError(format!("Failed to fetch all lobbies: {}", e)))?;
+
+        Ok(lobbies)
     }
 }

@@ -1,12 +1,19 @@
-use crate::{state::AppState, ws::handlers::lobby_ws_handler};
+use crate::{
+    state::AppState,
+    ws::{lobby::lobby_handler, room::room_handler},
+};
 use axum::{Router, routing::get};
 
 /// Create WebSocket routes (grouped under `/ws`).
 ///
-/// Currently includes:
-/// - GET `/ws/lobby/{lobby_id}`
+/// Routes:
+/// - GET `/ws/room/{lobby_id}` - Connect to a specific lobby room (game + chat)
+/// - GET `/ws/lobbies?status=waiting,starting` - Browse lobbies with optional status filter
 pub fn create_ws_routes(state: AppState) -> Router {
-    Router::new()
-        .route("/lobby/{lobby_id}", get(lobby_ws_handler))
-        .with_state(state)
+    let ws_router = Router::new()
+        .route("/room/{lobby_id}", get(room_handler))
+        .route("/lobbies", get(lobby_handler))
+        .with_state(state);
+
+    Router::new().nest("/ws", ws_router)
 }

@@ -8,7 +8,10 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{auth::AuthClaims, db::lobby::LobbyRepository, models::db::Lobby, state::AppState};
+use crate::{
+    auth::AuthClaims, db::lobby::LobbyRepository, models::Lobby, state::AppState,
+    ws::lobby::LobbyServerMessage,
+};
 
 // ============================================================================
 // Request/Response Types
@@ -20,10 +23,13 @@ pub struct CreateLobbyRequest {
     pub name: String,
     pub description: Option<String>,
     pub entry_amount: Option<f64>,
+    pub current_amount: Option<f64>,
     pub token_symbol: Option<String>,
     pub token_contract_id: Option<String>,
     pub contract_address: Option<String>,
     pub is_private: Option<bool>,
+    #[serde(default)]
+    pub is_sponsored: bool,
     pub game_id: Uuid,
 }
 
@@ -54,21 +60,28 @@ pub async fn create_lobby(
         (StatusCode::UNAUTHORIZED, "Invalid token".to_string())
     })?;
 
+    // For non-sponsored lobbies, default current_amount to entry_amount if not provided
+    let current_amount = if !payload.is_sponsored {
+        payload.current_amount.or(payload.entry_amount)
+    } else {
+        payload.current_amount
+    };
+
     let repo = LobbyRepository::new(state.postgres.clone());
-    let is_sponsored = payload.entry_amount.map_or(false, |amount| amount == 0.0);
 
     let lobby = repo
         .create_lobby(
-            payload.name,
-            payload.description,
+            &payload.name,
+            payload.description.as_deref(),
             user_id,
             payload.game_id,
             payload.entry_amount,
-            payload.token_symbol,
-            payload.token_contract_id,
-            payload.contract_address,
+            current_amount,
+            payload.token_symbol.as_deref(),
+            payload.token_contract_id.as_deref(),
+            payload.contract_address.as_deref(),
             payload.is_private.unwrap_or(false),
-            is_sponsored,
+            payload.is_sponsored,
             state.redis.clone(),
         )
         .await
@@ -77,10 +90,23 @@ pub async fn create_lobby(
             e.to_response()
         })?;
 
-    Ok((
-        StatusCode::CREATED,
-        Json(CreateLobbyResponse { lobby_id: lobby.id }),
-    ))
+    // Broadcast lobby creation to lobby list subscribers
+    let lobby_id = lobby.id();
+    tokio::spawn({
+        let state_clone = state.clone();
+        let lobby_clone = lobby.clone();
+        async move {
+            use crate::ws::broadcast;
+
+            let _ = broadcast::broadcast_lobby_list(
+                &state_clone,
+                &LobbyServerMessage::LobbyCreated { lobby: lobby_clone },
+            )
+            .await;
+        }
+    });
+
+    Ok((StatusCode::CREATED, Json(CreateLobbyResponse { lobby_id })))
 }
 
 /// Get lobby details by UUID. Public endpoint returning `Lobby`.

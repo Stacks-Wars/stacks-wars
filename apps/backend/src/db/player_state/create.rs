@@ -2,7 +2,7 @@
 
 use crate::db::player_state::PlayerStateRepository;
 use crate::errors::AppError;
-use crate::models::redis::PlayerState;
+use crate::models::PlayerState;
 use redis::AsyncCommands;
 
 impl PlayerStateRepository {

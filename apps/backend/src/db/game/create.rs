@@ -1,4 +1,4 @@
-use crate::{errors::AppError, models::db::game::Game};
+use crate::{errors::AppError, models::game::Game};
 use uuid::Uuid;
 
 use super::GameRepository;
@@ -7,61 +7,41 @@ impl GameRepository {
     /// Create a new game type.
     pub async fn create_game(
         &self,
-        name: String,
-        description: String,
-        image_url: String,
+        name: &str,
+        description: &str,
+        image_url: &str,
         min_players: i16,
         max_players: i16,
-        category: Option<String>,
+        category: Option<&str>,
         creator_id: Uuid,
     ) -> Result<Game, AppError> {
-        // Validate player limits
-        if min_players < 1 {
-            return Err(AppError::BadRequest(
-                "Minimum players must be at least 1".into(),
-            ));
-        }
-        if max_players < min_players {
-            return Err(AppError::BadRequest(
-                "Maximum players must be >= minimum players".into(),
-            ));
-        }
+        // Validate player counts
+        let (min_players, max_players) = Game::validate_player_count(min_players, max_players)?;
 
-        // Check if game already exists (by name)
-        let existing_game = sqlx::query_as::<_, Game>(
-            "SELECT id, name, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at
-            FROM games
-            WHERE name = $1",
-        )
-        .bind(&name)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to query game: {}", e)))?;
-
-        if let Some(game) = existing_game {
-            tracing::info!("Game already exists: {}", name);
-            return Ok(game);
-        }
-
-        // Create new game
         let game = sqlx::query_as::<_, Game>(
             "INSERT INTO games (name, description, image_url, min_players, max_players, category, creator_id, is_active)
             VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
             RETURNING id, name, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
         )
-        .bind(&name)
-        .bind(&description)
-        .bind(&image_url)
+        .bind(name)
+        .bind(description)
+        .bind(image_url)
         .bind(min_players)
         .bind(max_players)
-        .bind(&category)
+        .bind(category)
         .bind(creator_id)
         .fetch_one(&self.pool)
         .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to create game: {}", e)))?;
+        .map_err(|e| {
+            if let sqlx::Error::Database(db_err) = &e {
+                if db_err.is_unique_violation() {
+                    return AppError::BadRequest(format!("Game with name '{}' already exists", name));
+                }
+            }
+            AppError::DatabaseError(format!("Failed to create game: {}", e))
+        })?;
 
-        tracing::info!("Created new game: {} (ID: {})", game.name, game.id);
-
+        tracing::info!("Created new game: {} (ID: {})", game.name, game.id());
         Ok(game)
     }
 }

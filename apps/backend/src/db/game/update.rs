@@ -1,39 +1,30 @@
-use crate::{errors::AppError, models::db::game::Game};
+use crate::{errors::AppError, models::game::Game};
 use uuid::Uuid;
 
 use super::GameRepository;
 
 impl GameRepository {
     /// Update a game's name (must be unique).
-    pub async fn update_name(&self, game_id: Uuid, name: String) -> Result<Game, AppError> {
-        // Check if name is already taken by another game
-        let existing = sqlx::query_scalar::<_, Option<Uuid>>(
-            "SELECT id FROM games WHERE name = $1 AND id != $2",
-        )
-        .bind(&name)
-        .bind(game_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to check game name: {}", e)))?;
-
-        if existing.is_some() {
-            return Err(AppError::BadRequest(format!(
-                "Game name '{}' is already taken",
-                name
-            )));
-        }
-
+    /// DB constraint handles uniqueness automatically.
+    pub async fn update_name(&self, game_id: Uuid, name: &str) -> Result<Game, AppError> {
         let game = sqlx::query_as::<_, Game>(
             "UPDATE games
             SET name = $1, updated_at = NOW()
             WHERE id = $2
             RETURNING id, name, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
         )
-        .bind(&name)
+        .bind(name)
         .bind(game_id)
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to update game name: {}", e)))?
+        .map_err(|e| {
+            if let sqlx::Error::Database(db_err) = &e {
+                if db_err.is_unique_violation() {
+                    return AppError::BadRequest(format!("Game name '{}' is already taken", name));
+                }
+            }
+            AppError::DatabaseError(format!("Failed to update game name: {}", e))
+        })?
         .ok_or_else(|| AppError::NotFound("Game not found".into()))?;
 
         tracing::info!("Updated game {} name to '{}'", game_id, name);
@@ -45,7 +36,7 @@ impl GameRepository {
     pub async fn update_description(
         &self,
         game_id: Uuid,
-        description: String,
+        description: &str,
     ) -> Result<Game, AppError> {
         let game = sqlx::query_as::<_, Game>(
             "UPDATE games
@@ -53,7 +44,7 @@ impl GameRepository {
             WHERE id = $2
             RETURNING id, name, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
         )
-        .bind(&description)
+        .bind(description)
         .bind(game_id)
         .fetch_optional(&self.pool)
         .await
@@ -66,18 +57,14 @@ impl GameRepository {
     }
 
     /// Update a game's image URL.
-    pub async fn update_image_url(
-        &self,
-        game_id: Uuid,
-        image_url: String,
-    ) -> Result<Game, AppError> {
+    pub async fn update_image_url(&self, game_id: Uuid, image_url: &str) -> Result<Game, AppError> {
         let game = sqlx::query_as::<_, Game>(
             "UPDATE games
             SET image_url = $1, updated_at = NOW()
             WHERE id = $2
             RETURNING id, name, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
         )
-        .bind(&image_url)
+        .bind(image_url)
         .bind(game_id)
         .fetch_optional(&self.pool)
         .await
@@ -89,24 +76,16 @@ impl GameRepository {
         Ok(game)
     }
 
-    /// Update a game's min/max player limits (validates inputs).
+    /// Update a game's min/max player limits.
+    /// Validates player counts internally.
     pub async fn update_player_limits(
         &self,
         game_id: Uuid,
         min_players: i16,
         max_players: i16,
     ) -> Result<Game, AppError> {
-        // Validate
-        if min_players < 1 {
-            return Err(AppError::BadRequest(
-                "Minimum players must be at least 1".into(),
-            ));
-        }
-        if max_players < min_players {
-            return Err(AppError::BadRequest(
-                "Maximum players must be >= minimum players".into(),
-            ));
-        }
+        // Validate at repository level
+        let (min_players, max_players) = Game::validate_player_count(min_players, max_players)?;
 
         let game = sqlx::query_as::<_, Game>(
             "UPDATE games
@@ -136,7 +115,7 @@ impl GameRepository {
     pub async fn update_category(
         &self,
         game_id: Uuid,
-        category: Option<String>,
+        category: Option<&str>,
     ) -> Result<Game, AppError> {
         let game = sqlx::query_as::<_, Game>(
             "UPDATE games
@@ -144,7 +123,7 @@ impl GameRepository {
             WHERE id = $2
             RETURNING id, name, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
         )
-        .bind(&category)
+        .bind(category)
         .bind(game_id)
         .fetch_optional(&self.pool)
         .await
@@ -177,58 +156,31 @@ impl GameRepository {
     }
 
     /// Partially update a game's fields; unspecified fields are unchanged.
+    /// Validates player counts internally. DB constraint handles name uniqueness.
     pub async fn update_game(
         &self,
         game_id: Uuid,
-        name: Option<String>,
-        description: Option<String>,
-        image_url: Option<String>,
+        name: Option<&str>,
+        description: Option<&str>,
+        image_url: Option<&str>,
         min_players: Option<i16>,
         max_players: Option<i16>,
-        category: Option<String>,
+        category: Option<&str>,
         is_active: Option<bool>,
     ) -> Result<Game, AppError> {
         // Fetch current game
         let current = self.find_by_id(game_id).await?;
 
-        let new_name = name.unwrap_or(current.name.clone());
-        let new_description = description.unwrap_or(current.description);
-        let new_image_url = image_url.unwrap_or(current.image_url);
+        let new_name = name.unwrap_or(&current.name);
+        let new_description = description.unwrap_or(&current.description);
+        let new_image_url = image_url.unwrap_or(&current.image_url);
         let new_min = min_players.unwrap_or(current.min_players);
         let new_max = max_players.unwrap_or(current.max_players);
-        let new_category = category.or(current.category);
+        let new_category = category.or(current.category.as_deref());
         let new_active = is_active.unwrap_or(current.is_active);
 
         // Validate player limits
-        if new_min < 1 {
-            return Err(AppError::BadRequest(
-                "Minimum players must be at least 1".into(),
-            ));
-        }
-        if new_max < new_min {
-            return Err(AppError::BadRequest(
-                "Maximum players must be >= minimum players".into(),
-            ));
-        }
-
-        // Check name uniqueness if changed
-        if new_name != current.name {
-            let existing = sqlx::query_scalar::<_, Option<Uuid>>(
-                "SELECT id FROM games WHERE name = $1 AND id != $2",
-            )
-            .bind(&new_name)
-            .bind(game_id)
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(|e| AppError::DatabaseError(format!("Failed to check game name: {}", e)))?;
-
-            if existing.is_some() {
-                return Err(AppError::BadRequest(format!(
-                    "Game name '{}' is already taken",
-                    new_name
-                )));
-            }
-        }
+        let (new_min, new_max) = Game::validate_player_count(new_min, new_max)?;
 
         let game = sqlx::query_as::<_, Game>(
             "UPDATE games
@@ -237,17 +189,24 @@ impl GameRepository {
             WHERE id = $8
             RETURNING id, name, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
         )
-        .bind(&new_name)
-        .bind(&new_description)
-        .bind(&new_image_url)
+        .bind(new_name)
+        .bind(new_description)
+        .bind(new_image_url)
         .bind(new_min)
         .bind(new_max)
-        .bind(&new_category)
+        .bind(new_category)
         .bind(new_active)
         .bind(game_id)
         .fetch_one(&self.pool)
         .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to update game: {}", e)))?;
+        .map_err(|e| {
+            if let sqlx::Error::Database(db_err) = &e {
+                if db_err.is_unique_violation() {
+                    return AppError::BadRequest(format!("Game name '{}' is already taken", new_name));
+                }
+            }
+            AppError::DatabaseError(format!("Failed to update game: {}", e))
+        })?;
 
         tracing::info!("Updated game {}", game_id);
 

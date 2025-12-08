@@ -2,7 +2,7 @@
 
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::errors::AppError;
-use crate::models::redis::LobbyState;
+use crate::models::LobbyState;
 use redis::AsyncCommands;
 
 impl LobbyStateRepository {

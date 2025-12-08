@@ -1,6 +1,6 @@
-use crate::errors::AppError;
-use crate::models::db::PlatformRating;
 use super::PlatformRatingRepository;
+use crate::errors::AppError;
+use crate::models::PlatformRating;
 
 impl PlatformRatingRepository {
     /// Get a platform rating by user id. Returns `Ok(None)` if not found.
@@ -21,10 +21,7 @@ impl PlatformRatingRepository {
 
     /// List platform ratings. If `rating_filter` is `Some(n)` returns only
     /// ratings equal to `n` (1-5). If `None` returns all ratings.
-    pub async fn list(
-        &self,
-        rating_filter: Option<i16>,
-    ) -> Result<Vec<PlatformRating>, AppError> {
+    pub async fn list(&self, rating_filter: Option<i16>) -> Result<Vec<PlatformRating>, AppError> {
         let recs = sqlx::query_as::<_, PlatformRating>(
             "SELECT id, user_id, rating, comment, created_at, updated_at FROM platform_ratings WHERE ($1 IS NULL OR rating = $1) ORDER BY created_at DESC",
         )

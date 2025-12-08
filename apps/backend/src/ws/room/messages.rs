@@ -1,15 +1,14 @@
-// Lobby message types (client -> server, server -> client)
+// Room message types (client -> server, server -> client)
 use crate::db::join_request::JoinRequestDTO;
-use crate::lobby::error::LobbyError;
-use crate::models::db::LobbyExtended;
-use crate::models::redis::PlayerState;
-use crate::models::redis::lobby_state::LobbyStatus;
+use crate::models::lobby_state::LobbyStatus;
+use crate::models::{ChatMessage, LobbyExtended, PlayerState};
+use crate::ws::room::error::RoomError;
 use uuid::Uuid;
 
 /// Messages sent from clients to the lobby websocket.
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
-pub enum LobbyClientMessage {
+pub enum RoomClientMessage {
     Join,
     Leave,
     UpdateLobbyStatus {
@@ -29,6 +28,21 @@ pub enum LobbyClientMessage {
     Kick {
         player_id: Uuid,
     },
+    /// Send a chat message
+    SendMessage {
+        content: String,
+        reply_to: Option<Uuid>,
+    },
+    /// Add a reaction to a message
+    AddReaction {
+        message_id: Uuid,
+        emoji: String,
+    },
+    /// Remove a reaction from a message
+    RemoveReaction {
+        message_id: Uuid,
+        emoji: String,
+    },
     /// Heartbeat from client; `ts` is client's timestamp in milliseconds
     Ping {
         ts: u64,
@@ -38,11 +52,12 @@ pub enum LobbyClientMessage {
 /// Messages broadcast by the lobby server to connected clients.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
-pub enum LobbyServerMessage {
+pub enum RoomServerMessage {
     LobbyBootstrap {
         lobby: LobbyExtended,
         players: Vec<PlayerState>,
         join_requests: Vec<JoinRequestDTO>,
+        chat_history: Vec<ChatMessage>,
     },
 
     /// Generic lobby state change
@@ -76,6 +91,25 @@ pub enum LobbyServerMessage {
         accepted: bool,
     },
 
+    /// Chat message received
+    MessageReceived {
+        message: ChatMessage,
+    },
+
+    /// Reaction added to a message
+    ReactionAdded {
+        message_id: Uuid,
+        user_id: Uuid,
+        emoji: String,
+    },
+
+    /// Reaction removed from a message
+    ReactionRemoved {
+        message_id: Uuid,
+        user_id: Uuid,
+        emoji: String,
+    },
+
     /// Personal pong response; elapsed_ms = now.saturating_sub(client_ts)
     Pong {
         elapsed_ms: u64,
@@ -91,9 +125,9 @@ pub enum LobbyServerMessage {
     },
 }
 
-impl From<LobbyError> for LobbyServerMessage {
-    fn from(err: LobbyError) -> Self {
-        LobbyServerMessage::Error {
+impl From<RoomError> for RoomServerMessage {
+    fn from(err: RoomError) -> Self {
+        RoomServerMessage::Error {
             code: err.code().to_string(),
             message: err.to_string(),
         }

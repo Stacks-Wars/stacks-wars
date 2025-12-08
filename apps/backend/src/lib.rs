@@ -5,7 +5,6 @@ pub mod db;
 pub mod errors;
 pub mod games;
 pub mod http;
-pub mod lobby;
 mod middleware;
 pub use middleware::cors_layer;
 pub mod models;

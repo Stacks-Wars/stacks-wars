@@ -13,9 +13,9 @@ use sqlx::Row;
 use std::error::Error;
 use uuid::Uuid;
 
-pub mod lobby_helper;
+pub mod ws_helper;
 #[allow(unused_imports)]
-pub use lobby_helper::WsConnection;
+pub use ws_helper::WsConnection;
 
 /// Test application harness that keeps container handles alive while tests run.
 #[allow(dead_code)]
@@ -262,19 +262,17 @@ impl TestFactory {
             .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
 
         // Build canonical keys using RedisKey helper
-        let lobby_key = stacks_wars_be::models::redis::RedisKey::lobby_state(lobby_id);
-        let player_key =
-            stacks_wars_be::models::redis::RedisKey::lobby_player(lobby_id, creator_id);
+        let lobby_key = stacks_wars_be::models::RedisKey::lobby_state(lobby_id);
+        let player_key = stacks_wars_be::models::RedisKey::lobby_player(lobby_id, creator_id);
 
-        let lstate = stacks_wars_be::models::redis::LobbyState::new(lobby_id);
+        let lstate = stacks_wars_be::models::LobbyState::new(lobby_id);
         let lhash = lstate.to_redis_hash();
         let _: () = conn
             .hset_multiple(&lobby_key, &lhash)
             .await
             .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
 
-        let pstate =
-            stacks_wars_be::models::redis::PlayerState::new(creator_id, lobby_id, None, true);
+        let pstate = stacks_wars_be::models::PlayerState::new(creator_id, lobby_id, None, true);
         let phash_map = pstate.to_redis_hash();
         let phash: Vec<(String, String)> = phash_map.into_iter().collect();
         let _: () = conn
@@ -444,9 +442,8 @@ pub async fn spawn_app_with_containers() -> TestApp {
 
     let state = stacks_wars_be::state::AppState {
         config,
-        lobby_connections: Default::default(),
         connections: Default::default(),
-        chat_connections: Default::default(),
+        indices: Default::default(),
         game_registry: Arc::new(stacks_wars_be::games::create_game_registry()),
         active_games: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
         redis: redis_pool,
