@@ -1,4 +1,3 @@
-// WebSocket core primitives
 // Core WebSocket utilities
 pub mod manager;
 pub mod message;

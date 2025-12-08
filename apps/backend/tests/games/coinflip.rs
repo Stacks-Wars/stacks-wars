@@ -50,12 +50,12 @@ async fn test_coinflip_game_bootstrap() {
 
     // Both players connect
     let mut creator_ws =
-        crate::common::WsConnection::connect_to_lobby(&app.base_url, lobby_id, &creator_token)
+        crate::common::WsConnection::connect_to_room(&app.base_url, lobby_id, &creator_token)
             .await
             .expect("Creator failed to connect");
 
     let mut player1_ws =
-        crate::common::WsConnection::connect_to_lobby(&app.base_url, lobby_id, &player1_token)
+        crate::common::WsConnection::connect_to_room(&app.base_url, lobby_id, &player1_token)
             .await
             .expect("Player failed to connect");
 
@@ -165,12 +165,12 @@ async fn test_coinflip_round_flow() {
 
     // Both players connect
     let mut creator_ws =
-        crate::common::WsConnection::connect_to_lobby(&app.base_url, lobby_id, &creator_token)
+        crate::common::WsConnection::connect_to_room(&app.base_url, lobby_id, &creator_token)
             .await
             .expect("Creator failed to connect");
 
     let mut player1_ws =
-        crate::common::WsConnection::connect_to_lobby(&app.base_url, lobby_id, &player1_token)
+        crate::common::WsConnection::connect_to_room(&app.base_url, lobby_id, &player1_token)
             .await
             .expect("Player failed to connect");
 
@@ -347,15 +347,15 @@ async fn test_coinflip_player_elimination() {
 
     // All connect
     let mut p1_ws =
-        crate::common::WsConnection::connect_to_lobby(&app.base_url, lobby_id, &p1_token)
+        crate::common::WsConnection::connect_to_room(&app.base_url, lobby_id, &p1_token)
             .await
             .expect("P1 failed to connect");
     let mut p2_ws =
-        crate::common::WsConnection::connect_to_lobby(&app.base_url, lobby_id, &p2_token)
+        crate::common::WsConnection::connect_to_room(&app.base_url, lobby_id, &p2_token)
             .await
             .expect("P2 failed to connect");
     let mut p3_ws =
-        crate::common::WsConnection::connect_to_lobby(&app.base_url, lobby_id, &p3_token)
+        crate::common::WsConnection::connect_to_room(&app.base_url, lobby_id, &p3_token)
             .await
             .expect("P3 failed to connect");
 

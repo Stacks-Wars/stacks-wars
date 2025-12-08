@@ -13,9 +13,9 @@ use sqlx::Row;
 use std::error::Error;
 use uuid::Uuid;
 
-pub mod lobby_helper;
+pub mod ws_helper;
 #[allow(unused_imports)]
-pub use lobby_helper::WsConnection;
+pub use ws_helper::WsConnection;
 
 /// Test application harness that keeps container handles alive while tests run.
 #[allow(dead_code)]
