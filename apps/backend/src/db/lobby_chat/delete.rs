@@ -1,5 +1,5 @@
 use crate::models::RedisKey;
-use bb8_redis::{bb8::Pool, redis::AsyncCommands, RedisConnectionManager};
+use bb8_redis::{RedisConnectionManager, bb8::Pool, redis::AsyncCommands};
 use uuid::Uuid;
 
 /// Deletes a chat message from Redis.

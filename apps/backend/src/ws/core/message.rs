@@ -1,5 +1,5 @@
 /// Unified message trait for WebSocket broadcasting
-/// 
+///
 /// This trait allows the hub to broadcast both LobbyServerMessage and game events
 /// without needing separate broadcast functions for each type.
 use serde::Serialize;

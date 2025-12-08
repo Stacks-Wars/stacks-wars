@@ -26,31 +26,20 @@ async fn test_lobby_list_connection_and_initial_list() {
 
     // Create a few lobbies
     let lobby1_id = factory
-        .create_test_lobby(
-            creator_id,
-            common::COINFLIP_GAME_ID,
-            Some("Test Lobby 1"),
-        )
+        .create_test_lobby(creator_id, common::COINFLIP_GAME_ID, Some("Test Lobby 1"))
         .await
         .expect("Failed to create lobby 1");
 
     let lobby2_id = factory
-        .create_test_lobby(
-            creator_id,
-            common::COINFLIP_GAME_ID,
-            Some("Test Lobby 2"),
-        )
+        .create_test_lobby(creator_id, common::COINFLIP_GAME_ID, Some("Test Lobby 2"))
         .await
         .expect("Failed to create lobby 2");
 
     // Connect to lobby list without filter
-    let mut lobby_list_ws = common::WsConnection::connect_to_lobby(
-        &app.base_url,
-        Some(&creator_token),
-        None,
-    )
-    .await
-    .expect("Failed to connect to lobby list");
+    let mut lobby_list_ws =
+        common::WsConnection::connect_to_lobby(&app.base_url, Some(&creator_token), None)
+            .await
+            .expect("Failed to connect to lobby list");
 
     // Should receive initial lobby list
     let initial_list = lobby_list_ws
@@ -114,11 +103,7 @@ async fn test_lobby_list_status_filter() {
 
     // Create a waiting lobby
     let waiting_lobby_id = factory
-        .create_test_lobby(
-            creator_id,
-            common::COINFLIP_GAME_ID,
-            Some("Waiting Lobby"),
-        )
+        .create_test_lobby(creator_id, common::COINFLIP_GAME_ID, Some("Waiting Lobby"))
         .await
         .expect("Failed to create lobby");
 
@@ -191,22 +176,15 @@ async fn test_lobby_list_subscribe_update() {
 
     // Create a lobby
     let _lobby_id = factory
-        .create_test_lobby(
-            creator_id,
-            common::COINFLIP_GAME_ID,
-            Some("Subscribe Test"),
-        )
+        .create_test_lobby(creator_id, common::COINFLIP_GAME_ID, Some("Subscribe Test"))
         .await
         .expect("Failed to create lobby");
 
     // Connect to lobby list without filter
-    let mut lobby_list_ws = common::WsConnection::connect_to_lobby(
-        &app.base_url,
-        Some(&creator_token),
-        None,
-    )
-    .await
-    .expect("Failed to connect to lobby list");
+    let mut lobby_list_ws =
+        common::WsConnection::connect_to_lobby(&app.base_url, Some(&creator_token), None)
+            .await
+            .expect("Failed to connect to lobby list");
 
     // Receive initial list
     let _initial = lobby_list_ws
@@ -285,13 +263,10 @@ async fn test_lobby_list_load_more() {
     }
 
     // Connect to lobby list
-    let mut lobby_list_ws = common::WsConnection::connect_to_lobby(
-        &app.base_url,
-        Some(&creator_token),
-        None,
-    )
-    .await
-    .expect("Failed to connect to lobby list");
+    let mut lobby_list_ws =
+        common::WsConnection::connect_to_lobby(&app.base_url, Some(&creator_token), None)
+            .await
+            .expect("Failed to connect to lobby list");
 
     // Receive initial list (default limit is 12)
     let initial_list = lobby_list_ws
@@ -353,10 +328,9 @@ async fn test_lobby_list_unauthenticated_connection() {
         .expect("Failed to ensure Coin Flip game");
 
     // Connect to lobby list without authentication (public access)
-    let mut lobby_list_ws =
-        common::WsConnection::connect_to_lobby(&app.base_url, None, None)
-            .await
-            .expect("Failed to connect to lobby list without auth");
+    let mut lobby_list_ws = common::WsConnection::connect_to_lobby(&app.base_url, None, None)
+        .await
+        .expect("Failed to connect to lobby list without auth");
 
     // Should still receive initial lobby list (public access)
     let initial_list = lobby_list_ws

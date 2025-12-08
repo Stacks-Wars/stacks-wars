@@ -88,7 +88,13 @@ async fn handle_socket(
     let player_repo = PlayerStateRepository::new(state.redis.clone());
     let jr_repo = JoinRequestRepository::new(state.redis.clone());
 
-    let (db_lobby_result, state_info_result, players_result, join_requests_result, chat_history_result) = tokio::join!(
+    let (
+        db_lobby_result,
+        state_info_result,
+        players_result,
+        join_requests_result,
+        chat_history_result,
+    ) = tokio::join!(
         lobby_repo.find_by_id(lobby_id),
         lobby_state_repo.get_state(lobby_id),
         player_repo.get_all_in_lobby(lobby_id),
@@ -97,7 +103,10 @@ async fn handle_socket(
     );
 
     // Extract game_id for message routing (stored for entire connection lifecycle)
-    let game_id = db_lobby_result.as_ref().ok().and_then(|opt| opt.as_ref().map(|l| l.game_id));
+    let game_id = db_lobby_result
+        .as_ref()
+        .ok()
+        .and_then(|opt| opt.as_ref().map(|l| l.game_id));
 
     // Validate we have the minimum required data
     match (db_lobby_result, state_info_result) {
@@ -191,7 +200,10 @@ async fn handle_socket(
                 }
 
                 // Unknown message type - log and ignore
-                tracing::debug!("Unknown message type received: {:?}", parsed_msg.get("type"));
+                tracing::debug!(
+                    "Unknown message type received: {:?}",
+                    parsed_msg.get("type")
+                );
             }
 
             Ok(Message::Binary(_)) => {}

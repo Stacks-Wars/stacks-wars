@@ -1,9 +1,9 @@
 use crate::models::{ChatMessage, RedisKey};
-use bb8_redis::{bb8::Pool, redis::AsyncCommands, RedisConnectionManager};
+use bb8_redis::{RedisConnectionManager, bb8::Pool, redis::AsyncCommands};
 use uuid::Uuid;
 
 /// Gets the most recent chat messages from a lobby.
-/// 
+///
 /// Returns messages in reverse chronological order (newest first).
 /// Limit defaults to 50 messages.
 pub async fn get_chat_history(
@@ -32,9 +32,9 @@ pub async fn get_chat_history(
     // Fetch all messages in parallel
     let mut messages = Vec::new();
     for message_id_str in message_ids {
-        let message_id = Uuid::parse_str(&message_id_str)
-            .map_err(|e| format!("Invalid message ID: {}", e))?;
-        
+        let message_id =
+            Uuid::parse_str(&message_id_str).map_err(|e| format!("Invalid message ID: {}", e))?;
+
         if let Ok(Some(message)) = get_chat_message(redis_pool, lobby_id, message_id).await {
             messages.push(message);
         }

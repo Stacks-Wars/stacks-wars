@@ -1,5 +1,5 @@
 use crate::models::{ChatMessage, RedisKey};
-use bb8_redis::{bb8::Pool, redis::AsyncCommands, RedisConnectionManager};
+use bb8_redis::{RedisConnectionManager, bb8::Pool, redis::AsyncCommands};
 use uuid::Uuid;
 
 /// Adds a reaction to a chat message.

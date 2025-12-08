@@ -79,11 +79,7 @@ pub async fn broadcast_user<M: BroadcastMessage>(state: &AppState, user_id: Uuid
 }
 
 /// Broadcast to multiple users (batch operation)
-pub async fn broadcast_users<M: BroadcastMessage>(
-    state: &AppState,
-    user_ids: &[Uuid],
-    msg: &M,
-) {
+pub async fn broadcast_users<M: BroadcastMessage>(state: &AppState, user_ids: &[Uuid], msg: &M) {
     if let Ok(json) = msg.to_json() {
         let indices = state.indices.lock().await;
         let conns = state.connections.lock().await;

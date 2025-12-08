@@ -24,13 +24,19 @@ impl FromRequestParts<crate::state::AppState> for WsAuth {
         // Look for Authorization header manually so we can distinguish missing vs present-but-invalid
         if let Some(hv) = parts.headers.get("authorization") {
             let hv_str = hv.to_str().map_err(|_| {
-                (StatusCode::BAD_REQUEST, "Invalid Authorization header encoding".to_string())
+                (
+                    StatusCode::BAD_REQUEST,
+                    "Invalid Authorization header encoding".to_string(),
+                )
             })?;
 
             // Expect format: "Bearer <token>"
             let parts: Vec<&str> = hv_str.splitn(2, ' ').collect();
             if parts.len() != 2 || !parts[0].eq_ignore_ascii_case("bearer") {
-                return Err((StatusCode::BAD_REQUEST, "Invalid Authorization header".to_string()));
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    "Invalid Authorization header".to_string(),
+                ));
             }
 
             let token = parts[1];

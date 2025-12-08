@@ -9,7 +9,7 @@ use crate::{
     http::handlers::{
         game::create_game,
         lobby::{create_lobby, delete_lobby},
-        platform_rating::{create_rating, update_rating, delete_rating},
+        platform_rating::{create_rating, delete_rating, update_rating},
         season::create_season,
         user::{update_display_name, update_profile, update_username},
     },

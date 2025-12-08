@@ -2,7 +2,7 @@ use crate::{
     state::AppState,
     ws::{lobby::lobby_handler, room::room_handler},
 };
-use axum::{routing::get, Router};
+use axum::{Router, routing::get};
 
 /// Create WebSocket routes (grouped under `/ws`).
 ///

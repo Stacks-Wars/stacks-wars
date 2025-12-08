@@ -1,4 +1,4 @@
-use sqlx::{query, query_as, Row};
+use sqlx::{Row, query, query_as};
 use uuid::Uuid;
 
 use crate::{
@@ -209,7 +209,7 @@ impl LobbyRepository {
             "SELECT * FROM lobbies
              WHERE status = ANY($1)
              ORDER BY created_at DESC
-             LIMIT $2 OFFSET $3"
+             LIMIT $2 OFFSET $3",
         )
         .bind(statuses)
         .bind(limit as i64)
@@ -224,21 +224,15 @@ impl LobbyRepository {
     }
 
     /// Get all lobbies with pagination (no status filter)
-    pub async fn find_all(
-        &self,
-        offset: usize,
-        limit: usize,
-    ) -> Result<Vec<Lobby>, AppError> {
+    pub async fn find_all(&self, offset: usize, limit: usize) -> Result<Vec<Lobby>, AppError> {
         let lobbies = query_as::<_, Lobby>(
-            "SELECT * FROM lobbies ORDER BY created_at DESC LIMIT $1 OFFSET $2"
+            "SELECT * FROM lobbies ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
         .bind(limit as i64)
         .bind(offset as i64)
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| {
-            AppError::DatabaseError(format!("Failed to fetch all lobbies: {}", e))
-        })?;
+        .map_err(|e| AppError::DatabaseError(format!("Failed to fetch all lobbies: {}", e)))?;
 
         Ok(lobbies)
     }

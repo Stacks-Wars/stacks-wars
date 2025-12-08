@@ -117,14 +117,15 @@ impl ConnectionContext {
             ConnectionContext::Lobby(_) => None,
         }
     }
-    
+
     /// Get context keys for indexing (can return multiple for status filters)
     pub fn context_keys(&self) -> Vec<String> {
         match self {
             ConnectionContext::Room(_) => vec!["room".to_string()],
             ConnectionContext::Lobby(Some(statuses)) => {
                 // Create a key for each status filter
-                statuses.iter()
+                statuses
+                    .iter()
                     .map(|status| format!("lobby:{}", status))
                     .collect()
             }

@@ -1,9 +1,9 @@
 use crate::models::{ChatMessage, RedisKey};
-use bb8_redis::{bb8::Pool, redis::AsyncCommands, RedisConnectionManager};
+use bb8_redis::{RedisConnectionManager, bb8::Pool, redis::AsyncCommands};
 use uuid::Uuid;
 
 /// Creates a new chat message in Redis.
-/// 
+///
 /// Uses both sorted set (for ordering) and hash (for message data):
 /// - Sorted set: `lobbies:{lobby_id}:chat` with timestamp as score
 /// - Hash: `lobbies:{lobby_id}:chat:messages:{message_id}` with message data

@@ -49,7 +49,10 @@ impl ChatMessage {
         self.reactions
             .retain(|r| !(r.user_id == user_id && r.emoji == emoji));
 
-        self.reactions.push(Reaction { user_id, emoji: emoji.to_string() });
+        self.reactions.push(Reaction {
+            user_id,
+            emoji: emoji.to_string(),
+        });
     }
 
     /// Remove a reaction from this message
