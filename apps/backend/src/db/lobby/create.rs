@@ -52,7 +52,10 @@ impl LobbyRepository {
                 status
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-            RETURNING *
+            RETURNING id, path, name, description, game_id, creator_id,
+                      entry_amount, current_amount, token_symbol, token_contract_id,
+                      contract_address, is_private, is_sponsored, status,
+                      created_at, updated_at
             "#,
         )
         .bind(name)
@@ -96,7 +99,7 @@ impl LobbyRepository {
             )));
         }
 
-        tracing::info!("Created lobby: {} ({})", lobby.name, lobby.id());
+        tracing::info!("Created lobby: {} (path: {})", lobby.name, lobby.path);
         Ok(lobby)
     }
 }

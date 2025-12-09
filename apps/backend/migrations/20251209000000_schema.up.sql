@@ -32,6 +32,7 @@ CREATE TABLE seasons (
 CREATE TABLE games (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE,
+    path TEXT NOT NULL UNIQUE,
     description TEXT NOT NULL,
     image_url TEXT NOT NULL,
     min_players SMALLINT NOT NULL CHECK (min_players >= 1 AND min_players <= 255),
@@ -44,7 +45,8 @@ CREATE TABLE games (
 );
 
 CREATE INDEX IF NOT EXISTS idx_games_creator_id ON games(creator_id);
-CREATE INDEX IF NOT EXISTS idx_games_is_active ON games(is_active);
+CREATE INDEX IF NOT EXISTS idx_games_path ON games(path);
+CREATE INDEX IF NOT EXISTS idx_games_is_inactive ON games(is_active) WHERE is_active = false;
 
 -- ENUM TYPE: LOBBY STATUS
 DO $$ BEGIN
@@ -56,6 +58,7 @@ END$$;
 -- LOBBIES
 CREATE TABLE lobbies (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    path TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     description TEXT,
     game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
@@ -72,10 +75,56 @@ CREATE TABLE lobbies (
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_lobbies_path ON lobbies(path);
 CREATE INDEX IF NOT EXISTS idx_lobbies_game_id ON lobbies(game_id);
 CREATE INDEX IF NOT EXISTS idx_lobbies_creator_id ON lobbies(creator_id);
 CREATE INDEX IF NOT EXISTS idx_lobbies_status ON lobbies(status);
 CREATE INDEX IF NOT EXISTS idx_lobbies_is_sponsored ON lobbies(is_sponsored);
+CREATE INDEX IF NOT EXISTS idx_lobbies_game_status ON lobbies(game_id, status);
+
+-- Create function to generate short path (8 chars, URL-safe)
+CREATE OR REPLACE FUNCTION generate_lobby_path() RETURNS TEXT AS $$
+DECLARE
+    chars TEXT := 'abcdefghijklmnopqrstuvwxyz0123456789';
+    result TEXT := '';
+    i INTEGER;
+BEGIN
+    FOR i IN 1..8 LOOP
+        result := result || substr(chars, floor(random() * length(chars) + 1)::int, 1);
+    END LOOP;
+    RETURN result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger to auto-generate path on insert
+CREATE OR REPLACE FUNCTION set_lobby_path() RETURNS TRIGGER AS $$
+DECLARE
+    new_path TEXT;
+    max_attempts INTEGER := 10;
+    attempt INTEGER := 0;
+BEGIN
+    IF NEW.path IS NULL THEN
+        LOOP
+            new_path := generate_lobby_path();
+            -- Check if path already exists
+            IF NOT EXISTS (SELECT 1 FROM lobbies WHERE path = new_path) THEN
+                NEW.path := new_path;
+                EXIT;
+            END IF;
+            attempt := attempt + 1;
+            IF attempt >= max_attempts THEN
+                RAISE EXCEPTION 'Failed to generate unique lobby path after % attempts', max_attempts;
+            END IF;
+        END LOOP;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_set_lobby_path
+    BEFORE INSERT ON lobbies
+    FOR EACH ROW
+    EXECUTE FUNCTION set_lobby_path();
 
 -- USER WARS POINTS
 CREATE TABLE user_wars_points (

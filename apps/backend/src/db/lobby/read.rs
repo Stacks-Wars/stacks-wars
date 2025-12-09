@@ -10,21 +10,27 @@ use super::LobbyRepository;
 
 impl LobbyRepository {
     /// Find a lobby by its ID.
-    pub async fn find_by_id(&self, lobby_id: Uuid) -> Result<Option<Lobby>, AppError> {
+    pub async fn find_by_id(&self, lobby_id: Uuid) -> Result<Lobby, AppError> {
         let lobby = query_as::<_, Lobby>("SELECT * FROM lobbies WHERE id = $1")
             .bind(lobby_id)
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| AppError::DatabaseError(format!("Failed to fetch lobby: {}", e)))?;
+            .map_err(|e| AppError::DatabaseError(format!("Failed to fetch lobby: {}", e)))?
+            .ok_or_else(|| AppError::NotFound(format!("Lobby {} not found", lobby_id)))?;
 
         Ok(lobby)
     }
 
-    /// Get a lobby by ID or return `AppError::NotFound`.
-    pub async fn get_by_id(&self, lobby_id: Uuid) -> Result<Lobby, AppError> {
-        self.find_by_id(lobby_id)
-            .await?
-            .ok_or_else(|| AppError::NotFound(format!("Lobby {} not found", lobby_id)))
+    /// Find a lobby by its path.
+    pub async fn find_by_path(&self, path: &str) -> Result<Lobby, AppError> {
+        let lobby = query_as::<_, Lobby>("SELECT * FROM lobbies WHERE path = $1")
+            .bind(path)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| AppError::DatabaseError(format!("Failed to fetch lobby by path: {}", e)))?
+            .ok_or_else(|| AppError::NotFound(format!("Lobby with path '{}' not found", path)))?;
+
+        Ok(lobby)
     }
 
     /// Get all lobbies created by a specific user.

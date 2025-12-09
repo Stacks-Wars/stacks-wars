@@ -48,10 +48,15 @@ async fn create_lobby() {
 
     assert_eq!(resp.status().as_u16(), 201);
     let body: serde_json::Value = resp.json().await.expect("invalid json");
-    let lobby_id = body
-        .get("lobbyId")
+    let lobby_id = body.get("id").and_then(|v| v.as_str()).expect("missing id");
+
+    // Verify we got the full lobby object with path
+    let lobby_path = body
+        .get("path")
         .and_then(|v| v.as_str())
-        .expect("missing lobbyId");
+        .expect("missing path");
+    assert!(!lobby_path.is_empty(), "path should be auto-generated");
+    assert_eq!(lobby_path.len(), 8, "path should be 8 characters");
 
     // verify Redis runtime state exists for the lobby and creator player
     {
@@ -176,10 +181,7 @@ async fn list_my_lobbies() {
         .expect("request failed");
     assert_eq!(resp.status().as_u16(), 201);
     let body: serde_json::Value = resp.json().await.expect("invalid json");
-    let lobby_id = body
-        .get("lobbyId")
-        .and_then(|v| v.as_str())
-        .expect("missing lobbyId");
+    let lobby_id = body.get("id").and_then(|v| v.as_str()).expect("missing id");
 
     // list my lobbies and assert created one is present
     let resp = client
@@ -239,10 +241,7 @@ async fn delete_lobby() {
         .expect("request failed");
     assert_eq!(resp.status().as_u16(), 201);
     let body: serde_json::Value = resp.json().await.expect("invalid json");
-    let lobby_id = body
-        .get("lobbyId")
-        .and_then(|v| v.as_str())
-        .expect("missing lobbyId");
+    let lobby_id = body.get("id").and_then(|v| v.as_str()).expect("missing id");
 
     // delete the lobby
     let resp = client

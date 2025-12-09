@@ -109,7 +109,7 @@ pub async fn handle_room_message(
                 }
 
                 let lobby_repo = LobbyRepository::new(state.postgres.clone());
-                if let Ok(Some(db_lobby)) = lobby_repo.find_by_id(lobby_id).await {
+                if let Ok(db_lobby) = lobby_repo.find_by_id(lobby_id).await {
                     if db_lobby.is_private {
                         let _ = jr_repo.remove(lobby_id, user_id).await.ok();
                         if let Ok(list) = jr_repo.list(lobby_id).await {
@@ -121,8 +121,7 @@ pub async fn handle_room_message(
                                 &RoomServerMessage::JoinRequestsUpdated {
                                     join_requests: dtos,
                                 },
-                            )
-                            .await;
+                            );
                         }
                     }
                 }
@@ -259,7 +258,7 @@ pub async fn handle_room_message(
                     // Phase 4: Initialize game
                     let lobby_repo = LobbyRepository::new(spawn_state.postgres.clone());
                     let game_id = match lobby_repo.find_by_id(spawn_lobby).await {
-                        Ok(Some(db_lobby)) => db_lobby.game_id,
+                        Ok(db_lobby) => db_lobby.game_id,
                         _ => {
                             tracing::error!(
                                 "Failed to fetch lobby metadata for game initialization"

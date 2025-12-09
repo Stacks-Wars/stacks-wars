@@ -15,6 +15,7 @@ pub struct Game {
     #[serde(skip_deserializing)]
     pub(crate) id: Uuid,
     pub name: String,
+    pub path: String,
     pub description: String,
     pub image_url: String,
     pub min_players: i16,
