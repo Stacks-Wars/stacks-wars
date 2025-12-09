@@ -62,6 +62,7 @@ CREATE TABLE lobbies (
     name TEXT NOT NULL,
     description TEXT,
     game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    game_path TEXT NOT NULL,
     creator_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     entry_amount DOUBLE PRECISION,
     current_amount DOUBLE PRECISION DEFAULT 0,

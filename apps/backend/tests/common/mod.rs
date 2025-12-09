@@ -249,7 +249,12 @@ impl TestFactory {
 
         // Omit `status` (enum) column so DB default ('waiting') is used. Binding text for
         // enum columns can cause type mismatches depending on Postgres settings.
-        sqlx::query("INSERT INTO lobbies (id, name, game_id, creator_id, entry_amount, current_amount) VALUES ($1,$2,$3,$4,$5,$6)")
+        sqlx::query(
+            "INSERT INTO lobbies (id, name, game_id, game_path, creator_id, entry_amount, current_amount)
+             SELECT $1, $2, $3, games.path, $4, $5, $6
+             FROM games
+             WHERE games.id = $3"
+        )
             .bind(lobby_id)
             .bind(&lname)
             .bind(game_id)

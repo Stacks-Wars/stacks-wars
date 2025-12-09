@@ -35,7 +35,8 @@ async fn create_lobby() {
         "contractAddress": null,
         "isPrivate": false,
         "isSponsored": false,
-        "gameId": game_id
+        "gameId": game_id,
+        "gamePath": "lobby-game"
     });
 
     let resp = client
@@ -169,7 +170,8 @@ async fn list_my_lobbies() {
         "entryAmount": 1.0,
         "tokenSymbol": "STX",
         "isSponsored": false,
-        "gameId": game_id.to_string()
+        "gameId": game_id.to_string(),
+        "gamePath": "list-game"
     });
 
     let resp = client
@@ -229,7 +231,8 @@ async fn delete_lobby() {
         "entryAmount": 1.0,
         "tokenSymbol": "STX",
         "isSponsored": false,
-        "gameId": game_id.to_string()
+        "gameId": game_id.to_string(),
+        "gamePath": "delete-game"
     });
 
     let resp = client

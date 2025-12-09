@@ -31,6 +31,7 @@ pub struct CreateLobbyRequest {
     #[serde(default)]
     pub is_sponsored: bool,
     pub game_id: Uuid,
+    pub game_path: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,6 +70,7 @@ pub async fn create_lobby(
             payload.description.as_deref(),
             user_id,
             payload.game_id,
+            &payload.game_path,
             payload.entry_amount,
             current_amount,
             payload.token_symbol.as_deref(),
