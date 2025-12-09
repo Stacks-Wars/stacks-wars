@@ -178,9 +178,13 @@ impl TestFactory {
             .map(|s| s.to_string())
             .unwrap_or_else(|| format!("test-game-{}", &game_id));
 
-        sqlx::query("INSERT INTO games (id, name, description, image_url, min_players, max_players, creator_id, is_active) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)")
+        // Generate path from name (lowercase, replace spaces with hyphens)
+        let path = gname.to_lowercase().replace(' ', "-");
+
+        sqlx::query("INSERT INTO games (id, name, path, description, image_url, min_players, max_players, creator_id, is_active) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)")
             .bind(game_id)
             .bind(&gname)
+            .bind(&path)
             .bind("test game")
             .bind("https://example.com/img.png")
             .bind(min_players)
@@ -210,12 +214,13 @@ impl TestFactory {
         .ok();
 
         sqlx::query(
-            "INSERT INTO games (id, name, description, image_url, min_players, max_players, category, creator_id, is_active)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            "INSERT INTO games (id, name, path, description, image_url, min_players, max_players, category, creator_id, is_active)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
              ON CONFLICT (id) DO NOTHING"
         )
         .bind(COINFLIP_GAME_ID)
         .bind("Coin Flip")
+        .bind("coin-flip")
         .bind("A fast-paced guessing game where players predict coin flips. Get it wrong and you're eliminated!")
         .bind("https://stackswars.com/games/coinflip.png")
         .bind(2_i16)

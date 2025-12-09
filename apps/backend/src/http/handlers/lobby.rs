@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
@@ -33,12 +33,6 @@ pub struct CreateLobbyRequest {
     pub game_id: Uuid,
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateLobbyResponse {
-    pub lobby_id: Uuid,
-}
-
 #[derive(Debug, Deserialize)]
 pub struct LobbyQuery {
     pub limit: Option<i64>,
@@ -49,12 +43,12 @@ pub struct LobbyQuery {
 // Handlers
 // ============================================================================
 
-/// Create a new lobby. Authenticated endpoint that returns the new `lobby_id`.
+/// Create a new lobby. Authenticated endpoint that returns the full `Lobby`.
 pub async fn create_lobby(
     State(state): State<AppState>,
     AuthClaims(claims): AuthClaims,
     Json(payload): Json<CreateLobbyRequest>,
-) -> Result<(StatusCode, Json<CreateLobbyResponse>), (StatusCode, String)> {
+) -> Result<(StatusCode, Json<Lobby>), (StatusCode, String)> {
     let user_id = Uuid::parse_str(&claims.sub).map_err(|_| {
         tracing::error!("Invalid user ID in token");
         (StatusCode::UNAUTHORIZED, "Invalid token".to_string())
@@ -91,7 +85,6 @@ pub async fn create_lobby(
         })?;
 
     // Broadcast lobby creation to lobby list subscribers
-    let lobby_id = lobby.id();
     tokio::spawn({
         let state_clone = state.clone();
         let lobby_clone = lobby.clone();
@@ -106,7 +99,7 @@ pub async fn create_lobby(
         }
     });
 
-    Ok((StatusCode::CREATED, Json(CreateLobbyResponse { lobby_id })))
+    Ok((StatusCode::CREATED, Json(lobby)))
 }
 
 /// Get lobby details by UUID. Public endpoint returning `Lobby`.
@@ -115,7 +108,7 @@ pub async fn get_lobby(
     Path(lobby_id): Path<Uuid>,
 ) -> Result<Json<Lobby>, (StatusCode, String)> {
     let repo = LobbyRepository::new(state.postgres);
-    let lobby = repo.get_by_id(lobby_id).await.map_err(|e| {
+    let lobby = repo.find_by_id(lobby_id).await.map_err(|e| {
         tracing::error!("Failed to get lobby {}: {}", lobby_id, e);
         e.to_response()
     })?;
@@ -123,6 +116,19 @@ pub async fn get_lobby(
     Ok(Json(lobby))
 }
 
+/// Get lobby details by path. Public endpoint returning `Lobby`.
+pub async fn get_lobby_by_path(
+    State(state): State<AppState>,
+    Path(path): Path<String>,
+) -> Result<Json<Lobby>, (StatusCode, String)> {
+    let repo = LobbyRepository::new(state.postgres);
+    let lobby = repo.find_by_path(&path).await.map_err(|e| {
+        tracing::error!("Failed to get lobby by path {}: {}", path, e);
+        e.to_response()
+    })?;
+
+    Ok(Json(lobby))
+}
 /// List lobbies for a game with optional pagination. Public endpoint.
 pub async fn list_lobbies_by_game(
     State(state): State<AppState>,
@@ -178,7 +184,7 @@ pub async fn delete_lobby(
     let repo = LobbyRepository::new(state.postgres);
 
     // Verify user is the creator
-    let lobby = repo.get_by_id(lobby_id).await.map_err(|e| {
+    let lobby = repo.find_by_id(lobby_id).await.map_err(|e| {
         tracing::error!("Lobby not found: {}", e);
         e.to_response()
     })?;

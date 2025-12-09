@@ -1,4 +1,10 @@
 -- Down migration for initial schema: drop created objects in reverse order
+
+-- Drop lobby path generation trigger and function
+DROP TRIGGER IF EXISTS trigger_set_lobby_path ON lobbies;
+DROP FUNCTION IF EXISTS set_lobby_path();
+DROP FUNCTION IF EXISTS generate_lobby_path();
+
 DROP TABLE IF EXISTS platform_ratings;
 DROP TABLE IF EXISTS user_wars_points;
 DROP TABLE IF EXISTS lobbies;

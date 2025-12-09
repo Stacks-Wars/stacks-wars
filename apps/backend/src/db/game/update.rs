@@ -11,7 +11,7 @@ impl GameRepository {
             "UPDATE games
             SET name = $1, updated_at = NOW()
             WHERE id = $2
-            RETURNING id, name, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
+            RETURNING id, name, path, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
         )
         .bind(name)
         .bind(game_id)
@@ -42,7 +42,7 @@ impl GameRepository {
             "UPDATE games
             SET description = $1, updated_at = NOW()
             WHERE id = $2
-            RETURNING id, name, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
+            RETURNING id, name, path, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
         )
         .bind(description)
         .bind(game_id)
@@ -62,7 +62,7 @@ impl GameRepository {
             "UPDATE games
             SET image_url = $1, updated_at = NOW()
             WHERE id = $2
-            RETURNING id, name, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
+            RETURNING id, name, path, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
         )
         .bind(image_url)
         .bind(game_id)
@@ -91,7 +91,7 @@ impl GameRepository {
             "UPDATE games
             SET min_players = $1, max_players = $2, updated_at = NOW()
             WHERE id = $3
-            RETURNING id, name, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
+            RETURNING id, name, path, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
         )
         .bind(min_players)
         .bind(max_players)
@@ -121,7 +121,7 @@ impl GameRepository {
             "UPDATE games
             SET category = $1, updated_at = NOW()
             WHERE id = $2
-            RETURNING id, name, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
+            RETURNING id, name, path, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
         )
         .bind(category)
         .bind(game_id)
@@ -141,7 +141,7 @@ impl GameRepository {
             "UPDATE games
             SET is_active = $1, updated_at = NOW()
             WHERE id = $2
-            RETURNING id, name, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
+            RETURNING id, name, path, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
         )
         .bind(is_active)
         .bind(game_id)
@@ -187,7 +187,7 @@ impl GameRepository {
             SET name = $1, description = $2, image_url = $3, min_players = $4, max_players = $5,
                 category = $6, is_active = $7, updated_at = NOW()
             WHERE id = $8
-            RETURNING id, name, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
+            RETURNING id, name, path, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
         )
         .bind(new_name)
         .bind(new_description)

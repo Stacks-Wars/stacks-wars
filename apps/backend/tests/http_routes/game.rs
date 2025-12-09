@@ -15,6 +15,7 @@ async fn create_game() {
 
     let payload = json!({
         "name": "Integration Game",
+        "path": "integration-game",
         "description": "A test game",
         "imageUrl": "https://example.com/img.png",
         "minPlayers": 1,

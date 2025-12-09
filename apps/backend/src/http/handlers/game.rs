@@ -26,6 +26,8 @@ use crate::{
 pub struct CreateGameRequest {
     /// Game name (must be unique)
     pub name: String,
+    /// URL-friendly path (must be unique, lowercase alphanumeric + hyphens)
+    pub path: String,
     /// Game description
     pub description: String,
     /// URL to game thumbnail/icon
@@ -83,6 +85,7 @@ pub async fn create_game(
     let game = repo
         .create_game(
             &payload.name,
+            &payload.path,
             &payload.description,
             &payload.image_url,
             payload.min_players as i16,

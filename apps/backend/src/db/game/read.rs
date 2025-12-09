@@ -10,7 +10,7 @@ impl GameRepository {
     /// Find a game by UUID.
     pub async fn find_by_id(&self, game_id: Uuid) -> Result<Game, AppError> {
         let game = sqlx::query_as::<_, Game>(
-            "SELECT id, name, description, image_url, min_players, max_players, category,
+            "SELECT id, name, path, description, image_url, min_players, max_players, category,
                     creator_id, is_active, updated_at, created_at
             FROM games
             WHERE id = $1",
@@ -24,10 +24,27 @@ impl GameRepository {
         Ok(game)
     }
 
+    /// Find a game by its path (URL-friendly identifier).
+    pub async fn find_by_path(&self, path: &str) -> Result<Game, AppError> {
+        let game = sqlx::query_as::<_, Game>(
+            "SELECT id, name, path, description, image_url, min_players, max_players, category,
+                    creator_id, is_active, updated_at, created_at
+            FROM games
+            WHERE path = $1",
+        )
+        .bind(path)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| AppError::DatabaseError(format!("Failed to query game by path: {}", e)))?
+        .ok_or_else(|| AppError::NotFound("Game not found".into()))?;
+
+        Ok(game)
+    }
+
     /// Find a game by its name.
     pub async fn find_by_name(&self, name: &str) -> Result<Game, AppError> {
         let game = sqlx::query_as::<_, Game>(
-            "SELECT id, name, description, image_url, min_players, max_players, category,
+            "SELECT id, name, path, description, image_url, min_players, max_players, category,
                     creator_id, is_active, updated_at, created_at
             FROM games
             WHERE name = $1",
@@ -52,7 +69,7 @@ impl GameRepository {
         let order_sql = order.to_sql();
 
         let query = format!(
-            "SELECT id, name, description, image_url, min_players, max_players, category,
+            "SELECT id, name, path, description, image_url, min_players, max_players, category,
                 creator_id, is_active, updated_at, created_at
             FROM games
             ORDER BY created_at {}
@@ -76,7 +93,7 @@ impl GameRepository {
         let limit = pagination.limit;
 
         let games = sqlx::query_as::<_, Game>(
-            "SELECT id, name, description, image_url, min_players, max_players, category,
+            "SELECT id, name, path, description, image_url, min_players, max_players, category,
                 creator_id, is_active, updated_at, created_at
             FROM games
             WHERE is_active = TRUE
@@ -95,7 +112,7 @@ impl GameRepository {
     /// Get games in a category (limited).
     pub async fn get_by_category(&self, category: &str, limit: i64) -> Result<Vec<Game>, AppError> {
         let games = sqlx::query_as::<_, Game>(
-            "SELECT id, name, description, image_url, min_players, max_players, category,
+            "SELECT id, name, path, description, image_url, min_players, max_players, category,
                 creator_id, is_active, updated_at, created_at
             FROM games
             WHERE category = $1 AND is_active = TRUE
@@ -120,7 +137,7 @@ impl GameRepository {
         limit: i64,
     ) -> Result<Vec<Game>, AppError> {
         let games = sqlx::query_as::<_, Game>(
-            "SELECT id, name, description, image_url, min_players, max_players, category,
+            "SELECT id, name, path, description, image_url, min_players, max_players, category,
                 creator_id, is_active, updated_at, created_at
             FROM games
             WHERE creator_id = $1

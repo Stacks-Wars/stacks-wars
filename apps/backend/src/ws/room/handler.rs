@@ -106,11 +106,11 @@ async fn handle_socket(
     let game_id = db_lobby_result
         .as_ref()
         .ok()
-        .and_then(|opt| opt.as_ref().map(|l| l.game_id));
+        .map(|lobby| lobby.game_id.clone());
 
     // Validate we have the minimum required data
     match (db_lobby_result, state_info_result) {
-        (Ok(Some(db_lobby)), Ok(state_info)) => {
+        (Ok(db_lobby), Ok(state_info)) => {
             let lobby_ext = LobbyExtended::from_parts(db_lobby, state_info);
             let players = players_result.unwrap_or_default();
             let join_requests = join_requests_result
@@ -131,15 +131,8 @@ async fn handle_socket(
             )
             .await;
         }
-        (Ok(None), _) | (_, Err(_)) => {
+        (Err(_), _) | (_, Err(_)) => {
             let err = RoomError::NotFound;
-            let msg = RoomServerMessage::from(err);
-            let _ = manager::send_to_connection(&conn, &msg).await;
-            manager::unregister_connection(&state, &connection_id).await;
-            return;
-        }
-        (Err(_), _) => {
-            let err = RoomError::MetadataMissing;
             let msg = RoomServerMessage::from(err);
             let _ = manager::send_to_connection(&conn, &msg).await;
             manager::unregister_connection(&state, &connection_id).await;

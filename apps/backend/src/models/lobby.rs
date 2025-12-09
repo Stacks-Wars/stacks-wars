@@ -12,6 +12,7 @@ use crate::models::{LobbyState, LobbyStatus};
 pub struct Lobby {
     #[serde(skip_deserializing)]
     pub(crate) id: Uuid,
+    pub path: String,
     pub name: String,
     pub description: Option<String>,
     pub game_id: Uuid,
@@ -123,6 +124,7 @@ pub enum LobbyAmountError {
 #[serde(rename_all = "camelCase")]
 pub struct LobbyExtended {
     pub id: Uuid,
+    pub path: String,
     pub name: String,
     pub description: Option<String>,
     pub game_id: Uuid,
@@ -153,6 +155,7 @@ impl LobbyExtended {
     pub fn from_parts(db: Lobby, runtime: LobbyState) -> Self {
         Self {
             id: db.id(),
+            path: db.path,
             name: db.name,
             description: db.description,
             game_id: db.game_id,
