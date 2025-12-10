@@ -7,11 +7,11 @@ use axum::{Router, routing::get};
 /// Create WebSocket routes (grouped under `/ws`).
 ///
 /// Routes:
-/// - GET `/ws/room/{lobby_id}` - Connect to a specific lobby room (game + chat)
+/// - GET `/ws/room/{lobby_path}` - Connect to a specific lobby room (game + chat)
 /// - GET `/ws/lobbies?status=waiting,starting` - Browse lobbies with optional status filter
 pub fn create_ws_routes(state: AppState) -> Router {
     let ws_router = Router::new()
-        .route("/room/{lobby_id}", get(room_handler))
+        .route("/room/{lobby_path}", get(room_handler))
         .route("/lobbies", get(lobby_handler))
         .with_state(state);
 

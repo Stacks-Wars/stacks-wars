@@ -17,11 +17,11 @@ use std::sync::Arc;
 use tokio::sync::Mutex as TokioMutex;
 use uuid::Uuid;
 
-use crate::auth::extractors::WsAuth;
 use crate::db::lobby::LobbyRepository;
 use crate::middleware::{ApiRateLimit, check_rate_limit};
 use crate::ws::core::manager;
 use crate::ws::room::{RoomError, engine::handle_room_message, messages::RoomServerMessage};
+use crate::{auth::extractors::WsAuth, db::lobby_chat::get_chat_history};
 use crate::{
     db::{
         join_request::JoinRequestRepository, lobby_state::LobbyStateRepository,
@@ -37,7 +37,7 @@ use crate::{
 /// it upgrades the connection and hands off to `handle_socket` for message handling.
 pub async fn room_handler(
     ws: WebSocketUpgrade,
-    Path(lobby_id): Path<uuid::Uuid>,
+    Path(lobby_path): Path<String>,
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     WsAuth(auth): WsAuth,
@@ -51,7 +51,7 @@ pub async fn room_handler(
         return Err((code, msg));
     }
 
-    Ok(ws.on_upgrade(move |socket| handle_socket(socket, lobby_id, auth_user_id, state)))
+    Ok(ws.on_upgrade(move |socket| handle_socket(socket, lobby_path, auth_user_id, state)))
 }
 
 /// Core WebSocket handler: Manages connection lifecycle and routes messages.
@@ -67,12 +67,27 @@ pub async fn room_handler(
 /// - Game developers control their own message validation
 async fn handle_socket(
     socket: axum::extract::ws::WebSocket,
-    lobby_id: Uuid,
+    lobby_path: String,
     auth_user_id: Option<Uuid>,
     state: AppState,
 ) {
     let (sender, mut receiver) = socket.split();
     let connection_id = Uuid::new_v4();
+
+    let lobby_repo = LobbyRepository::new(state.postgres.clone());
+
+    // Fetch lobby by path first to get the ID
+    let db_lobby_result = lobby_repo.find_by_path(&lobby_path).await;
+    let lobby = match db_lobby_result {
+        Ok(db_lobby) => db_lobby,
+        Err(_) => {
+            let err = RoomError::NotFound;
+            tracing::error!("Lobby not found for path {}: {:?}", lobby_path, err);
+            return;
+        }
+    };
+    let lobby_id = lobby.id;
+
     let conn = Arc::new(ConnectionInfo {
         connection_id,
         user_id: auth_user_id,
@@ -83,35 +98,21 @@ async fn handle_socket(
     // Register the connection
     manager::register_connection(&state, connection_id, conn.clone()).await;
 
-    let lobby_repo = LobbyRepository::new(state.postgres.clone());
     let lobby_state_repo = LobbyStateRepository::new(state.redis.clone());
     let player_repo = PlayerStateRepository::new(state.redis.clone());
     let jr_repo = JoinRequestRepository::new(state.redis.clone());
 
-    let (
-        db_lobby_result,
-        state_info_result,
-        players_result,
-        join_requests_result,
-        chat_history_result,
-    ) = tokio::join!(
-        lobby_repo.find_by_id(lobby_id),
+    let (state_info_result, players_result, join_requests_result, chat_history_result) = tokio::join!(
         lobby_state_repo.get_state(lobby_id),
         player_repo.get_all_in_lobby(lobby_id),
         jr_repo.list(lobby_id),
-        crate::db::lobby_chat::get_chat_history(&state.redis, lobby_id, Some(50))
+        get_chat_history(&state.redis, lobby_id, Some(50))
     );
 
-    // Extract game_id for message routing (stored for entire connection lifecycle)
-    let game_id = db_lobby_result
-        .as_ref()
-        .ok()
-        .map(|lobby| lobby.game_id.clone());
-
     // Validate we have the minimum required data
-    match (db_lobby_result, state_info_result) {
-        (Ok(db_lobby), Ok(state_info)) => {
-            let lobby_ext = LobbyExtended::from_parts(db_lobby, state_info);
+    match state_info_result {
+        Ok(state_info) => {
+            let lobby_ext = LobbyExtended::from_parts(lobby, state_info);
             let players = players_result.unwrap_or_default();
             let join_requests = join_requests_result
                 .unwrap_or_default()
@@ -131,7 +132,7 @@ async fn handle_socket(
             )
             .await;
         }
-        (Err(_), _) | (_, Err(_)) => {
+        Err(_) => {
             let err = RoomError::NotFound;
             let msg = RoomServerMessage::from(err);
             let _ = manager::send_to_connection(&conn, &msg).await;
@@ -176,12 +177,7 @@ async fn handle_socket(
                     if msg_type == "game_action" {
                         if let Some(action) = parsed_msg.get("action") {
                             if let Some(user_id) = auth_user_id {
-                                if game_id.is_some() {
-                                    handle_game_action(&state, lobby_id, user_id, action.clone())
-                                        .await;
-                                } else {
-                                    tracing::warn!("Game action received but no game_id found");
-                                }
+                                handle_game_action(&state, lobby_id, user_id, action.clone()).await;
                             } else {
                                 tracing::warn!("Game action from unauthenticated user");
                             }
