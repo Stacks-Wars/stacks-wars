@@ -24,6 +24,13 @@ pub struct CreateUserRequest {
     pub wallet_address: String,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateUserResponse {
+    pub user: User,
+    pub token: String,
+}
+
 /// Request body for updating username
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -59,28 +66,21 @@ pub struct UpdateProfileRequest {
 // User Creation
 // ============================================================================
 
-/// Register a new user and return a JWT token.
+/// Register a new user and return user details with JWT token.
 ///
-/// Public endpoint. Returns a JSON object containing `token` on success.
+/// Public endpoint. Returns a JSON object containing `user` and `token` on success.
 pub async fn create_user(
     State(state): State<AppState>,
     Json(payload): Json<CreateUserRequest>,
-) -> Result<Json<String>, (StatusCode, String)> {
+) -> Result<Json<CreateUserResponse>, (StatusCode, String)> {
     let repo = UserRepository::new(state.postgres.clone());
 
-    let token = repo
+    let (user, token) = repo
         .create_user(&payload.wallet_address, &state.config.jwt_secret)
         .await
-        .map_err(|e| {
-            tracing::error!("Failed to create user: {}", e);
-            e.to_response()
-        })?;
+        .map_err(|e| e.to_response())?;
 
-    tracing::info!(
-        "User created successfully: Wallet: {}",
-        payload.wallet_address
-    );
-    Ok(Json(token))
+    Ok(Json(CreateUserResponse { user, token }))
 }
 
 // ============================================================================
@@ -96,12 +96,11 @@ pub async fn get_user(
 ) -> Result<Json<User>, (StatusCode, String)> {
     let repo = UserRepository::new(state.postgres.clone());
 
-    let user = repo.find_by_id(user_id).await.map_err(|e| {
-        tracing::error!("Failed to fetch user {}: {}", user_id, e);
-        e.to_response()
-    })?;
+    let user = repo
+        .find_by_id(user_id)
+        .await
+        .map_err(|e| e.to_response())?;
 
-    tracing::debug!("Retrieved user profile for {}", user_id);
     Ok(Json(user))
 }
 
@@ -126,16 +125,8 @@ pub async fn update_username(
 
     repo.update_username(user_id, &payload.username)
         .await
-        .map_err(|e| {
-            tracing::error!("Failed to update username for {}: {}", user_id, e);
-            e.to_response()
-        })?;
+        .map_err(|e| e.to_response())?;
 
-    tracing::info!(
-        "Username updated for user {} to '{}'",
-        user_id,
-        payload.username
-    );
     Ok(Json(payload))
 }
 
@@ -161,11 +152,6 @@ pub async fn update_display_name(
             e.to_response()
         })?;
 
-    tracing::info!(
-        "Display name updated for user {} to '{}'",
-        user_id,
-        payload.display_name
-    );
     Ok(Json(payload))
 }
 
@@ -196,17 +182,7 @@ pub async fn update_profile(
             payload.display_name.as_deref(),
         )
         .await
-        .map_err(|e| {
-            tracing::error!("Failed to update profile for {}: {}", user_id, e);
-            e.to_response()
-        })?;
-
-    tracing::info!(
-        "Profile updated for user {}: username={:?}, display_name={:?}",
-        user_id,
-        payload.username,
-        payload.display_name
-    );
+        .map_err(|e| e.to_response())?;
 
     Ok(Json(user))
 }

@@ -38,6 +38,8 @@ impl GameRepository {
         .map_err(|e| AppError::DatabaseError(format!("Failed to query game by path: {}", e)))?
         .ok_or_else(|| AppError::NotFound("Game not found".into()))?;
 
+        tracing::info!("Found game by path: {}", game.id);
+
         Ok(game)
     }
 
@@ -149,6 +151,8 @@ impl GameRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(|e| AppError::DatabaseError(format!("Failed to fetch games by creator: {}", e)))?;
+
+        tracing::info!("Found {} games by creator: {}", games.len(), creator_id);
 
         Ok(games)
     }

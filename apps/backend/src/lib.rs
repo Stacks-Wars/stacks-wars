@@ -12,14 +12,21 @@ pub mod state;
 pub mod ws;
 
 use axum::Router;
+use sqlx::postgres::PgPoolOptions;
 use state::AppState;
 use std::net::SocketAddr;
+use std::time::Duration;
 use tokio::signal;
 
 /// Start the HTTP API server
 pub async fn start_server() {
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
+
+    // Run database migrations
+    run_migrations()
+        .await
+        .expect("Failed to run database migrations");
 
     // Initialize application state (PostgreSQL, Redis, Bot)
     let state = AppState::new()
@@ -56,6 +63,27 @@ pub async fn start_server() {
     if let Err(e) = server.await {
         tracing::error!("Server error: {}", e);
     }
+}
+
+/// Run database migrations on startup
+async fn run_migrations() -> Result<(), Box<dyn std::error::Error>> {
+    let database_url = std::env::var("DATABASE_URL")?;
+
+    tracing::info!("Running database migrations...");
+
+    // Create a temporary connection pool for migrations
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .acquire_timeout(Duration::from_secs(10))
+        .connect(&database_url)
+        .await?;
+
+    // Run migrations
+    sqlx::migrate!("./migrations").run(&pool).await?;
+
+    tracing::info!("Database migrations completed successfully");
+
+    Ok(())
 }
 
 /// Handle graceful shutdown on SIGTERM or Ctrl+C

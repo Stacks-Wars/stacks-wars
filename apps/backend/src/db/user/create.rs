@@ -7,12 +7,12 @@ use crate::{
 use super::UserRepository;
 
 impl UserRepository {
-    /// Create a new user or return an existing user's JWT token.
+    /// Create a new user or return an existing user with JWT token.
     pub async fn create_user(
         &self,
         wallet_address: &str,
         jwt_secret: &str,
-    ) -> Result<String, AppError> {
+    ) -> Result<(User, String), AppError> {
         let wallet_address = WalletAddress::new(wallet_address)?;
         // Try to insert user
         let result = sqlx::query_as::<_, User>(
@@ -43,7 +43,7 @@ impl UserRepository {
         };
 
         let token = generate_jwt(&user, jwt_secret)?;
-        Ok(token)
+        Ok((user, token))
     }
 
     /// Create a new user (returns the created `User`).

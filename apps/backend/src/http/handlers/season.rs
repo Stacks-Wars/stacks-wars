@@ -49,12 +49,8 @@ pub async fn create_season(
             &payload.end_date,
         )
         .await
-        .map_err(|e| {
-            tracing::error!("Failed to create season: {}", e);
-            e.to_response()
-        })?;
+        .map_err(|e| e.to_response())?;
 
-    tracing::info!("Season created: {} (ID: {})", season.name, season.id());
     Ok(Json(CreateSeasonResponse { season }))
 }
 
@@ -63,12 +59,11 @@ pub async fn get_current_season(
     State(state): State<AppState>,
 ) -> Result<Json<Season>, (StatusCode, String)> {
     let repo = SeasonRepository::new(state.postgres);
-    let season = repo.get_current_season_full().await.map_err(|e| {
-        tracing::error!("Failed to get current season: {}", e);
-        e.to_response()
-    })?;
+    let season = repo
+        .get_current_season_full()
+        .await
+        .map_err(|e| e.to_response())?;
 
-    tracing::info!("Retrieved current season: {}", season.name);
     Ok(Json(season))
 }
 
@@ -89,11 +84,10 @@ pub async fn list_seasons(
     let offset = query.offset.unwrap_or(0).max(0);
 
     let repo = SeasonRepository::new(state.postgres);
-    let seasons = repo.get_all_seasons(limit, offset).await.map_err(|e| {
-        tracing::error!("Failed to list seasons: {}", e);
-        e.to_response()
-    })?;
+    let seasons = repo
+        .get_all_seasons(limit, offset)
+        .await
+        .map_err(|e| e.to_response())?;
 
-    tracing::info!("Retrieved {} seasons", seasons.len());
     Ok(Json(seasons))
 }

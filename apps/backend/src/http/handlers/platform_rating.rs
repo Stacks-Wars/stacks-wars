@@ -32,10 +32,7 @@ pub async fn create_rating(
 
     repo.create_rating(user_id, payload.rating, payload.comment.as_deref())
         .await
-        .map_err(|e| {
-            tracing::error!("Failed to create platform rating: {}", e);
-            e.to_response()
-        })?;
+        .map_err(|e| e.to_response())?;
 
     Ok((StatusCode::CREATED, Json(())))
 }
@@ -47,10 +44,11 @@ pub async fn get_rating(
 ) -> Result<Json<crate::models::PlatformRating>, (StatusCode, String)> {
     let repo = PlatformRatingRepository::new(state.postgres.clone());
 
-    match repo.get_by_user(user_id).await.map_err(|e| {
-        tracing::error!("Failed to fetch platform rating: {}", e);
-        e.to_response()
-    })? {
+    match repo
+        .get_by_user(user_id)
+        .await
+        .map_err(|e| e.to_response())?
+    {
         Some(r) => Ok(Json(r)),
         None => Err((StatusCode::NOT_FOUND, "Not found".to_string())),
     }
@@ -78,10 +76,7 @@ pub async fn list_ratings(
 
     let repo = PlatformRatingRepository::new(state.postgres.clone());
 
-    let list = repo.list(query.rating).await.map_err(|e| {
-        tracing::error!("Failed to list platform ratings: {}", e);
-        e.to_response()
-    })?;
+    let list = repo.list(query.rating).await.map_err(|e| e.to_response())?;
 
     Ok(Json(list))
 }
@@ -100,10 +95,7 @@ pub async fn update_rating(
     let updated = repo
         .update_rating(user_id, payload.rating, payload.comment.as_deref())
         .await
-        .map_err(|e| {
-            tracing::error!("Failed to update platform rating: {}", e);
-            e.to_response()
-        })?;
+        .map_err(|e| e.to_response())?;
 
     Ok(Json(updated))
 }
@@ -118,10 +110,9 @@ pub async fn delete_rating(
 
     let repo = PlatformRatingRepository::new(state.postgres.clone());
 
-    repo.delete_by_user(user_id).await.map_err(|e| {
-        tracing::error!("Failed to delete platform rating: {}", e);
-        e.to_response()
-    })?;
+    repo.delete_by_user(user_id)
+        .await
+        .map_err(|e| e.to_response())?;
 
     Ok(StatusCode::NO_CONTENT)
 }

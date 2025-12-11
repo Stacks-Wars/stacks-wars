@@ -81,10 +81,7 @@ pub async fn create_lobby(
             state.redis.clone(),
         )
         .await
-        .map_err(|e| {
-            tracing::error!("Failed to create lobby: {}", e);
-            e.to_response()
-        })?;
+        .map_err(|e| e.to_response())?;
 
     // Broadcast lobby creation to lobby list subscribers
     tokio::spawn({
@@ -110,10 +107,10 @@ pub async fn get_lobby(
     Path(lobby_id): Path<Uuid>,
 ) -> Result<Json<Lobby>, (StatusCode, String)> {
     let repo = LobbyRepository::new(state.postgres);
-    let lobby = repo.find_by_id(lobby_id).await.map_err(|e| {
-        tracing::error!("Failed to get lobby {}: {}", lobby_id, e);
-        e.to_response()
-    })?;
+    let lobby = repo
+        .find_by_id(lobby_id)
+        .await
+        .map_err(|e| e.to_response())?;
 
     Ok(Json(lobby))
 }
@@ -124,10 +121,10 @@ pub async fn get_lobby_by_path(
     Path(path): Path<String>,
 ) -> Result<Json<Lobby>, (StatusCode, String)> {
     let repo = LobbyRepository::new(state.postgres);
-    let lobby = repo.find_by_path(&path).await.map_err(|e| {
-        tracing::error!("Failed to get lobby by path {}: {}", path, e);
-        e.to_response()
-    })?;
+    let lobby = repo
+        .find_by_path(&path)
+        .await
+        .map_err(|e| e.to_response())?;
 
     Ok(Json(lobby))
 }
@@ -138,10 +135,10 @@ pub async fn list_lobbies_by_game(
     Query(query): Query<LobbyQuery>,
 ) -> Result<Json<Vec<Lobby>>, (StatusCode, String)> {
     let repo = LobbyRepository::new(state.postgres);
-    let lobbies = repo.find_by_game_id(game_id).await.map_err(|e| {
-        tracing::error!("Failed to list lobbies for game {}: {}", game_id, e);
-        e.to_response()
-    })?;
+    let lobbies = repo
+        .find_by_game_id(game_id)
+        .await
+        .map_err(|e| e.to_response())?;
 
     // Apply pagination
     let limit = query.limit.unwrap_or(20).min(100) as usize;
@@ -161,10 +158,10 @@ pub async fn list_my_lobbies(
         .map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid token".to_string()))?;
 
     let repo = LobbyRepository::new(state.postgres);
-    let lobbies = repo.find_by_creator(user_id).await.map_err(|e| {
-        tracing::error!("Failed to list lobbies for user {}: {}", user_id, e);
-        e.to_response()
-    })?;
+    let lobbies = repo
+        .find_by_creator(user_id)
+        .await
+        .map_err(|e| e.to_response())?;
 
     // Apply pagination
     let limit = query.limit.unwrap_or(20).min(100) as usize;
@@ -186,28 +183,21 @@ pub async fn delete_lobby(
     let repo = LobbyRepository::new(state.postgres);
 
     // Verify user is the creator
-    let lobby = repo.find_by_id(lobby_id).await.map_err(|e| {
-        tracing::error!("Lobby not found: {}", e);
-        e.to_response()
-    })?;
+    let lobby = repo
+        .find_by_id(lobby_id)
+        .await
+        .map_err(|e| e.to_response())?;
 
     if lobby.creator_id != user_id {
-        tracing::warn!(
-            "User {} attempted to delete lobby {} owned by {}",
-            user_id,
-            lobby_id,
-            lobby.creator_id
-        );
         return Err((
             StatusCode::FORBIDDEN,
             "Only the creator can delete this lobby".to_string(),
         ));
     }
 
-    repo.delete_lobby(lobby_id).await.map_err(|e| {
-        tracing::error!("Failed to delete lobby: {}", e);
-        e.to_response()
-    })?;
+    repo.delete_lobby(lobby_id)
+        .await
+        .map_err(|e| e.to_response())?;
 
     Ok(StatusCode::NO_CONTENT)
 }

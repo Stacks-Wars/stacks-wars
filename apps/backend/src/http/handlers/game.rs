@@ -99,7 +99,6 @@ pub async fn create_game(
             e.to_response()
         })?;
 
-    tracing::info!("Game created - ID: {}, Name: '{}'", game.id(), game.name);
     Ok(Json(game))
 }
 
@@ -114,13 +113,42 @@ pub async fn get_game(
 ) -> Result<Json<Game>, (StatusCode, String)> {
     let repo = GameRepository::new(state.postgres.clone());
 
-    let game = repo.find_by_id(game_id).await.map_err(|e| {
-        tracing::error!("Failed to fetch game {}: {}", game_id, e);
-        e.to_response()
-    })?;
+    let game = repo
+        .find_by_id(game_id)
+        .await
+        .map_err(|e| e.to_response())?;
 
-    tracing::debug!("Retrieved game: {}", game_id);
     Ok(Json(game))
+}
+
+/// Get a game by path. Returns `Game` or `404` if not found.
+pub async fn get_game_by_path(
+    Path(path): Path<String>,
+    State(state): State<AppState>,
+) -> Result<Json<Game>, (StatusCode, String)> {
+    let repo = GameRepository::new(state.postgres.clone());
+
+    let game = repo
+        .find_by_path(&path)
+        .await
+        .map_err(|e| e.to_response())?;
+
+    Ok(Json(game))
+}
+
+/// Get games by creator ID. Returns array of `Game`.
+pub async fn get_games_by_creator(
+    Path(creator_id): Path<Uuid>,
+    State(state): State<AppState>,
+) -> Result<Json<Vec<Game>>, (StatusCode, String)> {
+    let repo = GameRepository::new(state.postgres.clone());
+
+    let games = repo
+        .get_by_creator(creator_id, 100)
+        .await
+        .map_err(|e| e.to_response())?;
+
+    Ok(Json(games))
 }
 
 /// List games with pagination. Public endpoint returning an array of `Game`.
@@ -141,16 +169,10 @@ pub async fn list_games(
 
     let repo = GameRepository::new(state.postgres.clone());
 
-    let games = repo.get_all_games(pagination, order).await.map_err(|e| {
-        tracing::error!("Failed to fetch games: {}", e);
-        e.to_response()
-    })?;
+    let games = repo
+        .get_all_games(pagination, order)
+        .await
+        .map_err(|e| e.to_response())?;
 
-    tracing::debug!(
-        "Retrieved {} games (page {}, limit {})",
-        games.len(),
-        query.page,
-        query.limit
-    );
     Ok(Json(games))
 }
