@@ -13,12 +13,11 @@ import {
 export async function connectWallet() {
 	if (isConnected()) {
 		console.log("Already authenticated");
-		const userData = getLocalStorage();
-		return userData?.addresses;
+		return getStxAddress();
 	}
 
 	const response = await connect();
-	const address = response.addresses[0].address;
+	const address = response.addresses[2].address;
 	return address;
 }
 
@@ -39,17 +38,15 @@ export function isWalletConnected() {
 /**
  * Get cached wallet data from local storage
  */
-export function getCachedWalletData() {
+export function getStxAddress() {
 	const userData = getLocalStorage();
 
 	if (!userData?.addresses) {
 		return null;
 	}
 
-	return {
-		stxAddress: userData.addresses.stx[0]?.address,
-		btcAddress: userData.addresses.btc[0]?.address,
-	};
+	const stxAddress = userData.addresses.stx[0]?.address;
+	return stxAddress;
 }
 
 /**

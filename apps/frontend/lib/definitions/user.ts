@@ -25,3 +25,22 @@ export interface AuthResponse {
 	user: User;
 	token: string;
 }
+
+export interface PlayerState {
+	userId: string;
+	lobbyId: string;
+	status: "not_joined" | "joined";
+	txId?: string;
+	rank?: number;
+	prize?: number;
+	claimState?: string;
+	lastPing?: number;
+	joinedAt: number;
+	updatedAt: number;
+	isCreator: boolean;
+}
+
+export interface JoinRequest {
+	playerId: string;
+	state: "pending" | "accepted" | "rejected";
+}

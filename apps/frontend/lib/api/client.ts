@@ -13,6 +13,7 @@ export class ApiClient {
 		const { token } = useAuthStore.getState();
 		const headers: HeadersInit = {
 			"Content-Type": "application/json",
+			Accept: "application/json",
 		};
 
 		if (token) {
@@ -27,6 +28,7 @@ export class ApiClient {
 			const response = await fetch(`${API_BASE_URL}${endpoint}`, {
 				method: "GET",
 				headers: this.getHeaders(),
+				credentials: "include",
 			});
 
 			const data = await response.json();
@@ -58,6 +60,7 @@ export class ApiClient {
 			const response = await fetch(`${API_BASE_URL}${endpoint}`, {
 				method: "POST",
 				headers: this.getHeaders(),
+				credentials: "include",
 				body: body ? JSON.stringify(body) : undefined,
 			});
 
@@ -87,6 +90,7 @@ export class ApiClient {
 			const response = await fetch(`${API_BASE_URL}${endpoint}`, {
 				method: "PUT",
 				headers: this.getHeaders(),
+				credentials: "include",
 				body: body ? JSON.stringify(body) : undefined,
 			});
 
@@ -116,6 +120,7 @@ export class ApiClient {
 			const response = await fetch(`${API_BASE_URL}${endpoint}`, {
 				method: "DELETE",
 				headers: this.getHeaders(),
+				credentials: "include",
 			});
 
 			const data = await response.json();
