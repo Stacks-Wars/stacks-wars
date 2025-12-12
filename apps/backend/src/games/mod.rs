@@ -13,7 +13,7 @@ pub mod registry;
 
 pub use common::*;
 pub use error::GameError;
-pub use registry::{COIN_FLIP_GAME_ID, LEXI_WARS_GAME_ID, create_game_registry};
+pub use registry::{COIN_FLIP_GAME_ID, create_game_registry};
 
 /// Base trait for all game actions (client -> server messages)
 /// Each game defines its own action enum that implements this trait

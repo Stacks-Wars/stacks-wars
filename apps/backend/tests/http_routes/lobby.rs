@@ -89,7 +89,7 @@ async fn get_lobby() {
         .await
         .expect("create game failed");
 
-    let lobby_id = factory
+    let (lobby_id, _lobby_path) = factory
         .create_test_lobby(creator_id, game_id, Some("factory-lobby"))
         .await
         .expect("create lobby failed");

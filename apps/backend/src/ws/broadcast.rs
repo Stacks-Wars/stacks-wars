@@ -168,3 +168,41 @@ pub async fn broadcast_lobby_by_status<M: BroadcastMessage>(
         }
     }
 }
+
+/// Broadcast a game-specific message to all connections in a lobby room.
+/// 
+/// This wraps the message with game identifier for frontend router.
+pub async fn broadcast_game_message(
+    state: &AppState,
+    lobby_id: Uuid,
+    game_path: &str,
+    msg_type: &str,
+    payload: serde_json::Value,
+) {
+    use crate::ws::room::messages::GameMessage;
+    
+    let game_msg = GameMessage::new(
+        game_path.to_string(),
+        msg_type.to_string(),
+        payload,
+    );
+    
+    if let Ok(json) = serde_json::to_string(&game_msg) {
+        let indices = state.indices.lock().await;
+
+        if let Some(conn_ids) = indices.get_lobby_connections(&lobby_id) {
+            let conns = state.connections.lock().await;
+
+            for conn_id in conn_ids.iter() {
+                if let Some(conn) = conns.get(conn_id) {
+                    let sender = conn.sender.clone();
+                    let json_clone = json.clone();
+                    tokio::spawn(async move {
+                        let mut s = sender.lock().await;
+                        let _ = s.send(Message::Text(json_clone.into())).await;
+                    });
+                }
+            }
+        }
+    }
+}

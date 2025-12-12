@@ -26,13 +26,13 @@ impl WsConnection {
     /// Connect to a room (lobby + game) WebSocket with authentication
     pub async fn connect_to_room(
         base_url: &str,
-        lobby_id: Uuid,
+        lobby_path: &str,
         token: &str,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let ws_url = base_url.replace("http://", "ws://");
         let url = format!(
             "{}/ws/room/{}?authorization=Bearer%20{}",
-            ws_url, lobby_id, token
+            ws_url, lobby_path, token
         );
 
         let request = tokio_tungstenite::tungstenite::http::Request::builder()

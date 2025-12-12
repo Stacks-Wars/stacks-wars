@@ -25,12 +25,12 @@ async fn test_lobby_list_connection_and_initial_list() {
         .expect("Failed to create user");
 
     // Create a few lobbies
-    let lobby1_id = factory
+    let (lobby1_id, _lobby1_path) = factory
         .create_test_lobby(creator_id, common::COINFLIP_GAME_ID, Some("Test Lobby 1"))
         .await
         .expect("Failed to create lobby 1");
 
-    let lobby2_id = factory
+    let (lobby2_id, _lobby2_path) = factory
         .create_test_lobby(creator_id, common::COINFLIP_GAME_ID, Some("Test Lobby 2"))
         .await
         .expect("Failed to create lobby 2");
@@ -102,7 +102,7 @@ async fn test_lobby_list_status_filter() {
         .expect("Failed to create user");
 
     // Create a waiting lobby
-    let waiting_lobby_id = factory
+    let (waiting_lobby_id, _waiting_lobby_path) = factory
         .create_test_lobby(creator_id, common::COINFLIP_GAME_ID, Some("Waiting Lobby"))
         .await
         .expect("Failed to create lobby");
@@ -175,7 +175,7 @@ async fn test_lobby_list_subscribe_update() {
         .expect("Failed to create user");
 
     // Create a lobby
-    let _lobby_id = factory
+    let (_lobby_id, _lobby_path) = factory
         .create_test_lobby(creator_id, common::COINFLIP_GAME_ID, Some("Subscribe Test"))
         .await
         .expect("Failed to create lobby");
