@@ -10,6 +10,7 @@ use crate::db::lobby_state::LobbyStateRepository;
 use crate::db::player_state::PlayerStateRepository;
 use crate::models::{LobbyStatus, PlayerState};
 use crate::state::{AppState, ConnectionInfo};
+use crate::ws::broadcast_room_participants;
 use crate::ws::room::{
     RoomError,
     messages::{RoomClientMessage, RoomServerMessage},
@@ -249,16 +250,16 @@ pub async fn handle_room_message(
                     let _ = broadcast::broadcast_room(
                         &spawn_state,
                         spawn_lobby,
-                        &RoomServerMessage::LobbyStateChanged {
-                            state: LobbyStatus::InProgress,
+                        &RoomServerMessage::LobbyStatusChanged {
+                            status: LobbyStatus::InProgress,
                         },
                     )
                     .await;
 
                     // Phase 4: Initialize game
                     let lobby_repo = LobbyRepository::new(spawn_state.postgres.clone());
-                    let game_id = match lobby_repo.find_by_id(spawn_lobby).await {
-                        Ok(db_lobby) => db_lobby.game_id,
+                    let (game_id, game_path) = match lobby_repo.find_by_id(spawn_lobby).await {
+                        Ok(db_lobby) => (db_lobby.game_id, db_lobby.game_path),
                         _ => {
                             tracing::error!(
                                 "Failed to fetch lobby metadata for game initialization"
@@ -297,16 +298,32 @@ pub async fn handle_room_message(
                                     active_games.insert(spawn_lobby, engine);
                                 }
 
-                                // Broadcast initialization events to all players
+                                // Broadcast initialization events wrapped with game identifier
                                 for event in events {
-                                    let game_msg =
-                                        crate::ws::core::message::JsonMessage::from(event);
-                                    let _ = crate::ws::broadcast::broadcast_room_participants(
-                                        &spawn_state,
-                                        spawn_lobby,
-                                        &game_msg,
-                                    )
-                                    .await;
+                                    // Extract type from event for wrapper
+                                    if let Some(obj) = event.as_object() {
+                                        if let Some(msg_type) =
+                                            obj.get("type").and_then(|v| v.as_str())
+                                        {
+                                            // Wrap with game identifier for frontend router
+                                            let wrapped_msg = serde_json::json!({
+                                                "game": game_path,
+                                                "type": msg_type,
+                                                "payload": event
+                                            });
+
+                                            let game_msg =
+                                                crate::ws::core::message::JsonMessage::from(
+                                                    wrapped_msg,
+                                                );
+                                            let _ = broadcast_room_participants(
+                                                &spawn_state,
+                                                spawn_lobby,
+                                                &game_msg,
+                                            )
+                                            .await;
+                                        }
+                                    }
                                 }
                             }
                             Err(e) => {
@@ -322,7 +339,7 @@ pub async fn handle_room_message(
             let _ = broadcast::broadcast_room(
                 state,
                 lobby_id,
-                &RoomServerMessage::LobbyStateChanged { state: status },
+                &RoomServerMessage::LobbyStatusChanged { status: status },
             )
             .await;
         }

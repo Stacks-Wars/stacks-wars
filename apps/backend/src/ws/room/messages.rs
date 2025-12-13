@@ -50,9 +50,13 @@ pub enum RoomClientMessage {
 }
 
 /// Messages broadcast by the lobby server to connected clients.
+///
+/// Lobby-level messages are sent without wrapper.
+/// Game-specific messages should use GameMessage wrapper.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum RoomServerMessage {
+    #[serde(rename_all = "camelCase")]
     LobbyBootstrap {
         lobby: LobbyExtended,
         players: Vec<PlayerState>,
@@ -61,8 +65,8 @@ pub enum RoomServerMessage {
     },
 
     /// Generic lobby state change
-    LobbyStateChanged {
-        state: LobbyStatus,
+    LobbyStatusChanged {
+        status: LobbyStatus,
     },
 
     /// Countdown updates
@@ -131,5 +135,53 @@ impl From<RoomError> for RoomServerMessage {
             code: err.code().to_string(),
             message: err.to_string(),
         }
+    }
+}
+
+/// Wrapper for game-specific messages.
+///
+/// Frontend router uses the `game` field to route messages to correct game plugin.
+///
+/// Example:
+/// ```json
+/// {
+///   "game": "lexi-wars",
+///   "type": "wordSubmitted",
+///   "payload": { "word": "hello", "points": 5, "valid": true }
+/// }
+/// ```
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameMessage {
+    /// Game identifier (e.g., "lexi-wars", "coin-flip")
+    pub game: String,
+    /// Message type specific to the game
+    #[serde(rename = "type")]
+    pub msg_type: String,
+    /// Game-specific payload
+    pub payload: serde_json::Value,
+}
+
+impl GameMessage {
+    /// Create a new game message
+    pub fn new(game: String, msg_type: String, payload: serde_json::Value) -> Self {
+        Self {
+            game,
+            msg_type,
+            payload,
+        }
+    }
+
+    /// Create a game message from a serializable payload
+    pub fn with_payload<T: serde::Serialize>(
+        game: String,
+        msg_type: String,
+        payload: T,
+    ) -> Result<Self, serde_json::Error> {
+        Ok(Self {
+            game,
+            msg_type,
+            payload: serde_json::to_value(payload)?,
+        })
     }
 }

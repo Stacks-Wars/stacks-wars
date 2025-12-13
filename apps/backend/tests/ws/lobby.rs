@@ -25,12 +25,12 @@ async fn test_lobby_list_connection_and_initial_list() {
         .expect("Failed to create user");
 
     // Create a few lobbies
-    let lobby1_id = factory
+    let (lobby1_id, _lobby1_path) = factory
         .create_test_lobby(creator_id, common::COINFLIP_GAME_ID, Some("Test Lobby 1"))
         .await
         .expect("Failed to create lobby 1");
 
-    let lobby2_id = factory
+    let (lobby2_id, _lobby2_path) = factory
         .create_test_lobby(creator_id, common::COINFLIP_GAME_ID, Some("Test Lobby 2"))
         .await
         .expect("Failed to create lobby 2");
@@ -102,7 +102,7 @@ async fn test_lobby_list_status_filter() {
         .expect("Failed to create user");
 
     // Create a waiting lobby
-    let waiting_lobby_id = factory
+    let (waiting_lobby_id, _waiting_lobby_path) = factory
         .create_test_lobby(creator_id, common::COINFLIP_GAME_ID, Some("Waiting Lobby"))
         .await
         .expect("Failed to create lobby");
@@ -111,7 +111,7 @@ async fn test_lobby_list_status_filter() {
     let mut lobby_list_ws = common::WsConnection::connect_to_lobby(
         &app.base_url,
         Some(&creator_token),
-        Some(&["Waiting"]),
+        Some(&["waiting"]),
     )
     .await
     .expect("Failed to connect to lobby list with filter");
@@ -138,7 +138,7 @@ async fn test_lobby_list_status_filter() {
             .get("status")
             .and_then(|s| s.as_str())
             .expect("Lobby should have status");
-        assert_eq!(status, "Waiting", "All lobbies should be in Waiting state");
+        assert_eq!(status, "waiting", "All lobbies should be in Waiting state");
     }
 
     // Verify our waiting lobby is in the list
@@ -175,7 +175,7 @@ async fn test_lobby_list_subscribe_update() {
         .expect("Failed to create user");
 
     // Create a lobby
-    let _lobby_id = factory
+    let (_lobby_id, _lobby_path) = factory
         .create_test_lobby(creator_id, common::COINFLIP_GAME_ID, Some("Subscribe Test"))
         .await
         .expect("Failed to create lobby");
@@ -196,7 +196,7 @@ async fn test_lobby_list_subscribe_update() {
     lobby_list_ws
         .send_json(&json!({
             "type": "subscribe",
-            "status": ["Waiting"]
+            "status": ["waiting"]
         }))
         .await
         .expect("Failed to send subscribe");
@@ -224,7 +224,7 @@ async fn test_lobby_list_subscribe_update() {
             .and_then(|s| s.as_str())
             .expect("Lobby should have status");
         assert_eq!(
-            status, "Waiting",
+            status, "waiting",
             "After subscribe, all lobbies should be in Waiting state"
         );
     }

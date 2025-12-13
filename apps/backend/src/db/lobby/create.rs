@@ -18,6 +18,7 @@ impl LobbyRepository {
         description: Option<&str>,
         creator_id: Uuid,
         game_id: Uuid,
+        game_path: &str,
         entry_amount: Option<f64>,
         current_amount: Option<f64>,
         token_symbol: Option<&str>,
@@ -46,13 +47,13 @@ impl LobbyRepository {
         let lobby = query_as::<_, Lobby>(
             r#"
             INSERT INTO lobbies (
-                name, description, creator_id, game_id,
+                name, description, creator_id, game_id, game_path,
                 entry_amount, current_amount, token_symbol, token_contract_id,
                 contract_address, is_private, is_sponsored,
                 status
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-            RETURNING id, path, name, description, game_id, creator_id,
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            RETURNING id, path, name, description, game_id, game_path, creator_id,
                       entry_amount, current_amount, token_symbol, token_contract_id,
                       contract_address, is_private, is_sponsored, status,
                       created_at, updated_at
@@ -62,6 +63,7 @@ impl LobbyRepository {
         .bind(description)
         .bind(creator_id)
         .bind(game_id)
+        .bind(game_path)
         .bind(entry_amount)
         .bind(current_amount)
         .bind(token_symbol)

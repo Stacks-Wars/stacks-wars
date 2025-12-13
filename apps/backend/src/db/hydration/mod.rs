@@ -210,9 +210,9 @@ pub async fn hydrate_games_from_redis(
             INSERT INTO games (
                 id, name, description, image_url,
                 min_players, max_players, category,
-                creator_id, is_active, created_at, updated_at
+                creator_id, is_active, created_at, updated_at, path
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $11)
             ON CONFLICT (name) DO UPDATE SET
                 description = EXCLUDED.description,
                 image_url = EXCLUDED.image_url,
@@ -231,6 +231,7 @@ pub async fn hydrate_games_from_redis(
         .bind(creator_id)
         .bind(is_active)
         .bind(chrono::Utc::now().naive_utc())
+        .bind("lexi-wars")
         .execute(pool)
         .await
         .map_err(|e| {

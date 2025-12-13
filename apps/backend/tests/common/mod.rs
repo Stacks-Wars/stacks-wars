@@ -61,7 +61,9 @@ impl TestApp {
             .await?;
 
         // Re-run migrations
-        sqlx::migrate!("./migrations").run(&self.pg_pool).await?;
+        sqlx::migrate!("./tests/migrations")
+            .run(&self.pg_pool)
+            .await?;
         Ok(())
     }
 
@@ -103,7 +105,7 @@ impl TestApp {
 /// for integration tests. Avoids repetitive API calls when preparing state.
 
 /// Coin Flip game ID from registry
-pub const COINFLIP_GAME_ID: Uuid = uuid::uuid!("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+pub const COINFLIP_GAME_ID: Uuid = uuid::uuid!("05f920e9-6b71-471e-a98a-2e5fe9402c00");
 
 #[allow(dead_code)]
 pub struct TestFactory {
@@ -235,13 +237,13 @@ impl TestFactory {
         Ok(COINFLIP_GAME_ID)
     }
 
-    /// Insert a lobby directly and return lobby id
+    /// Insert a lobby directly and return (lobby_id, lobby_path) tuple
     pub async fn create_test_lobby(
         &self,
         creator_id: Uuid,
         game_id: Uuid,
         name: Option<&str>,
-    ) -> Result<Uuid, Box<dyn Error>> {
+    ) -> Result<(Uuid, String), Box<dyn Error>> {
         let lobby_id = Uuid::new_v4();
         let lname = name
             .map(|s| s.to_string())
@@ -249,7 +251,13 @@ impl TestFactory {
 
         // Omit `status` (enum) column so DB default ('waiting') is used. Binding text for
         // enum columns can cause type mismatches depending on Postgres settings.
-        sqlx::query("INSERT INTO lobbies (id, name, game_id, creator_id, entry_amount, current_amount) VALUES ($1,$2,$3,$4,$5,$6)")
+        // Also omit `path` to let the trigger generate a unique value
+        sqlx::query(
+            "INSERT INTO lobbies (id, name, game_id, game_path, creator_id, entry_amount, current_amount)
+             SELECT $1, $2, $3, games.path, $4, $5, $6
+             FROM games
+             WHERE games.id = $3"
+        )
             .bind(lobby_id)
             .bind(&lname)
             .bind(game_id)
@@ -257,6 +265,13 @@ impl TestFactory {
             .bind(0_f64)
             .bind(0_f64)
             .execute(&self.pg_pool)
+            .await
+            .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
+
+        // Fetch the auto-generated lobby path
+        let lobby_path: String = sqlx::query_scalar("SELECT path FROM lobbies WHERE id = $1")
+            .bind(lobby_id)
+            .fetch_one(&self.pg_pool)
             .await
             .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
 
@@ -285,7 +300,7 @@ impl TestFactory {
             .await
             .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
 
-        Ok(lobby_id)
+        Ok((lobby_id, lobby_path))
     }
 
     /// Insert a season directly and return the season id (integer SERIAL)
@@ -400,8 +415,8 @@ pub async fn spawn_app_with_containers() -> TestApp {
     }
 
     tracing::info!("Running migrations against {}", database_url);
-    // Apply migrations using sqlx::migrate! macro which looks in ./migrations
-    sqlx::migrate!("./migrations")
+    // Apply migrations using sqlx::migrate! macro which looks in ./tests/migrations
+    sqlx::migrate!("./tests/migrations")
         .run(&pg_pool)
         .await
         .expect("Failed to run database migrations for test database");

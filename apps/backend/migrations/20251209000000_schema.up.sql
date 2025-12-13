@@ -1,8 +1,5 @@
 -- Stacks Wars initial schema (sqlx format)
 
--- Enable extensions
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-CREATE EXTENSION IF NOT EXISTS citext;
 
 -- USERS
 CREATE TABLE users (
@@ -62,6 +59,7 @@ CREATE TABLE lobbies (
     name TEXT NOT NULL,
     description TEXT,
     game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    game_path TEXT NOT NULL,
     creator_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     entry_amount DOUBLE PRECISION,
     current_amount DOUBLE PRECISION DEFAULT 0,
@@ -154,5 +152,3 @@ CREATE TABLE platform_ratings (
 
 CREATE INDEX IF NOT EXISTS idx_platform_ratings_user_id ON platform_ratings(user_id);
 CREATE INDEX IF NOT EXISTS idx_platform_ratings_rating ON platform_ratings(rating);
-
-COMMENT ON DATABASE postgres IS 'Stacks Wars initial database schema (users, games, lobbies, seasons, points, ratings).';

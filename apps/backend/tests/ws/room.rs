@@ -30,7 +30,7 @@ async fn test_lobby_creation_and_join() {
         .expect("Failed to create player 1");
 
     // Create lobby
-    let lobby_id = factory
+    let (_lobby_id, lobby_path) = factory
         .create_test_lobby(
             creator_id,
             common::COINFLIP_GAME_ID,
@@ -41,13 +41,13 @@ async fn test_lobby_creation_and_join() {
 
     // Creator connects to lobby
     let mut creator_ws =
-        common::WsConnection::connect_to_room(&app.base_url, lobby_id, &creator_token)
+        common::WsConnection::connect_to_room(&app.base_url, &lobby_path, &creator_token)
             .await
             .expect("Creator failed to connect");
 
     // Player 1 connects to lobby
     let mut player1_ws =
-        common::WsConnection::connect_to_room(&app.base_url, lobby_id, &player1_token)
+        common::WsConnection::connect_to_room(&app.base_url, &lobby_path, &player1_token)
             .await
             .expect("Player 1 failed to connect");
 
@@ -103,7 +103,7 @@ async fn test_lobby_start_game() {
         .expect("Failed to create player");
 
     // Create lobby
-    let lobby_id = factory
+    let (_lobby_id, lobby_path) = factory
         .create_test_lobby(
             creator_id,
             common::COINFLIP_GAME_ID,
@@ -114,12 +114,12 @@ async fn test_lobby_start_game() {
 
     // Both players connect
     let mut creator_ws =
-        common::WsConnection::connect_to_room(&app.base_url, lobby_id, &creator_token)
+        common::WsConnection::connect_to_room(&app.base_url, &lobby_path, &creator_token)
             .await
             .expect("Creator failed to connect");
 
     let mut player1_ws =
-        common::WsConnection::connect_to_room(&app.base_url, lobby_id, &player1_token)
+        common::WsConnection::connect_to_room(&app.base_url, &lobby_path, &player1_token)
             .await
             .expect("Player failed to connect");
 
@@ -134,7 +134,7 @@ async fn test_lobby_start_game() {
     creator_ws
         .send_json(&json!({
             "type": "updateLobbyStatus",
-            "status": "Starting"
+            "status": "starting"
         }))
         .await
         .expect("Failed to send start game");
@@ -147,11 +147,11 @@ async fn test_lobby_start_game() {
 
     assert_eq!(
         creator_msg.get("type").and_then(|v| v.as_str()),
-        Some("lobbyStateChanged")
+        Some("lobbyStatusChanged")
     );
     assert_eq!(
-        creator_msg.get("state").and_then(|v| v.as_str()),
-        Some("Starting")
+        creator_msg.get("status").and_then(|v| v.as_str()),
+        Some("starting")
     );
 
     // Wait for countdown messages (5, 4, 3, 2, 1, 0) and then InProgress
@@ -159,8 +159,8 @@ async fn test_lobby_start_game() {
     let mut found_in_progress = false;
     for _ in 0..10 {
         if let Ok(msg) = creator_ws.recv_json_timeout(Duration::from_secs(2)).await {
-            if msg.get("type").and_then(|v| v.as_str()) == Some("lobbyStateChanged")
-                && msg.get("state").and_then(|v| v.as_str()) == Some("InProgress")
+            if msg.get("type").and_then(|v| v.as_str()) == Some("lobbyStatusChanged")
+                && msg.get("status").and_then(|v| v.as_str()) == Some("inProgress")
             {
                 found_in_progress = true;
                 break;
@@ -198,7 +198,7 @@ async fn test_lobby_not_creator_cannot_start() {
         .expect("Failed to create player");
 
     // Create lobby
-    let lobby_id = factory
+    let (_lobby_id, lobby_path) = factory
         .create_test_lobby(
             creator_id,
             common::COINFLIP_GAME_ID,
@@ -209,12 +209,12 @@ async fn test_lobby_not_creator_cannot_start() {
 
     // Both connect
     let mut _creator_ws =
-        common::WsConnection::connect_to_room(&app.base_url, lobby_id, &creator_token)
+        common::WsConnection::connect_to_room(&app.base_url, &lobby_path, &creator_token)
             .await
             .expect("Creator failed to connect");
 
     let mut player_ws =
-        common::WsConnection::connect_to_room(&app.base_url, lobby_id, &player_token)
+        common::WsConnection::connect_to_room(&app.base_url, &lobby_path, &player_token)
             .await
             .expect("Player failed to connect");
 
@@ -229,7 +229,7 @@ async fn test_lobby_not_creator_cannot_start() {
     player_ws
         .send_json(&json!({
             "type": "updateLobbyStatus",
-            "status": "Starting"
+            "status": "starting"
         }))
         .await
         .expect("Failed to send start game");
@@ -275,14 +275,14 @@ async fn test_lobby_need_at_least_min_players() {
         .expect("Failed to create creator");
 
     // Create lobby
-    let lobby_id = factory
+    let (_lobby_id, lobby_path) = factory
         .create_test_lobby(creator_id, common::COINFLIP_GAME_ID, Some("Solo Test"))
         .await
         .expect("Failed to create lobby");
 
     // Creator connects
     let mut creator_ws =
-        common::WsConnection::connect_to_room(&app.base_url, lobby_id, &creator_token)
+        common::WsConnection::connect_to_room(&app.base_url, &lobby_path, &creator_token)
             .await
             .expect("Creator failed to connect");
 
@@ -293,7 +293,7 @@ async fn test_lobby_need_at_least_min_players() {
     creator_ws
         .send_json(&json!({
             "type": "updateLobbyStatus",
-            "status": "Starting"
+            "status": "starting"
         }))
         .await
         .expect("Failed to send start game");
@@ -323,7 +323,7 @@ async fn test_lobby_need_at_least_min_players() {
         // This is actually acceptable - the lobby enters Starting state but game doesn't init
         assert_eq!(
             state_change.get("type").and_then(|v| v.as_str()),
-            Some("lobbyStateChanged")
+            Some("lobbyStatusChanged")
         );
     }
 
