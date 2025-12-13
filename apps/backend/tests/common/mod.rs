@@ -124,7 +124,10 @@ impl TestFactory {
         let user_id = Uuid::new_v4();
         let wallet = wallet_address
             .map(|s| s.to_string())
-            .unwrap_or_else(|| format!("test-wallet-{}", &user_id));
+            .unwrap_or_else(|| {
+                // Generate valid Stacks wallet address format (starts with SP for mainnet)
+                format!("SP{:0>40}", &user_id.to_string().replace("-", "").chars().take(40).collect::<String>())
+            });
 
         sqlx::query("INSERT INTO users (id, wallet_address, trust_rating) VALUES ($1, $2, $3)")
             .bind(user_id)
@@ -210,7 +213,7 @@ impl TestFactory {
             "INSERT INTO users (id, wallet_address) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
         )
         .bind(system_user_id)
-        .bind("system")
+        .bind("SP000000000000000000000000000SYSTEM")
         .execute(&self.pg_pool)
         .await
         .ok();
@@ -292,7 +295,25 @@ impl TestFactory {
             .await
             .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
 
-        let pstate = stacks_wars_be::models::PlayerState::new(creator_id, lobby_id, None, true);
+        let creator: stacks_wars_be::models::User = sqlx::query_as(
+            "SELECT id, wallet_address, username, display_name, trust_rating, created_at, updated_at
+             FROM users WHERE id = $1"
+        )
+            .bind(creator_id)
+            .fetch_one(&self.pg_pool)
+            .await
+            .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
+
+        let pstate = stacks_wars_be::models::PlayerState::new(
+            creator_id,
+            lobby_id,
+            creator.wallet_address.to_string(),
+            creator.username,
+            creator.display_name,
+            creator.trust_rating,
+            None,
+            true,
+        );
         let phash_map = pstate.to_redis_hash();
         let phash: Vec<(String, String)> = phash_map.into_iter().collect();
         let _: () = conn

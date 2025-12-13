@@ -4,10 +4,11 @@ use std::time::Duration;
 use tokio::time::sleep;
 use uuid::Uuid;
 
-use crate::db::join_request::{JoinRequestDTO, JoinRequestRepository, JoinRequestState};
+use crate::db::join_request::{JoinRequestRepository, JoinRequestState};
 use crate::db::lobby::LobbyRepository;
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::db::player_state::PlayerStateRepository;
+use crate::db::user::UserRepository;
 use crate::models::{LobbyStatus, PlayerState};
 use crate::state::{AppState, ConnectionInfo};
 use crate::ws::broadcast_room_participants;
@@ -82,14 +83,54 @@ pub async fn handle_room_message(
                 Err(_) => return,
             };
 
-            let allowed = match jr_repo.get(lobby_id, user_id).await {
+            // Check join request (for private lobbies) or allow direct join (public lobbies)
+            let join_request = jr_repo.get(lobby_id, user_id).await;
+
+            let allowed = match &join_request {
                 Some(jr) => matches!(jr.state, JoinRequestState::Accepted),
-                None => true,
+                None => true, // Public lobby, allow direct join
             };
 
             if allowed {
-                // create or upsert player state
-                let pstate = PlayerState::new(user_id, lobby_id, None, false);
+                // TODO: kinda buggy if user changed profile between join request and join
+                let (wallet_address, username, display_name, trust_rating) = match join_request {
+                    Some(jr) => (
+                        jr.wallet_address,
+                        jr.username,
+                        jr.display_name,
+                        jr.trust_rating,
+                    ),
+                    None => {
+                        let user_repo = UserRepository::new(state.postgres.clone());
+                        let user = match user_repo.find_by_id(user_id).await {
+                            Ok(u) => u,
+                            Err(e) => {
+                                let msg =
+                                    RoomServerMessage::from(RoomError::Internal(e.to_string()));
+                                let _ = manager::send_to_connection(conn, &msg).await;
+                                return;
+                            }
+                        };
+                        (
+                            user.wallet_address.to_string(),
+                            user.username,
+                            user.display_name,
+                            user.trust_rating,
+                        )
+                    }
+                };
+
+                // Create or upsert player state with user data
+                let pstate = PlayerState::new(
+                    user_id,
+                    lobby_id,
+                    wallet_address,
+                    username,
+                    display_name,
+                    trust_rating,
+                    None,
+                    false,
+                );
                 let _ = player_repo.upsert_state(pstate).await;
 
                 // broadcast joined and updated player list
@@ -114,13 +155,11 @@ pub async fn handle_room_message(
                     if db_lobby.is_private {
                         let _ = jr_repo.remove(lobby_id, user_id).await.ok();
                         if let Ok(list) = jr_repo.list(lobby_id).await {
-                            let dtos: Vec<JoinRequestDTO> =
-                                list.into_iter().map(Into::into).collect();
                             let _ = broadcast::broadcast_room(
                                 state,
                                 lobby_id,
                                 &RoomServerMessage::JoinRequestsUpdated {
-                                    join_requests: dtos,
+                                    join_requests: list,
                                 },
                             );
                         }
@@ -358,15 +397,35 @@ pub async fn handle_room_message(
                 Err(_) => return,
             };
 
+            // Fetch user profile to include in join request
+            let user_repo = UserRepository::new(state.postgres.clone());
+            let user = match user_repo.find_by_id(user_id).await {
+                Ok(u) => u,
+                Err(e) => {
+                    let msg = RoomServerMessage::from(RoomError::Internal(e.to_string()));
+                    let _ = manager::send_to_connection(conn, &msg).await;
+                    return;
+                }
+            };
+
             let jr_repo = JoinRequestRepository::new(state.redis.clone());
-            let _ = jr_repo.create_pending(lobby_id, user_id, 15 * 60).await;
+            let _ = jr_repo
+                .create_pending(
+                    lobby_id,
+                    user_id,
+                    user.wallet_address.to_string(),
+                    user.username,
+                    user.display_name,
+                    user.trust_rating,
+                    15 * 60,
+                )
+                .await;
             if let Ok(list) = jr_repo.list(lobby_id).await {
-                let dtos: Vec<JoinRequestDTO> = list.into_iter().map(Into::into).collect();
                 let _ = broadcast::broadcast_room(
                     state,
                     lobby_id,
                     &RoomServerMessage::JoinRequestsUpdated {
-                        join_requests: dtos,
+                        join_requests: list,
                     },
                 )
                 .await;
@@ -414,12 +473,11 @@ pub async fn handle_room_message(
             )
             .await;
             if let Ok(list) = jr_repo.list(lobby_id).await {
-                let dtos: Vec<JoinRequestDTO> = list.into_iter().map(Into::into).collect();
                 let _ = broadcast::broadcast_room(
                     state,
                     lobby_id,
                     &RoomServerMessage::JoinRequestsUpdated {
-                        join_requests: dtos,
+                        join_requests: list,
                     },
                 )
                 .await;
@@ -467,12 +525,11 @@ pub async fn handle_room_message(
             )
             .await;
             if let Ok(list) = jr_repo.list(lobby_id).await {
-                let dtos: Vec<JoinRequestDTO> = list.into_iter().map(Into::into).collect();
                 let _ = broadcast::broadcast_room(
                     state,
                     lobby_id,
                     &RoomServerMessage::JoinRequestsUpdated {
-                        join_requests: dtos,
+                        join_requests: list,
                     },
                 )
                 .await;

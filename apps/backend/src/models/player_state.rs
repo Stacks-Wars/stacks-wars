@@ -55,14 +55,19 @@ impl ClaimState {
 }
 
 /// Runtime state of a player in a lobby stored in Redis
-///
-/// This is GENERIC and works for ALL games.
-/// Game-specific data (e.g., used_words, hand, position) goes in GameState.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerState {
     /// Player's user ID
     pub user_id: Uuid,
+
+    pub wallet_address: String,
+
+    pub username: Option<String>,
+
+    pub display_name: Option<String>,
+
+    pub trust_rating: f64,
 
     /// Lobby ID (for validation)
     pub lobby_id: Uuid,
@@ -98,12 +103,25 @@ impl PlayerState {
     /// Create new player state when joining lobby
     ///
     /// Sets status to `Joined` and initializes timestamps.
-    pub fn new(user_id: Uuid, lobby_id: Uuid, tx_id: Option<String>, is_creator: bool) -> Self {
+    pub fn new(
+        user_id: Uuid,
+        lobby_id: Uuid,
+        wallet_address: String,
+        username: Option<String>,
+        display_name: Option<String>,
+        trust_rating: f64,
+        tx_id: Option<String>,
+        is_creator: bool,
+    ) -> Self {
         let now = Utc::now().timestamp();
         Self {
             user_id,
             lobby_id,
             status: PlayerStatus::Joined,
+            wallet_address,
+            username,
+            display_name,
+            trust_rating,
             tx_id,
             rank: None,
             prize: None,
@@ -122,10 +140,18 @@ impl PlayerState {
         map.insert("user_id".to_string(), self.user_id.to_string());
         map.insert("lobby_id".to_string(), self.lobby_id.to_string());
         map.insert("status".to_string(), format!("{:?}", self.status));
+        map.insert("wallet_address".to_string(), self.wallet_address.clone());
+        map.insert("trust_rating".to_string(), self.trust_rating.to_string());
         map.insert("joined_at".to_string(), self.joined_at.to_string());
         map.insert("updated_at".to_string(), self.updated_at.to_string());
-
         map.insert("is_creator".to_string(), self.is_creator.to_string());
+
+        if let Some(ref username) = self.username {
+            map.insert("username".to_string(), username.clone());
+        }
+        if let Some(ref display_name) = self.display_name {
+            map.insert("display_name".to_string(), display_name.clone());
+        }
 
         if let Some(ref tx_id) = self.tx_id {
             map.insert("tx_id".to_string(), tx_id.clone());
@@ -169,6 +195,19 @@ impl PlayerState {
             .and_then(|s| s.parse::<PlayerStatus>().ok())
             .ok_or_else(|| AppError::InvalidInput("Missing or invalid status".into()))?;
 
+        let wallet_address = data
+            .get("wallet_address")
+            .cloned()
+            .ok_or_else(|| AppError::InvalidInput("Missing wallet_address".into()))?;
+
+        let username = data.get("username").cloned();
+        let display_name = data.get("display_name").cloned();
+
+        let trust_rating = data
+            .get("trust_rating")
+            .and_then(|r| r.parse::<f64>().ok())
+            .unwrap_or(0.0);
+
         let tx_id = data.get("tx_id").cloned();
 
         let rank = data.get("rank").and_then(|r| r.parse::<usize>().ok());
@@ -200,6 +239,10 @@ impl PlayerState {
             user_id,
             lobby_id,
             status,
+            wallet_address,
+            username,
+            display_name,
+            trust_rating,
             tx_id,
             rank,
             prize,
@@ -231,12 +274,29 @@ mod tests {
         let user_id = Uuid::new_v4();
         let lobby_id = Uuid::new_v4();
         let tx_id = Some("tx123".to_string());
+        let wallet_address = "SP123ABC".to_string();
+        let username = Some("player1".to_string());
+        let display_name = Some("Player One".to_string());
+        let trust_rating = 5.0;
 
-        let state = PlayerState::new(user_id, lobby_id, tx_id.clone(), false);
+        let state = PlayerState::new(
+            user_id,
+            lobby_id,
+            wallet_address.clone(),
+            username.clone(),
+            display_name.clone(),
+            trust_rating,
+            tx_id.clone(),
+            false,
+        );
 
         assert_eq!(state.user_id, user_id);
         assert_eq!(state.lobby_id, lobby_id);
         assert_eq!(state.status, PlayerStatus::Joined);
+        assert_eq!(state.wallet_address, wallet_address);
+        assert_eq!(state.username, username);
+        assert_eq!(state.display_name, display_name);
+        assert_eq!(state.trust_rating, trust_rating);
         assert_eq!(state.tx_id, tx_id);
         assert!(state.rank.is_none());
         assert!(state.prize.is_none());
@@ -247,15 +307,26 @@ mod tests {
     fn test_to_redis_hash() {
         let user_id = Uuid::new_v4();
         let lobby_id = Uuid::new_v4();
-        let state = PlayerState::new(user_id, lobby_id, None, false);
+        let state = PlayerState::new(
+            user_id,
+            lobby_id,
+            "SP123ABC".to_string(),
+            Some("player1".to_string()),
+            Some("Player One".to_string()),
+            5.0,
+            None,
+            false,
+        );
 
         let hash = state.to_redis_hash();
 
-        assert!(hash.contains_key("user_id"));
-        assert!(hash.contains_key("lobby_id"));
-        assert!(hash.contains_key("status"));
-        assert!(hash.contains_key("joined_at"));
-        assert!(hash.contains_key("updated_at"));
+        assert_eq!(hash.get("user_id").unwrap(), &user_id.to_string());
+        assert_eq!(hash.get("lobby_id").unwrap(), &lobby_id.to_string());
+        assert_eq!(hash.get("status").unwrap(), "Joined");
+        assert_eq!(hash.get("wallet_address").unwrap(), "SP123ABC");
+        assert_eq!(hash.get("username").unwrap(), "player1");
+        assert_eq!(hash.get("display_name").unwrap(), "Player One");
+        assert_eq!(hash.get("trust_rating").unwrap(), "5");
     }
 
     #[test]
@@ -267,14 +338,23 @@ mod tests {
         map.insert("user_id".to_string(), user_id.to_string());
         map.insert("lobby_id".to_string(), lobby_id.to_string());
         map.insert("status".to_string(), "Joined".to_string());
+        map.insert("wallet_address".to_string(), "SP123ABC".to_string());
+        map.insert("username".to_string(), "player1".to_string());
+        map.insert("display_name".to_string(), "Player One".to_string());
+        map.insert("trust_rating".to_string(), "5.0".to_string());
         map.insert("joined_at".to_string(), "1000".to_string());
         map.insert("updated_at".to_string(), "2000".to_string());
+        map.insert("is_creator".to_string(), "false".to_string());
 
         let state = PlayerState::from_redis_hash(&map).unwrap();
 
         assert_eq!(state.user_id, user_id);
         assert_eq!(state.lobby_id, lobby_id);
         assert_eq!(state.status, PlayerStatus::Joined);
+        assert_eq!(state.wallet_address, "SP123ABC");
+        assert_eq!(state.username, Some("player1".to_string()));
+        assert_eq!(state.display_name, Some("Player One".to_string()));
+        assert_eq!(state.trust_rating, 5.0);
         assert_eq!(state.joined_at, 1000);
         assert_eq!(state.updated_at, 2000);
     }

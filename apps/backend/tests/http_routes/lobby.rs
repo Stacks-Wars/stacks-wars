@@ -10,13 +10,13 @@ async fn create_lobby() {
     // create user and token using factory
     let factory = app.factory();
     let (user_id, token) = factory
-        .create_test_user(Some("lobby-test-wallet"))
+        .create_test_user(None)
         .await
         .expect("create user failed");
 
     // create a game to attach the lobby to via factory
     let (creator_id, _t) = factory
-        .create_test_user(Some("lobby-game-creator"))
+        .create_test_user(None)
         .await
         .expect("create creator failed");
     let game_id = factory
@@ -81,7 +81,7 @@ async fn get_lobby() {
 
     let factory = app.factory();
     let (creator_id, _t) = factory
-        .create_test_user(Some("get-lobby-creator"))
+        .create_test_user(None)
         .await
         .expect("create user failed");
     let game_id = factory
@@ -111,7 +111,7 @@ async fn list_lobbies_by_game() {
 
     let factory = app.factory();
     let (creator_id, _t) = factory
-        .create_test_user(Some("list-lobby-creator"))
+        .create_test_user(None)
         .await
         .expect("create user failed");
     let game_id = factory
@@ -148,8 +148,8 @@ async fn list_my_lobbies() {
 
     // create user and token using factory
     let factory = app.factory();
-    let (_user_id, token) = factory
-        .create_test_user(Some("owner-list-wallet"))
+    let (_creator_id, token) = factory
+        .create_test_user(None)
         .await
         .expect("create user failed");
 
@@ -210,7 +210,7 @@ async fn delete_lobby() {
     // create user and token using factory
     let factory = app.factory();
     let (_user_id, token) = factory
-        .create_test_user(Some("owner-delete-wallet"))
+        .create_test_user(None)
         .await
         .expect("create user failed");
 

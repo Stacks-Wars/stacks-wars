@@ -5,7 +5,6 @@
 use futures_util::{SinkExt, StreamExt};
 use serde_json::Value;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
-use uuid::Uuid;
 
 /// WebSocket connection wrapper for testing
 pub struct WsConnection {

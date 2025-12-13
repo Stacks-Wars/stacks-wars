@@ -8,7 +8,9 @@ use crate::{
 };
 
 use super::LobbyRepository;
-use crate::db::{lobby_state::LobbyStateRepository, player_state::PlayerStateRepository};
+use crate::db::{
+    lobby_state::LobbyStateRepository, player_state::PlayerStateRepository, user::UserRepository,
+};
 
 impl LobbyRepository {
     /// Create a new lobby and return the created `Lobby`.
@@ -44,7 +46,7 @@ impl LobbyRepository {
         } else {
             None
         };
-        let lobby = query_as::<_, Lobby>(
+        let lobby_future = query_as::<_, Lobby>(
             r#"
             INSERT INTO lobbies (
                 name, description, creator_id, game_id, game_path,
@@ -72,10 +74,21 @@ impl LobbyRepository {
         .bind(is_private)
         .bind(is_sponsored)
         .bind(LobbyStatus::Waiting)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|e| {
+        .fetch_one(&self.pool);
+
+        let user_repo = UserRepository::new(self.pool.clone());
+        let user_future = user_repo.find_by_id(creator_id);
+
+        // Run both queries in parallel
+        let (lobby_result, creator_result) = tokio::join!(lobby_future, user_future);
+
+        let lobby = lobby_result.map_err(|e| {
             AppError::DatabaseError(format!("Failed to create lobby '{}': {}", name, e))
+        })?;
+
+        let creator = creator_result.map_err(|e| {
+            let _ = self.delete_lobby(lobby.id());
+            AppError::DatabaseError(format!("Failed to fetch creator user: {}", e))
         })?;
 
         let lobby_state_repo = LobbyStateRepository::new(redis.clone());
@@ -91,7 +104,16 @@ impl LobbyRepository {
             )));
         }
 
-        let creator_pstate = PlayerState::new(creator_id, lobby.id(), None, true);
+        let creator_pstate = PlayerState::new(
+            creator_id,
+            lobby.id(),
+            creator.wallet_address.to_string(),
+            creator.username,
+            creator.display_name,
+            creator.trust_rating,
+            None,
+            true,
+        );
         if let Err(e) = player_repo.create_state(creator_pstate).await {
             let _ = self.delete_lobby(lobby.id()).await;
             return Err(AppError::RedisError(format!(

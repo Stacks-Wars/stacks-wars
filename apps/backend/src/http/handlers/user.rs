@@ -123,7 +123,7 @@ pub async fn update_username(
 
     let repo = UserRepository::new(state.postgres.clone());
 
-    repo.update_username(user_id, &payload.username)
+    repo.update_username(user_id, &payload.username, state.redis.clone())
         .await
         .map_err(|e| e.to_response())?;
 
@@ -145,7 +145,7 @@ pub async fn update_display_name(
 
     let repo = UserRepository::new(state.postgres.clone());
 
-    repo.update_display_name(user_id, &payload.display_name)
+    repo.update_display_name(user_id, &payload.display_name, state.redis.clone())
         .await
         .map_err(|e| {
             tracing::error!("Failed to update display name for {}: {}", user_id, e);
@@ -180,6 +180,7 @@ pub async fn update_profile(
             user_id,
             payload.username.as_deref(),
             payload.display_name.as_deref(),
+            state.redis.clone(),
         )
         .await
         .map_err(|e| e.to_response())?;

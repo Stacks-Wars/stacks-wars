@@ -17,8 +17,9 @@ async fn create_user() {
 
     assert!(resp.status().is_success());
 
-    // Handler returns a JWT token string in the body
-    let token: String = resp.json().await.expect("failed to parse token");
+    // Handler returns CreateUserResponse { user, token }
+    let body: serde_json::Value = resp.json().await.expect("failed to parse response");
+    let token = body.get("token").and_then(|v| v.as_str()).expect("missing token");
     assert!(!token.is_empty());
     app.stop().await;
 }

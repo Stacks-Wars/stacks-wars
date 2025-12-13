@@ -30,6 +30,10 @@ export interface PlayerState {
 	userId: string;
 	lobbyId: string;
 	status: "not_joined" | "joined";
+	walletAddress: string;
+	username?: string;
+	displayName?: string;
+	trustRating: number;
 	txId?: string;
 	rank?: number;
 	prize?: number;
@@ -42,5 +46,9 @@ export interface PlayerState {
 
 export interface JoinRequest {
 	playerId: string;
+	walletAddress: string;
+	username?: string;
+	displayName?: string;
+	trustRating: number;
 	state: "pending" | "accepted" | "rejected";
 }
