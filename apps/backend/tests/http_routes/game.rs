@@ -9,7 +9,7 @@ async fn create_game() {
     // Create a user to act as the creator
     let factory = app.factory();
     let (_user_id, token) = factory
-        .create_test_user(Some("create-game-wallet"))
+        .create_test_user(None)
         .await
         .expect("create user failed");
 
@@ -49,8 +49,8 @@ async fn get_game() {
     // Use factory to insert a game directly
     let factory = app.factory();
     // We need a creator user id
-    let (creator_id, _token) = factory
-        .create_test_user(Some("game-owner-wallet"))
+    let (creator_id, token) = factory
+        .create_test_user(None)
         .await
         .expect("create user failed");
 
@@ -82,8 +82,8 @@ async fn list_games() {
 
     // Ensure there is at least one game in DB (factory)
     let factory = app.factory();
-    let (creator_id, _t) = factory
-        .create_test_user(Some("list-game-owner"))
+    let (creator_id, token) = factory
+        .create_test_user(None)
         .await
         .expect("create user failed");
     let _ = factory

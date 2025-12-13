@@ -4,6 +4,7 @@ mod create;
 mod delete;
 mod read;
 mod update;
+mod sync;
 
 use crate::state::RedisClient;
 

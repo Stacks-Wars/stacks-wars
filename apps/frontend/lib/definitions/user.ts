@@ -30,6 +30,10 @@ export interface PlayerState {
 	userId: string;
 	lobbyId: string;
 	status: "not_joined" | "joined";
+	walletAddress: string;
+	username?: string;
+	displayName?: string;
+	trustRating: number;
 	txId?: string;
 	rank?: number;
 	prize?: number;

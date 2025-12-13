@@ -5,11 +5,18 @@ use crate::{
 use uuid::Uuid;
 
 use super::UserRepository;
+use crate::db::player_state::PlayerStateRepository;
+use crate::state::RedisClient;
 
 impl UserRepository {
     /// Update a user's username.
     /// Validates username internally. DB constraint (CITEXT UNIQUE) enforces uniqueness.
-    pub async fn update_username(&self, user_id: Uuid, username: &str) -> Result<User, AppError> {
+    pub async fn update_username(
+        &self,
+        user_id: Uuid,
+        username: &str,
+        redis: RedisClient,
+    ) -> Result<User, AppError> {
         let username = Username::new(username)?;
         sqlx::query(
             "UPDATE users
@@ -29,6 +36,22 @@ impl UserRepository {
             AppError::DatabaseError(format!("Failed to update username: {}", e))
         })?;
 
+        // Sync username across all lobbies in Redis
+        let player_repo = PlayerStateRepository::new(redis);
+        let uname = username.as_ref().to_string();
+        tokio::spawn(async move {
+            if let Err(e) = player_repo
+                .sync_user_profile_across_lobbies(user_id, None, Some(&uname), None, None)
+                .await
+            {
+                tracing::warn!(
+                    "Failed to sync username for user {} across lobbies: {}",
+                    user_id,
+                    e
+                );
+            }
+        });
+
         self.find_by_id(user_id).await
     }
 
@@ -37,6 +60,7 @@ impl UserRepository {
         &self,
         user_id: Uuid,
         display_name: &str,
+        redis: RedisClient,
     ) -> Result<User, AppError> {
         sqlx::query(
             "UPDATE users
@@ -54,6 +78,23 @@ impl UserRepository {
             user_id,
             display_name
         );
+
+        // Sync display name across all lobbies in Redis
+        let player_repo = PlayerStateRepository::new(redis);
+        let dname = display_name.to_string();
+        tokio::spawn(async move {
+            if let Err(e) = player_repo
+                .sync_user_profile_across_lobbies(user_id, None, None, Some(&dname), None)
+                .await
+            {
+                tracing::warn!(
+                    "Failed to sync display name for user {} across lobbies: {}",
+                    user_id,
+                    e
+                );
+            }
+        });
+
         self.find_by_id(user_id).await
     }
 
@@ -62,6 +103,7 @@ impl UserRepository {
         &self,
         user_id: Uuid,
         trust_rating: f64,
+        redis: RedisClient,
     ) -> Result<User, AppError> {
         sqlx::query(
             "UPDATE users
@@ -79,6 +121,22 @@ impl UserRepository {
             user_id,
             trust_rating
         );
+
+        // Sync trust rating across all lobbies in Redis
+        let player_repo = PlayerStateRepository::new(redis);
+        tokio::spawn(async move {
+            if let Err(e) = player_repo
+                .sync_user_profile_across_lobbies(user_id, None, None, None, Some(trust_rating))
+                .await
+            {
+                tracing::warn!(
+                    "Failed to sync trust rating for user {} across lobbies: {}",
+                    user_id,
+                    e
+                );
+            }
+        });
+
         self.find_by_id(user_id).await
     }
 
@@ -88,6 +146,7 @@ impl UserRepository {
         user_id: Uuid,
         username: Option<&str>,
         display_name: Option<&str>,
+        redis: RedisClient,
     ) -> Result<User, AppError> {
         // Validate username if provided
         let username = if let Some(uname) = username {
@@ -132,6 +191,30 @@ impl UserRepository {
         })?;
 
         tracing::info!("Updated profile for user {}", user_id);
+
+        // Sync updated fields across all lobbies in Redis
+        let player_repo = PlayerStateRepository::new(redis);
+        let uname_owned = username.as_ref().map(|u| u.as_ref().to_string());
+        let dname_owned = display_name.map(|d| d.to_string());
+        tokio::spawn(async move {
+            if let Err(e) = player_repo
+                .sync_user_profile_across_lobbies(
+                    user_id,
+                    None,
+                    uname_owned.as_deref(),
+                    dname_owned.as_deref(),
+                    None,
+                )
+                .await
+            {
+                tracing::warn!(
+                    "Failed to sync profile for user {} across lobbies: {}",
+                    user_id,
+                    e
+                );
+            }
+        });
+
         self.find_by_id(user_id).await
     }
 
@@ -140,6 +223,7 @@ impl UserRepository {
         &self,
         user_id: Uuid,
         amount: f64,
+        redis: RedisClient,
     ) -> Result<f64, AppError> {
         let new_rating = sqlx::query_scalar::<_, f64>(
             "UPDATE users
@@ -159,6 +243,22 @@ impl UserRepository {
             amount,
             new_rating
         );
+
+        // Sync trust rating across all lobbies in Redis
+        let player_repo = PlayerStateRepository::new(redis);
+        tokio::spawn(async move {
+            if let Err(e) = player_repo
+                .sync_user_profile_across_lobbies(user_id, None, None, None, Some(new_rating))
+                .await
+            {
+                tracing::warn!(
+                    "Failed to sync trust rating for user {} across lobbies: {}",
+                    user_id,
+                    e
+                );
+            }
+        });
+
         Ok(new_rating)
     }
 
@@ -167,6 +267,7 @@ impl UserRepository {
         &self,
         user_id: Uuid,
         amount: f64,
+        redis: RedisClient,
     ) -> Result<f64, AppError> {
         let new_rating = sqlx::query_scalar::<_, f64>(
             "UPDATE users
@@ -186,6 +287,22 @@ impl UserRepository {
             amount,
             new_rating
         );
+
+        // Sync trust rating across all lobbies in Redis
+        let player_repo = PlayerStateRepository::new(redis);
+        tokio::spawn(async move {
+            if let Err(e) = player_repo
+                .sync_user_profile_across_lobbies(user_id, None, None, None, Some(new_rating))
+                .await
+            {
+                tracing::warn!(
+                    "Failed to sync trust rating for user {} across lobbies: {}",
+                    user_id,
+                    e
+                );
+            }
+        });
+
         Ok(new_rating)
     }
 }

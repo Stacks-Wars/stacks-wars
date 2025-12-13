@@ -99,6 +99,16 @@ pub async fn migrate_player_states(
                 // just map all players as Joined since they were in the lobby
                 let player_state = PlayerState {
                     user_id,
+                    username: player_data.get("username").cloned(),
+                    display_name: player_data.get("display_name").cloned(),
+                    wallet_address: player_data
+                        .get("wallet_address")
+                        .cloned()
+                        .unwrap_or_default(),
+                    trust_rating: player_data
+                        .get("trust_rating")
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(10.0),
                     lobby_id,
                     status: crate::models::player_state::PlayerStatus::Joined, // All old players mapped as Joined
                     tx_id: player_data.get("tx_id").map(|s| s.clone()),
@@ -139,6 +149,16 @@ pub async fn migrate_player_states(
         // Create new PlayerState
         let player_state = PlayerState {
             user_id,
+            username: player_data.get("username").cloned(),
+            display_name: player_data.get("display_name").cloned(),
+            wallet_address: player_data
+                .get("wallet_address")
+                .cloned()
+                .unwrap_or_default(),
+            trust_rating: player_data
+                .get("trust_rating")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(10.0),
             lobby_id,
             status: match old_player.state {
                 PlayerStatus::NotJoined => crate::models::player_state::PlayerStatus::NotJoined,

@@ -8,7 +8,7 @@ async fn create_platform_rating() {
 
     let factory = app.factory();
     let (user_id, token) = factory
-        .create_test_user(Some("create-rating-wallet"))
+        .create_test_user(None)
         .await
         .expect("create user failed");
 
@@ -44,8 +44,8 @@ async fn get_platform_rating() {
     let client = reqwest::Client::new();
 
     let factory = app.factory();
-    let (user_id, _token) = factory
-        .create_test_user(Some("get-rating-wallet"))
+    let (user_id, token) = factory
+        .create_test_user(None)
         .await
         .expect("create user failed");
 
@@ -76,11 +76,11 @@ async fn list_platform_ratings_and_filter() {
     let factory = app.factory();
 
     let (user1, _t1) = factory
-        .create_test_user(Some("list-rating-wallet-1"))
+        .create_test_user(None)
         .await
         .expect("create user failed");
     let (user2, _t2) = factory
-        .create_test_user(Some("list-rating-wallet-2"))
+        .create_test_user(None)
         .await
         .expect("create user failed");
 
@@ -127,8 +127,8 @@ async fn update_platform_rating() {
     let client = reqwest::Client::new();
 
     let factory = app.factory();
-    let (_user_id, token) = factory
-        .create_test_user(Some("update-wallet"))
+    let (user_id, token) = factory
+        .create_test_user(None)
         .await
         .expect("create user failed");
 
@@ -166,7 +166,7 @@ async fn delete_platform_rating() {
 
     let factory = app.factory();
     let (user_id, token) = factory
-        .create_test_user(Some("delete-wallet"))
+        .create_test_user(None)
         .await
         .expect("create user failed");
 

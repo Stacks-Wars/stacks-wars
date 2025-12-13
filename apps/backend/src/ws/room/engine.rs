@@ -8,6 +8,7 @@ use crate::db::join_request::{JoinRequestDTO, JoinRequestRepository, JoinRequest
 use crate::db::lobby::LobbyRepository;
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::db::player_state::PlayerStateRepository;
+use crate::db::user::UserRepository;
 use crate::models::{LobbyStatus, PlayerState};
 use crate::state::{AppState, ConnectionInfo};
 use crate::ws::broadcast_room_participants;
@@ -88,8 +89,27 @@ pub async fn handle_room_message(
             };
 
             if allowed {
-                // create or upsert player state
-                let pstate = PlayerState::new(user_id, lobby_id, None, false);
+                let user_repo = UserRepository::new(state.postgres.clone());
+                let user = match user_repo.find_by_id(user_id).await {
+                    Ok(u) => u,
+                    Err(e) => {
+                        let msg = RoomServerMessage::from(RoomError::Internal(e.to_string()));
+                        let _ = manager::send_to_connection(conn, &msg).await;
+                        return;
+                    }
+                };
+
+                // create or upsert player state with user data
+                let pstate = PlayerState::new(
+                    user_id,
+                    lobby_id,
+                    user.wallet_address.to_string(),
+                    user.username,
+                    user.display_name,
+                    user.trust_rating,
+                    None,
+                    false,
+                );
                 let _ = player_repo.upsert_state(pstate).await;
 
                 // broadcast joined and updated player list

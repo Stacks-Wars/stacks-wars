@@ -61,12 +61,12 @@ async fn test_coinflip_game_bootstrap() {
 
     // Create test users
     let (creator_id, creator_token) = factory
-        .create_test_user(Some("coinflip-creator"))
+        .create_test_user(None)
         .await
         .expect("Failed to create creator");
 
     let (_player1_id, player1_token) = factory
-        .create_test_user(Some("coinflip-player"))
+        .create_test_user(None)
         .await
         .expect("Failed to create player");
 
@@ -168,12 +168,12 @@ async fn test_coinflip_round_flow() {
 
     // Create test users
     let (creator_id, creator_token) = factory
-        .create_test_user(Some("round-creator"))
+        .create_test_user(None)
         .await
         .expect("Failed to create creator");
 
     let (_player1_id, player1_token) = factory
-        .create_test_user(Some("round-player"))
+        .create_test_user(None)
         .await
         .expect("Failed to create player");
 
@@ -341,17 +341,17 @@ async fn test_coinflip_player_elimination() {
 
     // Create 3 players
     let (p1_id, p1_token) = factory
-        .create_test_user(Some("elim-p1"))
+        .create_test_user(None)
         .await
         .expect("Failed to create p1");
 
     let (_p2_id, p2_token) = factory
-        .create_test_user(Some("elim-p2"))
+        .create_test_user(None)
         .await
         .expect("Failed to create p2");
 
     let (_p3_id, p3_token) = factory
-        .create_test_user(Some("elim-p3"))
+        .create_test_user(None)
         .await
         .expect("Failed to create p3");
 
