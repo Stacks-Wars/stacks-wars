@@ -1,4 +1,4 @@
-export type LobbyStatus = "waiting" | "in_progress" | "starting" | "finished";
+export type LobbyStatus = "waiting" | "inProgress" | "starting" | "finished";
 
 export interface Lobby {
 	id: string;

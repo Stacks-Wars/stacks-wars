@@ -1,47 +1,42 @@
 "use client";
 
-import { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext } from "react";
 import { useRoomWebSocket } from "@/lib/hooks/useRoomWebSocket";
-import { RoomClientMessage } from "@/lib/websocket/roomClient";
 import {
-	ChatMessage,
-	JoinRequest,
 	LobbyExtended,
 	PlayerState,
+	JoinRequest,
+	ChatMessage,
+	GamePlugin,
 } from "@/lib/definitions";
 
 interface RoomContextValue {
+	isConnected: boolean;
+	isConnecting: boolean;
+	error: string | null;
 	lobby: LobbyExtended | null;
 	players: PlayerState[];
 	joinRequests: JoinRequest[];
 	chatHistory: ChatMessage[];
-	isConnected: boolean;
-	isConnecting: boolean;
-	error: string | null;
-	sendMessage: (message: RoomClientMessage) => void;
+	gameState: unknown;
+	gamePlugin: GamePlugin | undefined;
+	sendGameMessage: (type: string, payload: unknown) => void;
+	sendLobbyMessage: (type: string, payload?: unknown) => void;
 }
 
 const RoomContext = createContext<RoomContextValue | null>(null);
 
 export function RoomProvider({
-	lobbyPath,
 	children,
+	lobbyPath,
 }: {
+	children: React.ReactNode;
 	lobbyPath: string;
-	children: ReactNode;
 }) {
-	const roomState = useRoomWebSocket({
-		lobbyPath,
-		onError: (error) => {
-			console.error("[Room] WebSocket error:", error);
-		},
-		onClose: () => {
-			console.log("[Room] WebSocket closed");
-		},
-	});
+	const engineState = useRoomWebSocket({ lobbyPath });
 
 	return (
-		<RoomContext.Provider value={roomState}>
+		<RoomContext.Provider value={engineState}>
 			{children}
 		</RoomContext.Provider>
 	);
@@ -50,7 +45,9 @@ export function RoomProvider({
 export function useRoom() {
 	const context = useContext(RoomContext);
 	if (!context) {
-		throw new Error("useRoom must be used within RoomProvider");
+		throw new Error(
+			"useGameEngineContext must be used within GameEngineProvider"
+		);
 	}
 	return context;
 }

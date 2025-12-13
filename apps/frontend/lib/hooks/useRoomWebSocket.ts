@@ -1,232 +1,248 @@
+/**
+ * Game Engine Hook
+ *
+ * Central hook that manages:
+ * - Single WebSocket connection
+ * - Message routing to lobby or game handlers
+ * - Lobby state management
+ * - Game plugin loading
+ */
+
 import { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "@/lib/stores/auth";
+import { webSocketClient } from "../websocket/wsClient";
+import { useLobbyStore } from "../stores/lobby";
+import { getGamePlugin } from "@/app/game/registry";
 import {
-	ChatMessage,
-	JoinRequest,
+	GamePlugin,
+	GameMessage,
+	LobbyMessage,
+	LobbyStatus,
 	LobbyExtended,
 	PlayerState,
+	JoinRequest,
+	ChatMessage,
 } from "@/lib/definitions";
-import {
-	RoomWebSocketClient,
-	RoomServerMessage,
-	RoomClientMessage,
-} from "@/lib/websocket/roomClient";
 
-interface UseRoomWebSocketOptions {
+interface UseRoomOptions {
 	lobbyPath: string;
-	onError?: (error: Event | Error) => void;
-	onClose?: () => void;
+	wsUrl?: string;
 }
 
-interface RoomState {
-	lobby: LobbyExtended | null;
-	players: PlayerState[];
-	joinRequests: JoinRequest[];
-	chatHistory: ChatMessage[];
-	isConnected: boolean;
-	isConnecting: boolean;
-	error: string | null;
-}
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
 
 export function useRoomWebSocket({
 	lobbyPath,
-	onError,
-	onClose,
-}: UseRoomWebSocketOptions) {
+	wsUrl = `${WS_URL}/ws/room`,
+}: UseRoomOptions) {
 	const { token } = useAuthStore();
-	const clientRef = useRef<RoomWebSocketClient | null>(null);
-	const [state, setState] = useState<RoomState>({
-		lobby: null,
-		players: [],
-		joinRequests: [],
-		chatHistory: [],
-		isConnected: false,
-		isConnecting: true,
-		error: null,
-	});
+	const clientRef = useRef<webSocketClient | null>(null);
+	const [gamePlugin, setGamePlugin] = useState<GamePlugin | undefined>();
+	const [gameState, setGameState] = useState<unknown>(null);
+
+	const {
+		setLobby,
+		setPlayers,
+		setJoinRequests,
+		setChatHistory,
+		addChatMessage,
+		addPlayer,
+		removePlayer,
+		updateLobbyStatus,
+		setConnected,
+		setConnecting,
+		setError,
+		reset,
+		isConnected,
+		isConnecting,
+		error,
+		lobby,
+		players,
+		joinRequests,
+		chatHistory,
+	} = useLobbyStore();
 
 	useEffect(() => {
-		const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL}/ws/room/${lobbyPath}`;
-		const client = new RoomWebSocketClient(lobbyPath, token || undefined);
+		// Initialize WebSocket connection
+		const client = new webSocketClient(lobbyPath, token || undefined);
 		clientRef.current = client;
+		setConnecting(true);
+		setError(null);
 
-		// Set up message handler
-		const unsubscribeMessage = client.onMessage(
-			(message: RoomServerMessage) => {
-				switch (message.type) {
-					case "lobbyBootstrap":
-						setState((prev) => ({
-							...prev,
-							lobby: message.lobby,
-							players: message.players,
-							joinRequests: message.joinRequests,
-							chatHistory: message.chatHistory,
-							isConnected: true,
-							isConnecting: false,
-						}));
-						break;
+		// Connect to WebSocket
+		client
+			.connect(`${wsUrl}/${lobbyPath}`)
+			.then(() => {
+				setConnected(true);
+				setConnecting(false);
+			})
+			.catch((err) => {
+				console.error("[Room] Connection failed:", err);
+				setError("Failed to connect to game server");
+				setConnecting(false);
+			});
 
-					case "lobbyStateChanged":
-						setState((prev) => ({
-							...prev,
-							lobby: prev.lobby
-								? { ...prev.lobby, status: message.state }
-								: null,
-						}));
-						break;
+		// Message router
+		const unsubscribe = client.onMessage((message: unknown) => {
+			try {
+				// Try to parse as wrapped game message
+				const msg = message as {
+					game?: string;
+					type: string;
+					payload?: unknown;
+				};
 
-					case "playerJoined":
-						// Player list will be updated via separate message or re-fetch
-						break;
-
-					case "playerLeft":
-						setState((prev) => ({
-							...prev,
-							players: prev.players.filter(
-								(p) => p.userId !== message.playerId
-							),
-						}));
-						break;
-
-					case "playerKicked":
-						setState((prev) => ({
-							...prev,
-							players: prev.players.filter(
-								(p) => p.userId !== message.playerId
-							),
-						}));
-						break;
-
-					case "joinRequestsUpdated":
-						setState((prev) => ({
-							...prev,
-							joinRequests: message.joinRequests,
-						}));
-						break;
-
-					case "messageReceived":
-						setState((prev) => ({
-							...prev,
-							chatHistory: [...prev.chatHistory, message.message],
-						}));
-						break;
-
-					case "reactionAdded":
-						setState((prev) => ({
-							...prev,
-							chatHistory: prev.chatHistory.map((msg) =>
-								msg.id === message.messageId
-									? {
-											...msg,
-											reactions: {
-												...msg.reactions,
-												[message.emoji]: [
-													...(msg.reactions[
-														message.emoji
-													] || []),
-													message.userId,
-												],
-											},
-										}
-									: msg
-							),
-						}));
-						break;
-
-					case "reactionRemoved":
-						setState((prev) => ({
-							...prev,
-							chatHistory: prev.chatHistory.map((msg) =>
-								msg.id === message.messageId
-									? {
-											...msg,
-											reactions: {
-												...msg.reactions,
-												[message.emoji]: (
-													msg.reactions[
-														message.emoji
-													] || []
-												).filter(
-													(uid) =>
-														uid !== message.userId
-												),
-											},
-										}
-									: msg
-							),
-						}));
-						break;
-
-					case "startCountdown":
-						// Handle countdown UI updates
-						console.log(
-							`Game starting in ${message.secondsRemaining} seconds`
-						);
-						break;
-
-					case "error":
-						setState((prev) => ({
-							...prev,
-							error: message.message,
-							isConnecting: false,
-						}));
-						break;
-
-					case "pong":
-						// Handle pong for latency tracking
-						break;
-
-					default:
-						console.log("[RoomWS] Unhandled message:", message);
+				if (msg.game && gamePlugin && msg.game === gamePlugin.id) {
+					// Route to game plugin
+					console.log(
+						`[Room] Routing message to game: ${msg.game}`,
+						msg
+					);
+					setGameState((prevState: unknown) =>
+						gamePlugin.handleMessage(prevState, msg as GameMessage)
+					);
+				} else {
+					// Route to lobby handler
+					handleLobbyMessage(msg as LobbyMessage);
 				}
+			} catch (err) {
+				console.error("[Room] Failed to handle message:", err);
 			}
-		);
-
-		// Set up error handler
-		const unsubscribeError = client.onError((error) => {
-			setState((prev) => ({
-				...prev,
-				error:
-					error instanceof Error ? error.message : "Connection error",
-				isConnected: false,
-				isConnecting: false,
-			}));
-			onError?.(error);
 		});
 
-		// Set up close handler
-		const unsubscribeClose = client.onClose(() => {
-			setState((prev) => ({
-				...prev,
-				isConnected: false,
-			}));
-			onClose?.();
+		// Error handler
+		const unsubError = client.onError((err) => {
+			console.error("[Room] WebSocket error:", err);
+			setError("Connection error");
 		});
 
-		// Connect
-		client.connect(wsUrl).catch((err) => {
-			setState((prev) => ({
-				...prev,
-				error: err.message || "Failed to connect",
-				isConnecting: false,
-			}));
+		// Close handler
+		const unsubClose = client.onClose(() => {
+			setConnected(false);
 		});
 
-		// Cleanup on unmount
+		// Cleanup
 		return () => {
-			unsubscribeMessage();
-			unsubscribeError();
-			unsubscribeClose();
+			unsubscribe();
+			unsubError();
+			unsubClose();
 			client.disconnect();
+			reset();
+			setGamePlugin(undefined);
+			setGameState(null);
 		};
-	}, [lobbyPath, token, onError, onClose]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [lobbyPath, token]);
 
-	const sendMessage = (message: RoomClientMessage) => {
-		clientRef.current?.send(message);
+	// Handle lobby-level messages
+	const handleLobbyMessage = (message: Record<string, unknown>) => {
+		console.log("[Room] Handling lobby message:", message);
+
+		switch (message.type) {
+			case "lobbyBootstrap": {
+				const lobby = message.lobby as LobbyExtended;
+				const players = (message.players || []) as PlayerState[];
+				const joinRequests = (message.join_requests ||
+					[]) as JoinRequest[];
+				const chatHistory = (message.chat_history ||
+					[]) as ChatMessage[];
+
+				setLobby(lobby);
+				setPlayers(players);
+				setJoinRequests(joinRequests);
+				setChatHistory(chatHistory);
+
+				// Load game plugin based on lobby's gamePath
+				if (lobby.gamePath) {
+					const plugin = getGamePlugin(lobby.gamePath);
+					if (plugin) {
+						setGamePlugin(plugin);
+						setGameState(plugin.createInitialState());
+						console.log("[Room] Loaded game plugin:", plugin.id);
+					} else {
+						console.warn(
+							`[Room] No plugin found for game: ${lobby.gamePath}`
+						);
+					}
+				}
+				break;
+			}
+
+			case "lobbyStateChanged":
+				updateLobbyStatus(message.state as LobbyStatus);
+				break;
+
+			case "playerJoined":
+				addPlayer(message.player_id as string);
+				break;
+
+			case "playerLeft":
+			case "playerKicked":
+				removePlayer(message.player_id as string);
+				break;
+
+			case "joinRequestsUpdated":
+				setJoinRequests((message.join_requests || []) as JoinRequest[]);
+				break;
+
+			case "messageReceived":
+				addChatMessage(message.message as ChatMessage);
+				break;
+
+			case "playerUpdated":
+				// Handle full player list update
+				if (message.players) {
+					setPlayers(message.players as PlayerState[]);
+				}
+				break;
+
+			case "error":
+				setError((message.message as string) || "An error occurred");
+				break;
+
+			default:
+				console.warn("[Room] Unhandled lobby message:", message);
+		}
+	};
+
+	// Send a game-specific message
+	const sendGameMessage = (type: string, payload: unknown) => {
+		if (!clientRef.current || !gamePlugin) {
+			console.warn(
+				"[Room] Cannot send game message: not connected or no plugin"
+			);
+			return;
+		}
+		clientRef.current.sendGameMessage(gamePlugin.id, type, payload);
+	};
+
+	// Send a lobby-level message
+	const sendLobbyMessage = (type: string, payload?: unknown) => {
+		if (!clientRef.current) {
+			console.warn("[Room] Cannot send lobby message: not connected");
+			return;
+		}
+		clientRef.current.sendLobbyMessage(type, payload);
 	};
 
 	return {
-		...state,
-		sendMessage,
+		// Connection state
+		isConnected,
+		isConnecting,
+		error,
+
+		// Lobby state
+		lobby,
+		players,
+		joinRequests,
+		chatHistory,
+
+		// Game state
+		gameState,
+		gamePlugin,
+
+		// Actions
+		sendGameMessage,
+		sendLobbyMessage,
 	};
 }
