@@ -171,6 +171,23 @@ pub async fn list_my_lobbies(
     Ok(Json(paginated))
 }
 
+/// List all lobbies with pagination. Public endpoint.
+pub async fn get_all_lobbies(
+    State(state): State<AppState>,
+    Query(query): Query<LobbyQuery>,
+) -> Result<Json<Vec<Lobby>>, (StatusCode, String)> {
+    let limit = query.limit.unwrap_or(20).min(100);
+    let offset = query.offset.unwrap_or(0).max(0);
+
+    let repo = LobbyRepository::new(state.postgres);
+    let lobbies = repo
+        .get_all_lobbies(limit, offset)
+        .await
+        .map_err(|e| e.to_response())?;
+
+    Ok(Json(lobbies))
+}
+
 /// Delete a lobby. Only the lobby creator may delete it. Returns `204`.
 pub async fn delete_lobby(
     State(state): State<AppState>,

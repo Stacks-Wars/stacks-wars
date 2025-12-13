@@ -10,6 +10,7 @@ use crate::db::lobby_state::LobbyStateRepository;
 use crate::db::player_state::PlayerStateRepository;
 use crate::models::{LobbyStatus, PlayerState};
 use crate::state::{AppState, ConnectionInfo};
+use crate::ws::broadcast_room_participants;
 use crate::ws::room::{
     RoomError,
     messages::{RoomClientMessage, RoomServerMessage},
@@ -249,8 +250,8 @@ pub async fn handle_room_message(
                     let _ = broadcast::broadcast_room(
                         &spawn_state,
                         spawn_lobby,
-                        &RoomServerMessage::LobbyStateChanged {
-                            state: LobbyStatus::InProgress,
+                        &RoomServerMessage::LobbyStatusChanged {
+                            status: LobbyStatus::InProgress,
                         },
                     )
                     .await;
@@ -301,16 +302,21 @@ pub async fn handle_room_message(
                                 for event in events {
                                     // Extract type from event for wrapper
                                     if let Some(obj) = event.as_object() {
-                                        if let Some(msg_type) = obj.get("type").and_then(|v| v.as_str()) {
+                                        if let Some(msg_type) =
+                                            obj.get("type").and_then(|v| v.as_str())
+                                        {
                                             // Wrap with game identifier for frontend router
                                             let wrapped_msg = serde_json::json!({
                                                 "game": game_path,
                                                 "type": msg_type,
                                                 "payload": event
                                             });
-                                            
-                                            let game_msg = crate::ws::core::message::JsonMessage::from(wrapped_msg);
-                                            let _ = crate::ws::broadcast::broadcast_room_participants(
+
+                                            let game_msg =
+                                                crate::ws::core::message::JsonMessage::from(
+                                                    wrapped_msg,
+                                                );
+                                            let _ = broadcast_room_participants(
                                                 &spawn_state,
                                                 spawn_lobby,
                                                 &game_msg,
@@ -333,7 +339,7 @@ pub async fn handle_room_message(
             let _ = broadcast::broadcast_room(
                 state,
                 lobby_id,
-                &RoomServerMessage::LobbyStateChanged { state: status },
+                &RoomServerMessage::LobbyStatusChanged { status: status },
             )
             .await;
         }

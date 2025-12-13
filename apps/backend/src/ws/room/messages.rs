@@ -50,12 +50,13 @@ pub enum RoomClientMessage {
 }
 
 /// Messages broadcast by the lobby server to connected clients.
-/// 
+///
 /// Lobby-level messages are sent without wrapper.
 /// Game-specific messages should use GameMessage wrapper.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum RoomServerMessage {
+    #[serde(rename_all = "camelCase")]
     LobbyBootstrap {
         lobby: LobbyExtended,
         players: Vec<PlayerState>,
@@ -64,8 +65,8 @@ pub enum RoomServerMessage {
     },
 
     /// Generic lobby state change
-    LobbyStateChanged {
-        state: LobbyStatus,
+    LobbyStatusChanged {
+        status: LobbyStatus,
     },
 
     /// Countdown updates
@@ -138,9 +139,9 @@ impl From<RoomError> for RoomServerMessage {
 }
 
 /// Wrapper for game-specific messages.
-/// 
+///
 /// Frontend router uses the `game` field to route messages to correct game plugin.
-/// 
+///
 /// Example:
 /// ```json
 /// {

@@ -61,7 +61,9 @@ impl TestApp {
             .await?;
 
         // Re-run migrations
-        sqlx::migrate!("./tests/migrations").run(&self.pg_pool).await?;
+        sqlx::migrate!("./tests/migrations")
+            .run(&self.pg_pool)
+            .await?;
         Ok(())
     }
 
@@ -267,9 +269,7 @@ impl TestFactory {
             .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
 
         // Fetch the auto-generated lobby path
-        let lobby_path: String = sqlx::query_scalar(
-            "SELECT path FROM lobbies WHERE id = $1"
-        )
+        let lobby_path: String = sqlx::query_scalar("SELECT path FROM lobbies WHERE id = $1")
             .bind(lobby_id)
             .fetch_one(&self.pg_pool)
             .await

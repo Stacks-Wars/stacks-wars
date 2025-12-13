@@ -111,7 +111,7 @@ async fn test_lobby_list_status_filter() {
     let mut lobby_list_ws = common::WsConnection::connect_to_lobby(
         &app.base_url,
         Some(&creator_token),
-        Some(&["Waiting"]),
+        Some(&["waiting"]),
     )
     .await
     .expect("Failed to connect to lobby list with filter");
@@ -138,7 +138,7 @@ async fn test_lobby_list_status_filter() {
             .get("status")
             .and_then(|s| s.as_str())
             .expect("Lobby should have status");
-        assert_eq!(status, "Waiting", "All lobbies should be in Waiting state");
+        assert_eq!(status, "waiting", "All lobbies should be in Waiting state");
     }
 
     // Verify our waiting lobby is in the list
@@ -196,7 +196,7 @@ async fn test_lobby_list_subscribe_update() {
     lobby_list_ws
         .send_json(&json!({
             "type": "subscribe",
-            "status": ["Waiting"]
+            "status": ["waiting"]
         }))
         .await
         .expect("Failed to send subscribe");
@@ -224,7 +224,7 @@ async fn test_lobby_list_subscribe_update() {
             .and_then(|s| s.as_str())
             .expect("Lobby should have status");
         assert_eq!(
-            status, "Waiting",
+            status, "waiting",
             "After subscribe, all lobbies should be in Waiting state"
         );
     }

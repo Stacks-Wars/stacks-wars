@@ -9,6 +9,7 @@ use uuid::Uuid;
 /// Lobby lifecycle status enum
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, sqlx::Type)]
 #[sqlx(type_name = "lobby_status", rename_all = "lowercase")]
+#[serde(rename_all = "camelCase")]
 pub enum LobbyStatus {
     Waiting,
     Starting,
@@ -21,10 +22,10 @@ impl FromStr for LobbyStatus {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "Waiting" => Ok(LobbyStatus::Waiting),
-            "Starting" => Ok(LobbyStatus::Starting),
-            "InProgress" => Ok(LobbyStatus::InProgress),
-            "Finished" => Ok(LobbyStatus::Finished),
+            "Waiting" | "waiting" => Ok(LobbyStatus::Waiting),
+            "Starting" | "starting" => Ok(LobbyStatus::Starting),
+            "InProgress" | "inProgress" => Ok(LobbyStatus::InProgress),
+            "Finished" | "finished" => Ok(LobbyStatus::Finished),
             other => Err(AppError::BadRequest(format!(
                 "Unknown LobbyState: {}",
                 other

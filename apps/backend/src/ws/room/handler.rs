@@ -135,6 +135,7 @@ async fn handle_socket(
         }
         Err(_) => {
             let err = RoomError::NotFound;
+            tracing::error!("Lobby state not found for id {}: {:?}", lobby_id, err);
             let msg = RoomServerMessage::from(err);
             let _ = manager::send_to_connection(&conn, &msg).await;
             manager::unregister_connection(&state, &connection_id).await;
