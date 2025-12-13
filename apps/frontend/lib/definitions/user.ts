@@ -46,5 +46,9 @@ export interface PlayerState {
 
 export interface JoinRequest {
 	playerId: string;
+	walletAddress: string;
+	username?: string;
+	displayName?: string;
+	trustRating: number;
 	state: "pending" | "accepted" | "rejected";
 }
