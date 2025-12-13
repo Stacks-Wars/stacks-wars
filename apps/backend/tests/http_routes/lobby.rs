@@ -148,7 +148,7 @@ async fn list_my_lobbies() {
 
     // create user and token using factory
     let factory = app.factory();
-    let (creator_id, token) = factory
+    let (_creator_id, token) = factory
         .create_test_user(None)
         .await
         .expect("create user failed");
@@ -209,7 +209,7 @@ async fn delete_lobby() {
 
     // create user and token using factory
     let factory = app.factory();
-    let (user_id, token) = factory
+    let (_user_id, token) = factory
         .create_test_user(None)
         .await
         .expect("create user failed");

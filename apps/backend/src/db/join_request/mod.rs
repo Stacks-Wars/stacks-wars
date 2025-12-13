@@ -15,26 +15,15 @@ pub enum JoinRequestState {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct JoinRequest {
     pub user_id: Uuid,
     pub state: JoinRequestState,
+    pub wallet_address: String,
+    pub username: Option<String>,
+    pub display_name: Option<String>,
+    pub trust_rating: f64,
     pub created_at: i64,
-}
-
-/// DTO sent to clients: player id + state
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct JoinRequestDTO {
-    pub player_id: Uuid,
-    pub state: JoinRequestState,
-}
-
-impl From<JoinRequest> for JoinRequestDTO {
-    fn from(j: JoinRequest) -> Self {
-        Self {
-            player_id: j.user_id,
-            state: j.state,
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -51,6 +40,10 @@ impl JoinRequestRepository {
         &self,
         lobby_id: Uuid,
         user_id: Uuid,
+        wallet_address: String,
+        username: Option<String>,
+        display_name: Option<String>,
+        trust_rating: f64,
         ttl_seconds: usize,
     ) -> redis::RedisResult<()> {
         if let Ok(mut conn) = self.redis.get().await {
@@ -58,6 +51,10 @@ impl JoinRequestRepository {
             let jr = JoinRequest {
                 user_id,
                 state: JoinRequestState::Pending,
+                wallet_address,
+                username,
+                display_name,
+                trust_rating,
                 created_at: Utc::now().timestamp(),
             };
             let _: redis::RedisResult<i32> = conn

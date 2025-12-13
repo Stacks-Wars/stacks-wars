@@ -44,7 +44,7 @@ async fn get_platform_rating() {
     let client = reqwest::Client::new();
 
     let factory = app.factory();
-    let (user_id, token) = factory
+    let (user_id, _token) = factory
         .create_test_user(None)
         .await
         .expect("create user failed");
@@ -127,7 +127,7 @@ async fn update_platform_rating() {
     let client = reqwest::Client::new();
 
     let factory = app.factory();
-    let (user_id, token) = factory
+    let (_user_id, token) = factory
         .create_test_user(None)
         .await
         .expect("create user failed");

@@ -1,5 +1,5 @@
 // Room message types (client -> server, server -> client)
-use crate::db::join_request::JoinRequestDTO;
+use crate::db::join_request::JoinRequest;
 use crate::models::lobby_state::LobbyStatus;
 use crate::models::{ChatMessage, LobbyExtended, PlayerState};
 use crate::ws::room::error::RoomError;
@@ -60,7 +60,7 @@ pub enum RoomServerMessage {
     LobbyBootstrap {
         lobby: LobbyExtended,
         players: Vec<PlayerState>,
-        join_requests: Vec<JoinRequestDTO>,
+        join_requests: Vec<JoinRequest>,
         chat_history: Vec<ChatMessage>,
     },
 
@@ -86,7 +86,7 @@ pub enum RoomServerMessage {
 
     /// Broadcasted list of join requests (visible to lobby); only creator may accept/reject
     JoinRequestsUpdated {
-        join_requests: Vec<JoinRequestDTO>,
+        join_requests: Vec<JoinRequest>,
     },
 
     /// Personal status for a join request
