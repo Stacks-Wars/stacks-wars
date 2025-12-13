@@ -1,3 +1,5 @@
+import Header from "@/components/main/header";
+
 export default function MainLayout({
 	children,
 	modal,
@@ -7,6 +9,7 @@ export default function MainLayout({
 }) {
 	return (
 		<>
+			<Header />
 			{children}
 			{modal}
 		</>

@@ -51,7 +51,7 @@
 	--card-foreground: oklch(1 0 0);
 	--popover: oklch(1 0 0);
 	--popover-foreground: oklch(0.145 0 0);
-	--primary: oklch(50.488% 0.14895 259.869);
+	--primary: oklch(0.5049 0.1489 259.85);
 	--primary-foreground: oklch(1 0 0);
 	--secondary: oklch(0.1822 0 0);
 	--secondary-foreground: oklch(1 0 0);
@@ -85,7 +85,7 @@
 	--card-foreground: oklch(1 0 0);
 	--popover: oklch(1 0 0);
 	--popover-foreground: oklch(0.145 0 0);
-	--primary: oklch(50.488% 0.14895 259.869);
+	--primary: oklch(0.5049 0.1489 259.85);
 	--primary-foreground: oklch(1 0 0);
 	--secondary: oklch(0.1822 0 0);
 	--secondary-foreground: oklch(1 0 0);
@@ -118,5 +118,9 @@
 	}
 	body {
 		@apply bg-background text-foreground;
+	}
+	button:not(:disabled),
+	[role="button"]:not(:disabled) {
+		cursor: pointer;
 	}
 }
