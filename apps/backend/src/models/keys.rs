@@ -67,16 +67,6 @@ impl RedisKey {
         ])
     }
 
-    /// Key for a spectator's state in a lobby (pattern: `lobbies:{lobby_id}:spectators:{user_id}`).
-    pub fn lobby_spectator(lobby_id: impl Into<KeyPart>, user_id: impl Into<KeyPart>) -> String {
-        Self::build(&[
-            KeyPart::Str("lobbies".to_string()),
-            lobby_id.into(),
-            KeyPart::Str("spectators".to_string()),
-            user_id.into(),
-        ])
-    }
-
     /// Legacy key for game data (kept for hydration).
     pub fn game(game_id: impl Into<KeyPart>) -> String {
         Self::build(&[
