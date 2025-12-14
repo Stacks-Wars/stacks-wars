@@ -1,9 +1,9 @@
-import { GameMessage } from "@/lib/definitions";
-import { CoinFlipMessage, CoinFlipState } from "./types";
+import type { GameMessage } from "@/lib/definitions";
+import type { CoinFlipMessage, CoinFlipState } from "./types";
 
 export const handleCoinFlipMessage = (
 	state: CoinFlipState,
-	message: GameMessage<CoinFlipMessage>
+	message: GameMessage<CoinFlipMessage>,
 ): CoinFlipState => {
 	// Extract the actual message from payload (since GameMessage wraps it)
 	const msg = message.payload as CoinFlipMessage;
@@ -45,10 +45,7 @@ export const handleCoinFlipMessage = (
 		case "player_timed_out": {
 			return {
 				...state,
-				eliminatedPlayers: [
-					...state.eliminatedPlayers,
-					msg.payload.player_id,
-				],
+				eliminatedPlayers: [...state.eliminatedPlayers, msg.payload.player_id],
 			};
 		}
 

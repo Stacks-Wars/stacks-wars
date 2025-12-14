@@ -1,5 +1,5 @@
-import { GamePluginProps } from "@/lib/definitions";
-import { CoinFlipState } from "./types";
+import type { GamePluginProps } from "@/lib/definitions";
+import type { CoinFlipState } from "./types";
 
 export default function CoinFlipGame({
 	state,

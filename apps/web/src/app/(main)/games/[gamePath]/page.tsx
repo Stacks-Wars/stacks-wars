@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ApiClient } from "@/lib/api/client";
-import { Game, Lobby, CreateLobbyRequest } from "@/lib/definitions";
+import type { Game, Lobby, CreateLobbyRequest } from "@/lib/definitions";
 import {
 	Card,
 	CardContent,

@@ -4,9 +4,9 @@
  * Simple coin flip game to demonstrate the plugin system.
  */
 
-import { GamePlugin } from "@/lib/definitions";
+import type { GamePlugin } from "@/lib/definitions";
 import CoinFlipGame from "./game";
-import { CoinFlipMessage, CoinFlipState } from "./types";
+import type { CoinFlipMessage, CoinFlipState } from "./types";
 import { handleCoinFlipMessage } from "./handler";
 
 // ============================================================================

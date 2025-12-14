@@ -9,20 +9,20 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { useAuthStore } from "@/lib/stores/auth";
-import { webSocketClient } from "../websocket/wsClient";
-import { useLobbyStore } from "../stores/lobby";
 import { getGamePlugin } from "@/app/game/registry";
-import {
-	GamePlugin,
+import type {
+	ChatMessage,
 	GameMessage,
+	GamePlugin,
+	JoinRequest,
+	LobbyExtended,
 	LobbyMessage,
 	LobbyStatus,
-	LobbyExtended,
 	PlayerState,
-	JoinRequest,
-	ChatMessage,
 } from "@/lib/definitions";
+import { useAuthStore } from "@/lib/stores/auth";
+import { useLobbyStore } from "../stores/lobby";
+import { webSocketClient } from "../websocket/wsClient";
 
 interface UseRoomOptions {
 	lobbyPath: string;
@@ -94,12 +94,9 @@ export function useRoomWebSocket({
 
 				if (msg.game && gamePlugin && msg.game === gamePlugin.id) {
 					// Route to game plugin
-					console.log(
-						`[Room] Routing message to game: ${msg.game}`,
-						msg
-					);
+					console.log(`[Room] Routing message to game: ${msg.game}`, msg);
 					setGameState((prevState: unknown) =>
-						gamePlugin.handleMessage(prevState, msg as GameMessage)
+						gamePlugin.handleMessage(prevState, msg as GameMessage),
 					);
 				} else {
 					// Route to lobby handler
@@ -142,10 +139,8 @@ export function useRoomWebSocket({
 			case "lobbyBootstrap": {
 				const lobby = message.lobby as LobbyExtended;
 				const players = (message.players || []) as PlayerState[];
-				const joinRequests = (message.join_requests ||
-					[]) as JoinRequest[];
-				const chatHistory = (message.chat_history ||
-					[]) as ChatMessage[];
+				const joinRequests = (message.join_requests || []) as JoinRequest[];
+				const chatHistory = (message.chat_history || []) as ChatMessage[];
 
 				setLobby(lobby);
 				setPlayers(players);
@@ -160,9 +155,7 @@ export function useRoomWebSocket({
 						setGameState(plugin.createInitialState());
 						console.log("[Room] Loaded game plugin:", plugin.id);
 					} else {
-						console.warn(
-							`[Room] No plugin found for game: ${lobby.gamePath}`
-						);
+						console.warn(`[Room] No plugin found for game: ${lobby.gamePath}`);
 					}
 				}
 				break;
@@ -209,7 +202,7 @@ export function useRoomWebSocket({
 	const sendGameMessage = (type: string, payload: unknown) => {
 		if (!clientRef.current || !gamePlugin) {
 			console.warn(
-				"[Room] Cannot send game message: not connected or no plugin"
+				"[Room] Cannot send game message: not connected or no plugin",
 			);
 			return;
 		}

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAuthStore } from "@/lib/stores/auth";
 import { ApiClient } from "@/lib/api/client";
-import { AuthResponse } from "@/lib/definitions";
+import type { AuthResponse } from "@/lib/definitions";
 import {
 	connectWallet,
 	disconnectWallet,

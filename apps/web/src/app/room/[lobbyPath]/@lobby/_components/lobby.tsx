@@ -7,17 +7,17 @@
 
 "use client";
 
+import { Check, Clock, Crown, Send, UserPlus, Users, X } from "lucide-react";
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Users, Clock, Send, Crown, UserPlus, X, Check } from "lucide-react";
-import {
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import type {
+	ChatMessage,
+	JoinRequest,
 	LobbyExtended,
 	PlayerState,
-	JoinRequest,
-	ChatMessage,
 } from "@/lib/definitions";
 
 interface LobbyProps {
@@ -69,8 +69,7 @@ export function Lobby({
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2 text-sm text-muted-foreground">
 							<Clock className="h-4 w-4" />
-							Status:{" "}
-							<Badge variant="outline">{lobby.status}</Badge>
+							Status: <Badge variant="outline">{lobby.status}</Badge>
 						</div>
 						<div className="text-sm text-muted-foreground">
 							{players.length} / {lobby.participantCount} players
@@ -90,17 +89,13 @@ export function Lobby({
 										{player.isCreator && (
 											<Crown className="h-4 w-4 text-yellow-500" />
 										)}
-										<span className="font-mono text-sm">
-											{player.userId}
-										</span>
+										<span className="font-mono text-sm">{player.userId}</span>
 									</div>
 									{lobby.creatorId && (
 										<Button
 											variant="ghost"
 											size="sm"
-											onClick={() =>
-												handleKickPlayer(player.userId)
-											}
+											onClick={() => handleKickPlayer(player.userId)}
 											disabled={player.isCreator}
 										>
 											<X className="h-4 w-4" />
@@ -131,22 +126,14 @@ export function Lobby({
 											<Button
 												variant="outline"
 												size="sm"
-												onClick={() =>
-													handleApproveJoin(
-														request.playerId
-													)
-												}
+												onClick={() => handleApproveJoin(request.playerId)}
 											>
 												<Check className="h-4 w-4" />
 											</Button>
 											<Button
 												variant="outline"
 												size="sm"
-												onClick={() =>
-													handleRejectJoin(
-														request.playerId
-													)
-												}
+												onClick={() => handleRejectJoin(request.playerId)}
 											>
 												<X className="h-4 w-4" />
 											</Button>
@@ -168,24 +155,17 @@ export function Lobby({
 									</p>
 								) : (
 									chatHistory.map((msg) => (
-										<div
-											key={msg.id}
-											className="rounded-lg bg-muted p-2"
-										>
+										<div key={msg.id} className="rounded-lg bg-muted p-2">
 											<div className="mb-1 flex items-center gap-2">
 												<span className="font-mono text-xs font-medium">
 													{msg.senderId.slice(0, 8)}
 													...
 												</span>
 												<span className="text-xs text-muted-foreground">
-													{new Date(
-														msg.timestamp
-													).toLocaleTimeString()}
+													{new Date(msg.timestamp).toLocaleTimeString()}
 												</span>
 											</div>
-											<p className="text-sm">
-												{msg.content}
-											</p>
+											<p className="text-sm">{msg.content}</p>
 										</div>
 									))
 								)}
@@ -201,10 +181,7 @@ export function Lobby({
 									}}
 									placeholder="Type a message..."
 								/>
-								<Button
-									onClick={handleSendMessage}
-									disabled={!message.trim()}
-								>
+								<Button onClick={handleSendMessage} disabled={!message.trim()}>
 									<Send className="h-4 w-4" />
 								</Button>
 							</div>

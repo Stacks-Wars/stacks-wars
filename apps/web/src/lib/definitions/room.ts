@@ -5,11 +5,11 @@
  * Each game implements a plugin that handles its own state and messages.
  */
 
-import {
+import type {
+	ChatMessage,
+	JoinRequest,
 	LobbyExtended,
 	PlayerState,
-	JoinRequest,
-	ChatMessage,
 } from "@/lib/definitions";
 
 // ============================================================================

@@ -5,7 +5,7 @@
  * Add new games here to make them available to the engine.
  */
 
-import { PluginRegistry, GamePlugin } from "@/lib/definitions";
+import type { GamePlugin, PluginRegistry } from "@/lib/definitions";
 import { CoinFlipPlugin } from "./coin-flip/plugin";
 
 export const gamePlugins: PluginRegistry = {

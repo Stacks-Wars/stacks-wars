@@ -1,14 +1,14 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import { useRoomWebSocket } from "@/lib/hooks/useRoomWebSocket";
-import {
-	LobbyExtended,
-	PlayerState,
-	JoinRequest,
+import type {
 	ChatMessage,
 	GamePlugin,
+	JoinRequest,
+	LobbyExtended,
+	PlayerState,
 } from "@/lib/definitions";
+import { useRoomWebSocket } from "@/lib/hooks/useRoomWebSocket";
 
 interface RoomContextValue {
 	isConnected: boolean;
@@ -36,9 +36,7 @@ export function RoomProvider({
 	const engineState = useRoomWebSocket({ lobbyPath });
 
 	return (
-		<RoomContext.Provider value={engineState}>
-			{children}
-		</RoomContext.Provider>
+		<RoomContext.Provider value={engineState}>{children}</RoomContext.Provider>
 	);
 }
 
@@ -46,7 +44,7 @@ export function useRoom() {
 	const context = useContext(RoomContext);
 	if (!context) {
 		throw new Error(
-			"useGameEngineContext must be used within GameEngineProvider"
+			"useGameEngineContext must be used within GameEngineProvider",
 		);
 	}
 	return context;

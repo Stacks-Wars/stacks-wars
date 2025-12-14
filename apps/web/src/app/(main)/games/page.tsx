@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ApiClient } from "@/lib/api/client";
-import { Game } from "@/lib/definitions";
+import type { Game } from "@/lib/definitions";
 import {
 	Card,
 	CardContent,

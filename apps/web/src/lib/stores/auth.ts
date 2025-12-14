@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { User } from "@/lib/definitions";
+import type { User } from "@/lib/definitions";
 import { disconnectWallet } from "../wallet";
 
 interface AuthState {
@@ -57,6 +57,6 @@ export const useAuthStore = create<AuthState>()(
 				token: state.token,
 				isAuthenticated: state.isAuthenticated,
 			}),
-		}
-	)
+		},
+	),
 );

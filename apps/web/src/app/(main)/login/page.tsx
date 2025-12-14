@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/lib/stores/auth";
 import { ApiClient } from "@/lib/api/client";
-import { AuthResponse } from "@/lib/definitions";
+import type { AuthResponse } from "@/lib/definitions";
 import { connectWallet, isWalletConnected } from "@/lib/wallet";
 import { Loader2 } from "lucide-react";
 import {

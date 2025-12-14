@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useAuthStore } from "@/lib/stores/auth";
 import { ApiClient } from "@/lib/api/client";
-import { User, Game, CreateGameRequest } from "@/lib/definitions";
+import type { User, Game, CreateGameRequest } from "@/lib/definitions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

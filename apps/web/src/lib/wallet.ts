@@ -1,8 +1,9 @@
+"use client";
 import {
 	connect,
 	disconnect,
-	isConnected,
 	getLocalStorage,
+	isConnected,
 	request,
 } from "@stacks/connect";
 

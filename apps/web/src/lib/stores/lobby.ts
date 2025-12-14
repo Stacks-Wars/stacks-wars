@@ -6,12 +6,12 @@
  */
 
 import { create } from "zustand";
-import {
-	LobbyExtended,
-	PlayerState,
-	JoinRequest,
+import type {
 	ChatMessage,
+	JoinRequest,
+	LobbyExtended,
 	LobbyStatus,
+	PlayerState,
 } from "@/lib/definitions";
 
 interface LobbyStore {
@@ -79,6 +79,9 @@ export const useLobbyStore = create<LobbyStore>((set) => ({
 				joinedAt: Date.now(),
 				status: "joined",
 				updatedAt: Date.now(),
+				// These can be updated later
+				walletAddress: "",
+				trustRating: 0,
 			};
 			return { players: [...state.players, newPlayer] };
 		}),
