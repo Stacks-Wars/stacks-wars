@@ -1,11 +1,12 @@
 "use client";
 
+import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
-	href: string;
+	href: Route;
 	label: string;
 };
 
@@ -27,9 +28,7 @@ export default function Nav({ items, className }: NavProps) {
 						href={item.href}
 						className={cn(
 							"transition-colors hover:text-primary",
-							isActive
-								? "font-semibold text-foreground"
-								: "text-foreground/60"
+							isActive ? "font-semibold text-foreground" : "text-foreground/60",
 						)}
 					>
 						{item.label}

@@ -1,9 +1,10 @@
+import type { Route } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import Nav from "@/components/main/nav";
+import { Button } from "@/components/ui/button";
 
-const navItems = [
+const navItems: { href: Route; label: string }[] = [
 	{ href: "/games", label: "Games" },
 	{ href: "/leaderboard", label: "Leaderboard" },
 	{ href: "/lobby", label: "Lobby" },
