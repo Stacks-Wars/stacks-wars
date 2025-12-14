@@ -1,0 +1,30 @@
+{
+  "name": "@stacks-wars/db",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate",
+    "db:studio": "drizzle-kit studio",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.8",
+    "@types/pg": "^8.15.6",
+    "typescript": "^5",
+    "@stacks-wars/config": "workspace:*"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.1",
+    "pg": "^8.16.3",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  }
+}

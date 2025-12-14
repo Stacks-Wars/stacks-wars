@@ -1,0 +1,4 @@
+import type { auth } from "@stacks-wars/auth";
+import { createAuthClient } from "better-auth/react";
+
+export const authClient = createAuthClient({});
