@@ -1,0 +1,37 @@
+pre-commit:
+  parallel: true
+  commands:
+    lint-web:
+      &common_lint
+      glob: "apps/web/src/*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}"
+      run: |
+        bunx biome check --write --diagnostic-level=error {staged_files}
+        if [ $? -eq 0 ]; then
+          echo '🎉 No error found: committing this now.... ✨🚀🏄‍♂️🍻'
+        else
+          echo '🔨❌ Yoo, you have a problem in your code. Check linter 🔨❌'
+          echo '          Run bunx biome check --write --diagnostic-level=error, add changes and try commit again.'
+          exit 1
+        fi
+      stage_fixed: true
+
+pre-push:
+  parallel: false
+  commands:
+    lint-web:
+      glob: "apps/web/src/*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}"
+      run: |
+        bunx biome check --diagnostic-level=error {push_files}
+        if [ $? -ne 0 ]; then
+          echo '🔨❌ Push blocked! Fix linting errors before pushing. 🔨❌'
+          exit 1
+        fi
+
+    # build-web:
+    #   glob: "apps/web/**/*"
+    #   run: |
+    #     cd apps/web && bun run build
+    #     if [ $? -ne 0 ]; then
+    #       echo '🔨❌ Push blocked! Fix build errors before pushing. 🔨❌'
+    #       exit 1
+    #     fi
