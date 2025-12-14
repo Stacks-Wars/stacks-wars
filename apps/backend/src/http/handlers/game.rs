@@ -1,71 +1,178 @@
+// Game HTTP handlers: create, retrieve, and list game types
+
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
 };
 use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    db::game::{
-        get::{get_all_games, get_game},
-        post::create_game,
-    },
-    models::game::GameType,
+    auth::AuthClaims,
+    db::game::GameRepository,
+    errors::AppError,
+    models::game::{Game, Order, Pagination},
     state::AppState,
 };
 
+// ============================================================================
+// Request/Response Types
+// ============================================================================
+
+/// Request body for creating a new game type
 #[derive(Debug, Deserialize)]
-pub struct AddGamePayload {
+#[serde(rename_all = "camelCase")]
+pub struct CreateGameRequest {
+    /// Game name (must be unique)
     pub name: String,
+    /// URL-friendly path (must be unique, lowercase alphanumeric + hyphens)
+    pub path: String,
+    /// Game description
     pub description: String,
+    /// URL to game thumbnail/icon
     pub image_url: String,
-    pub tags: Option<Vec<String>>,
+    /// Minimum players required
     pub min_players: u8,
-}
-pub async fn create_game_handler(
-    State(state): State<AppState>,
-    Json(payload): Json<AddGamePayload>,
-) -> Result<Json<Uuid>, (StatusCode, String)> {
-    let id = create_game(
-        payload.name,
-        payload.description,
-        payload.image_url,
-        payload.tags,
-        payload.min_players,
-        state.redis.clone(),
-    )
-    .await
-    .map_err(|e| {
-        tracing::error!("Error adding new game: {}", e);
-        e.to_response()
-    })?;
-
-    tracing::info!("Success adding game {id}");
-    Ok(Json(id))
+    /// Maximum players allowed
+    pub max_players: u8,
+    /// Game category/genre (e.g., "Word Games", "Strategy")
+    pub category: Option<String>,
 }
 
-pub async fn get_game_handler(
-    Path(game_id): Path<Uuid>,
+/// Query parameters for listing games
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListGamesQuery {
+    /// Page number (1-indexed)
+    #[serde(default = "default_page")]
+    pub page: u32,
+    /// Items per page
+    #[serde(default = "default_limit")]
+    pub limit: u32,
+    /// Sort order: "asc" or "desc"
+    #[serde(default)]
+    pub order: Option<String>,
+}
+
+fn default_page() -> u32 {
+    1
+}
+
+fn default_limit() -> u32 {
+    20
+}
+
+// ============================================================================
+// Game Creation (Admin)
+// ============================================================================
+
+/// Create a new game type (admin only).
+///
+/// Requires a valid admin JWT; returns the created `Game` on success.
+pub async fn create_game(
     State(state): State<AppState>,
-) -> Result<Json<GameType>, (StatusCode, String)> {
-    let game = get_game(game_id, state.redis.clone()).await.map_err(|e| {
-        tracing::error!("Error retrieving {} game: {}", game_id, e);
-        e.to_response()
+    AuthClaims(claims): AuthClaims,
+    Json(payload): Json<CreateGameRequest>,
+) -> Result<Json<Game>, (StatusCode, String)> {
+    let creator_id = Uuid::parse_str(&claims.sub).map_err(|_| {
+        tracing::error!("Invalid user ID in JWT token");
+        AppError::Unauthorized("Invalid token".into()).to_response()
     })?;
 
-    tracing::info!("Success retrieving {game_id} game");
+    let repo = GameRepository::new(state.postgres.clone());
+
+    let game = repo
+        .create_game(
+            &payload.name,
+            &payload.path,
+            &payload.description,
+            &payload.image_url,
+            payload.min_players as i16,
+            payload.max_players as i16,
+            payload.category.as_deref(),
+            creator_id,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to create game: {}", e);
+            e.to_response()
+        })?;
+
     Ok(Json(game))
 }
 
-pub async fn get_all_games_handler(
-    State(state): State<AppState>,
-) -> Result<Json<Vec<GameType>>, (StatusCode, String)> {
-    let games = get_all_games(state.redis.clone()).await.map_err(|e| {
-        tracing::error!("Error retrieving all games: {}", e);
-        e.to_response()
-    })?;
+// ============================================================================
+// Game Retrieval
+// ============================================================================
 
-    tracing::info!("Success retrieving all game");
+/// Get a game by UUID. Returns `Game` or `404` if not found.
+pub async fn get_game(
+    Path(game_id): Path<Uuid>,
+    State(state): State<AppState>,
+) -> Result<Json<Game>, (StatusCode, String)> {
+    let repo = GameRepository::new(state.postgres.clone());
+
+    let game = repo
+        .find_by_id(game_id)
+        .await
+        .map_err(|e| e.to_response())?;
+
+    Ok(Json(game))
+}
+
+/// Get a game by path. Returns `Game` or `404` if not found.
+pub async fn get_game_by_path(
+    Path(path): Path<String>,
+    State(state): State<AppState>,
+) -> Result<Json<Game>, (StatusCode, String)> {
+    let repo = GameRepository::new(state.postgres.clone());
+
+    let game = repo
+        .find_by_path(&path)
+        .await
+        .map_err(|e| e.to_response())?;
+
+    Ok(Json(game))
+}
+
+/// Get games by creator ID. Returns array of `Game`.
+pub async fn get_games_by_creator(
+    Path(creator_id): Path<Uuid>,
+    State(state): State<AppState>,
+) -> Result<Json<Vec<Game>>, (StatusCode, String)> {
+    let repo = GameRepository::new(state.postgres.clone());
+
+    let games = repo
+        .get_by_creator(creator_id, 100)
+        .await
+        .map_err(|e| e.to_response())?;
+
+    Ok(Json(games))
+}
+
+/// List games with pagination. Public endpoint returning an array of `Game`.
+pub async fn list_games(
+    State(state): State<AppState>,
+    Query(query): Query<ListGamesQuery>,
+) -> Result<Json<Vec<Game>>, (StatusCode, String)> {
+    let pagination = Pagination {
+        page: query.page as i64,
+        limit: query.limit as i64,
+    };
+
+    let order = query
+        .order
+        .as_deref()
+        .and_then(|s| s.parse::<Order>().ok())
+        .unwrap_or(Order::Descending);
+
+    let repo = GameRepository::new(state.postgres.clone());
+
+    let games = repo
+        .get_all_games(pagination, order)
+        .await
+        .map_err(|e| e.to_response())?;
+
     Ok(Json(games))
 }

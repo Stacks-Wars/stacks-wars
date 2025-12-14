@@ -1,78 +1,36 @@
-# Stacks Wars
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Stacks Wars is a **gaming utility platform** built on the **Stacks blockchain**, offering various game types such as **casino games, sports betting, casual games, and aviator-style games**. Players can participate using **STX** as the primary mode of payment.
+## Getting Started
 
-## Features
+First, run the development server:
 
--   **Multiple Game Modes:** Includes casino, sports betting, casual games, and more.
--   **Lexi War (Spelling Mini-Game):** Turn-based spelling game with real-time multiplayer in future updates.
--   **Blockchain-Powered Betting:** Uses STX for transactions.
--   **Progressive Difficulty:** Games increase in complexity based on player performance.
--   **Word Validation API:** Utilizes Wordnik API for spelling-based game validation.
--   **User Authentication & Wallet Integration:** Seamlessly connects with Stacks wallets for transactions.
--   **On-Chain Gaming Pools:** Users can create and join betting pools using smart contracts.
-
-## Tech Stack
-
--   **Frontend:** Next.js, React, Tailwind CSS
--   **Backend:** Axum from rust [Stacks Wars Backend](https://github.com/iflames1/stacks-wars-be)
--   **Smart Contracts:** Clarity (for on-chain interactions) - [Stacks Wars Pool Contract](https://github.com/iflames1/stacks-wars-contract)
--   **Hosting:** Vercel
-
-## Installation & Setup
-
-To set up the project locally:
-
-```sh
-git clone https://github.com/iatomic1/stacks-wars
-cd stacks-wars
-bun install
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
 bun dev
 ```
 
-## How to Play (Lexi War)
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-1. **Start a Game:** Choose a game mode (turn-based initially).
-2. **Enter Words:** Type words based on given letter constraints.
-3. **Progress Difficulty:** Longer words are required as the game progresses.
-4. **Win or Lose:** If no valid word is entered before time runs out, the opponent wins.
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-## Smart Contract: Stacks Wars Pool Contract
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-We have an on-chain betting system where users can create and join gaming pools using smart contracts written in Clarity. This contract handles:
+## Learn More
 
--   **Pool Creation:** Users can create betting pools with a fixed entry fee.
--   **Joining Pools:** Players join pools by paying the entry fee.
--   **Reward Claims:** Winners claim rewards using signed messages.
+To learn more about Next.js, take a look at the following resources:
 
-You can check out the contract [here](https://github.com/iflames1/stacks-wars-contract).
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-## Roadmap
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
--   ✅ Initial game release with **Lexi War** (turn-based mode)
--   🚀 Real-time multiplayer support
--   💰 On-chain betting and rewards system
--   📊 Leaderboard & ranking system
--   🎨 Improved UI/UX animations & effects
+## Deploy on Vercel
 
-## Contribution
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-We welcome contributions! Feel free to fork the repo and submit a pull request.
-
-## License
-
-**All Rights Reserved - Proprietary Software**
-
-This software and its source code are the exclusive property of the Stacks Wars development team. Unauthorized copying, distribution, modification, or use of this software is strictly prohibited and may result in severe legal action including but not limited to:
-
-- Civil lawsuits for copyright infringement
-- Monetary damages and legal fees
-- Criminal prosecution where applicable
-
-This software is protected by copyright law and international treaties. Any unauthorized use, reproduction, or distribution may result in significant financial penalties and legal consequences.
-
-## Contact
-
-For questions, reach out via Twitter or Discord.
-
-🚀 **Stacks Wars – Where Gaming Meets DeFi!**
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

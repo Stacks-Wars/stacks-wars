@@ -1,28 +1,27 @@
+use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
+use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
-use crate::models::game::Player;
+use super::WalletAddress;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// User model mapping to PostgreSQL `users` table.
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct User {
-    pub id: Uuid,
-    pub wallet_address: String,
-    pub wars_point: f64,
-
+    #[serde(skip_deserializing)]
+    pub(crate) id: Uuid,
+    pub wallet_address: WalletAddress,
     pub username: Option<String>,
     pub display_name: Option<String>,
+    pub trust_rating: f64,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 }
 
-impl From<Player> for User {
-    fn from(player: Player) -> Self {
-        player.into_user()
+impl User {
+    /// Get user ID.
+    pub fn id(&self) -> Uuid {
+        self.id
     }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Claims {
-    pub sub: String,    // user ID
-    pub wallet: String, // wallet address
-    pub exp: usize,     // expiration time
 }

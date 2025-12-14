@@ -1,5 +1,4 @@
-pub mod bot;
-pub mod bot_commands;
+// HTTP layer: handlers and route composition
 pub mod handlers;
 pub mod routes;
 
