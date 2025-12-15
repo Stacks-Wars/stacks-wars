@@ -9,5 +9,10 @@ export const BETTERAUTH_URL = DEV
 	? `http://localhost:${FRONTEND_LOCALHOST_PORT}`
 	: `https://www.${DOMAIN_NAME}`;
 
+export const siteConfig = {
+	title: "Stacks Wars",
+	authSuccessRedirectUrl: "/games",
+};
+
 // UTILS
 export const BNS_ONE_API_BASE_URL = "https://api.bns.one/";

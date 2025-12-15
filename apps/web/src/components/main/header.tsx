@@ -28,8 +28,12 @@ export default function Header() {
 					className="w-full max-w-md text-2xl font-medium"
 				/>
 				<div className="flex items-center gap-4 rounded-full text-sm font-medium">
-					<Button className="">Create an Account</Button>
-					<Button variant={"outline"}>Login</Button>
+					<Button className="" asChild>
+						<Link href={"/signup"}>Create an Account</Link>
+					</Button>
+					<Button variant={"outline"} asChild>
+						<Link href={"/login"}>Login</Link>
+					</Button>
 				</div>
 			</div>
 		</header>

@@ -1,20 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { useAuthStore } from "@/lib/stores/auth";
-import { ApiClient } from "@/lib/api/client";
-import type { AuthResponse } from "@/lib/definitions";
-import { connectWallet, isWalletConnected } from "@/lib/wallet";
 import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
 	Card,
-	CardTitle,
 	CardContent,
-	CardHeader,
 	CardDescription,
+	CardHeader,
+	CardTitle,
 } from "@/components/ui/card";
+import { ApiClient } from "@/lib/api/client";
+import type { AuthResponse } from "@/lib/definitions";
+import { useAuthStore } from "@/lib/stores/auth";
+import { connectWallet, isWalletConnected } from "@/lib/wallet";
 
 export default function LoginModal() {
 	const router = useRouter();
@@ -36,12 +36,9 @@ export default function LoginModal() {
 			const walletAddress = await connectWallet();
 
 			// Authenticate with backend
-			const authResponse = await ApiClient.post<AuthResponse>(
-				"/api/user",
-				{
-					walletAddress,
-				}
-			);
+			const authResponse = await ApiClient.post<AuthResponse>("/api/user", {
+				walletAddress,
+			});
 
 			if (authResponse.error || !authResponse.data) {
 				throw new Error(authResponse.error || "Authentication failed");
@@ -52,9 +49,7 @@ export default function LoginModal() {
 
 			router.back();
 		} catch (err) {
-			setError(
-				err instanceof Error ? err.message : "Failed to connect wallet"
-			);
+			setError(err instanceof Error ? err.message : "Failed to connect wallet");
 		} finally {
 			setIsLoading(false);
 		}
@@ -67,8 +62,8 @@ export default function LoginModal() {
 					<CardHeader>
 						<CardTitle>Connect Wallet</CardTitle>
 						<CardDescription>
-							Connect your Stacks wallet to join games and compete
-							with other players.
+							Connect your Stacks wallet to join games and compete with other
+							players.
 						</CardDescription>
 					</CardHeader>
 					<div className="flex flex-col gap-4">
@@ -93,8 +88,8 @@ export default function LoginModal() {
 							)}
 						</Button>
 						<p className="text-center text-xs text-muted-foreground">
-							By connecting your wallet, you agree to our Terms of
-							Service and Privacy Policy.
+							By connecting your wallet, you agree to our Terms of Service and
+							Privacy Policy.
 						</p>
 					</div>
 				</CardContent>

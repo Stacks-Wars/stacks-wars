@@ -2,8 +2,10 @@
 import { useRouter } from "next/navigation";
 import { AuthDialog } from "../_components/auth-dialog";
 
-export default function LoginModal() {
+export default function SignupModal() {
 	const router = useRouter();
 
-	return <AuthDialog open={true} onOpenChange={() => router.back()} />;
+	return (
+		<AuthDialog mode="signup" open={true} onOpenChange={() => router.back()} />
+	);
 }

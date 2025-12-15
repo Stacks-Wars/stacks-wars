@@ -1,15 +1,16 @@
 "use client";
 
-import { useAuthStore } from "@/lib/stores/auth";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { useAuthStore } from "@/lib/stores/auth";
 
 export default function HomePage() {
 	const { isAuthenticated, user } = useAuthStore();
 
 	return (
 		<div className="container mx-auto px-4 py-8">
-			<div className="flex flex-col gap-8">
+			{/*HomePage*/}
+			{/*<div className="flex flex-col gap-8">
 				<div className="flex items-center justify-between">
 					<h1 className="text-4xl font-bold">Stacks Wars</h1>
 					<div className="flex items-center gap-4">
@@ -61,7 +62,7 @@ export default function HomePage() {
 						</div>
 					</div>
 				)}
-			</div>
+			</div>*/}
 		</div>
 	);
 }
