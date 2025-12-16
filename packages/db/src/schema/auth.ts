@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
+import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
 	id: text("id").primaryKey(),
@@ -73,9 +73,29 @@ export const verification = pgTable(
 	(table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
+export const walletAddress = pgTable("wallet_address", {
+	id: text("id").primaryKey(),
+	userId: text("user_id")
+		.notNull()
+		.references(() => user.id, { onDelete: "cascade" }),
+	address: text("address").notNull(),
+	network: text("network").notNull(),
+	isPrimary: boolean("is_primary").default(false),
+	createdAt: timestamp("created_at").notNull(),
+});
+
+export const jwks = pgTable("jwks", {
+	id: text("id").primaryKey(),
+	publicKey: text("public_key").notNull(),
+	privateKey: text("private_key").notNull(),
+	createdAt: timestamp("created_at").notNull(),
+	expiresAt: timestamp("expires_at"),
+});
+
 export const userRelations = relations(user, ({ many }) => ({
 	sessions: many(session),
 	accounts: many(account),
+	walletAddresss: many(walletAddress),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -88,6 +108,13 @@ export const sessionRelations = relations(session, ({ one }) => ({
 export const accountRelations = relations(account, ({ one }) => ({
 	user: one(user, {
 		fields: [account.userId],
+		references: [user.id],
+	}),
+}));
+
+export const walletAddressRelations = relations(walletAddress, ({ one }) => ({
+	user: one(user, {
+		fields: [walletAddress.userId],
 		references: [user.id],
 	}),
 }));
