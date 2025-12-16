@@ -1,0 +1,20 @@
+{
+	"name": "@stacks-wars/shared",
+	"type": "module",
+	"devDependencies": {
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5.0.0"
+	},
+	"version": "1.0.0",
+	"private": false,
+	"scripts": {
+		"dev": "email dev -p 8004",
+		"export": "email export"
+	},
+	"dependencies": {},
+	"exports": {
+		".": "./src/index.ts"
+	}
+}

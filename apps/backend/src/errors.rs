@@ -66,6 +66,9 @@ pub enum AppError {
 
     #[error("Invalid lobby amount: {0}")]
     LobbyAmountError(#[from] LobbyAmountError),
+
+    #[error("Invalid email address: {0}")]
+    EmailAddressError(String),
 }
 
 impl AppError {
@@ -93,6 +96,7 @@ impl AppError {
             AppError::DateRangeError(e) => (StatusCode::BAD_REQUEST, e.to_string()),
             AppError::PlayerCountError(e) => (StatusCode::BAD_REQUEST, e.to_string()),
             AppError::LobbyAmountError(e) => (StatusCode::BAD_REQUEST, e.to_string()),
+            AppError::EmailAddressError(e) => (StatusCode::BAD_REQUEST, e.clone()),
         }
     }
 }
