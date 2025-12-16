@@ -122,16 +122,26 @@ impl TestFactory {
         wallet_address: Option<&str>,
     ) -> Result<(Uuid, String), Box<dyn Error>> {
         let user_id = Uuid::new_v4();
-        let wallet = wallet_address
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| {
-                // Generate valid Stacks wallet address format (starts with SP for mainnet)
-                format!("SP{:0>40}", &user_id.to_string().replace("-", "").chars().take(40).collect::<String>())
-            });
+        let wallet = wallet_address.map(|s| s.to_string()).unwrap_or_else(|| {
+            // Generate valid Stacks wallet address format (starts with SP for mainnet)
+            format!(
+                "SP{:0>40}",
+                &user_id
+                    .to_string()
+                    .replace("-", "")
+                    .chars()
+                    .take(40)
+                    .collect::<String>()
+            )
+        });
 
-        sqlx::query("INSERT INTO users (id, wallet_address, trust_rating) VALUES ($1, $2, $3)")
+        let email = format!("{}@stackswars.com", wallet);
+
+        sqlx::query("INSERT INTO users (id, wallet_address, email, email_verified, trust_rating) VALUES ($1, $2, $3, $4, $5)")
             .bind(user_id)
             .bind(&wallet)
+            .bind(&email)
+            .bind(false)
             .bind(10.0f64)
             .execute(&self.pg_pool)
             .await
@@ -210,10 +220,12 @@ impl TestFactory {
 
         // Ensure system user exists
         sqlx::query(
-            "INSERT INTO users (id, wallet_address) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
+            "INSERT INTO users (id, wallet_address, email, email_verified) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING",
         )
         .bind(system_user_id)
         .bind("SP000000000000000000000000000SYSTEM")
+        .bind("system@stackswars.com")
+        .bind(false)
         .execute(&self.pg_pool)
         .await
         .ok();
@@ -296,7 +308,7 @@ impl TestFactory {
             .map_err(|e| -> Box<dyn Error> { Box::new(e) })?;
 
         let creator: stacks_wars_be::models::User = sqlx::query_as(
-            "SELECT id, wallet_address, username, display_name, trust_rating, created_at, updated_at
+            "SELECT id, wallet_address, username, display_name, email, email_verified, trust_rating, created_at, updated_at
              FROM users WHERE id = $1"
         )
             .bind(creator_id)

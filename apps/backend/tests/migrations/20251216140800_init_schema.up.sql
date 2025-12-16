@@ -1,5 +1,6 @@
 -- Stacks Wars initial schema (sqlx format)
 
+
 -- Enable extensions
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS citext;
@@ -10,6 +11,8 @@ CREATE TABLE users (
     wallet_address TEXT UNIQUE NOT NULL,
     username CITEXT UNIQUE,
     display_name TEXT,
+    email CITEXT UNIQUE NOT NULL,
+    email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     trust_rating DOUBLE PRECISION DEFAULT 10,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
@@ -17,6 +20,7 @@ CREATE TABLE users (
 
 CREATE INDEX IF NOT EXISTS idx_users_wallet_address ON users(wallet_address);
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 -- SEASONS
 CREATE TABLE seasons (

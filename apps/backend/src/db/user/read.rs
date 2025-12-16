@@ -10,7 +10,7 @@ impl UserRepository {
     /// Find a user by ID (returns user profile data).
     pub async fn find_by_id(&self, user_id: Uuid) -> Result<User, AppError> {
         let user = sqlx::query_as::<_, User>(
-            "SELECT id, wallet_address, username, display_name, trust_rating, created_at, updated_at
+            "SELECT id, wallet_address, username, display_name, email, email_verified, trust_rating, created_at, updated_at
             FROM users
             WHERE id = $1",
         )
@@ -30,7 +30,7 @@ impl UserRepository {
     /// Find a user by wallet address.
     pub async fn find_by_wallet(&self, wallet_address: &str) -> Result<User, AppError> {
         let user = sqlx::query_as::<_, User>(
-            "SELECT id, wallet_address, username, display_name, trust_rating, created_at, updated_at
+            "SELECT id, wallet_address, username, display_name, email, email_verified, trust_rating, created_at, updated_at
             FROM users
             WHERE wallet_address = $1",
         )
@@ -53,7 +53,7 @@ impl UserRepository {
         let normalized_username = username.to_lowercase();
 
         let user = sqlx::query_as::<_, User>(
-            "SELECT id, wallet_address, username, display_name, trust_rating, created_at, updated_at
+            "SELECT id, wallet_address, username, display_name, email, email_verified, trust_rating, created_at, updated_at
             FROM users
             WHERE LOWER(username) = $1",
         )

@@ -3,6 +3,8 @@ use crate::{
     errors::AppError,
     models::{User, WalletAddress},
 };
+use email_address::EmailAddress;
+use std::str::FromStr;
 
 use super::UserRepository;
 
@@ -11,16 +13,42 @@ impl UserRepository {
     pub async fn create_user(
         &self,
         wallet_address: &str,
+        email_address: Option<&str>,
         jwt_secret: &str,
     ) -> Result<(User, String), AppError> {
         let wallet_address = WalletAddress::new(wallet_address)?;
+
+        // Handle email address
+        let (email, email_verified) = match email_address {
+            None => {
+                // Construct default email from wallet address
+                let default_email = format!("{}@stackswars.com", wallet_address.as_str());
+                // Validate the email format
+                EmailAddress::from_str(&default_email).map_err(|e| {
+                    tracing::error!("Failed to create default email address: {}", default_email);
+                    AppError::EmailAddressError(format!("Failed to create default email: {}", e))
+                })?;
+                (default_email, false)
+            }
+            Some(email_str) => {
+                // Validate provided email
+                let email = EmailAddress::from_str(email_str).map_err(|e| {
+                    tracing::error!("Invalid email address provided: {}", email_str);
+                    AppError::EmailAddressError(format!("Invalid email address: {}", e))
+                })?;
+                (email.to_string(), true)
+            }
+        };
+
         // Try to insert user
         let result = sqlx::query_as::<_, User>(
-            "INSERT INTO users (wallet_address)
-            VALUES ($1)
-            RETURNING id, wallet_address, username, display_name, trust_rating, created_at, updated_at",
+            "INSERT INTO users (wallet_address, email, email_verified)
+            VALUES ($1, $2, $3)
+            RETURNING id, wallet_address, username, display_name, email, email_verified, trust_rating, created_at, updated_at",
         )
         .bind(&wallet_address)
+        .bind(&email)
+        .bind(email_verified)
         .fetch_one(&self.pool)
         .await;
 
@@ -64,15 +92,24 @@ impl UserRepository {
 
         let trust_rating = 10.0;
 
+        // Construct default email from wallet address
+        let default_email = format!("{}@stackswars.com", wallet_address.as_str());
+        // Validate the email format
+        EmailAddress::from_str(&default_email).map_err(|e| {
+            AppError::EmailAddressError(format!("Failed to create default email: {}", e))
+        })?;
+
         // Try to insert user with optional fields
         let user = sqlx::query_as::<_, User>(
-            "INSERT INTO users (wallet_address, username, display_name, trust_rating)
-            VALUES ($1, $2, $3, $4)
-            RETURNING id, wallet_address, username, display_name, trust_rating, created_at, updated_at",
+            "INSERT INTO users (wallet_address, username, display_name, email, email_verified, trust_rating)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id, wallet_address, username, display_name, email, email_verified, trust_rating, created_at, updated_at",
         )
         .bind(&wallet_address)
         .bind(username.as_ref())
         .bind(display_name)
+        .bind(&default_email)
+        .bind(false)
         .bind(trust_rating)
         .fetch_one(&self.pool)
         .await

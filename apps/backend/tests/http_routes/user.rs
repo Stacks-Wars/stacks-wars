@@ -19,8 +19,87 @@ async fn create_user() {
 
     // Handler returns CreateUserResponse { user, token }
     let body: serde_json::Value = resp.json().await.expect("failed to parse response");
-    let token = body.get("token").and_then(|v| v.as_str()).expect("missing token");
+    let token = body
+        .get("token")
+        .and_then(|v| v.as_str())
+        .expect("missing token");
     assert!(!token.is_empty());
+
+    // Verify default email was created
+    let user = body.get("user").expect("missing user");
+    let email = user
+        .get("email")
+        .and_then(|v| v.as_str())
+        .expect("missing email");
+    assert_eq!(
+        email,
+        "SP2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKNRV9EJ7@stackswars.com"
+    );
+    let email_verified = user
+        .get("emailVerified")
+        .and_then(|v| v.as_bool())
+        .expect("missing emailVerified");
+    assert_eq!(email_verified, false);
+
+    app.stop().await;
+}
+
+#[tokio::test]
+async fn create_user_with_email() {
+    let app = crate::common::spawn_app_with_containers().await;
+    let client = reqwest::Client::new();
+
+    let payload = json!({
+        "walletAddress": "SP3K8BC0PPEVCV7NZ6QSRWPQ2JE9E5B6N3PA0KBR9",
+        "emailAddress": "test@example.com"
+    });
+
+    let resp = client
+        .post(format!("{}/api/user", app.base_url))
+        .json(&payload)
+        .send()
+        .await
+        .expect("request failed");
+
+    assert!(resp.status().is_success());
+
+    let body: serde_json::Value = resp.json().await.expect("failed to parse response");
+    let user = body.get("user").expect("missing user");
+    let email = user
+        .get("email")
+        .and_then(|v| v.as_str())
+        .expect("missing email");
+    assert_eq!(email, "test@example.com");
+    let email_verified = user
+        .get("emailVerified")
+        .and_then(|v| v.as_bool())
+        .expect("missing emailVerified");
+    assert_eq!(email_verified, true);
+
+    app.stop().await;
+}
+
+#[tokio::test]
+async fn create_user_with_invalid_email() {
+    let app = crate::common::spawn_app_with_containers().await;
+    let client = reqwest::Client::new();
+
+    let payload = json!({
+        "walletAddress": "SP1HTBVD3JG9C05J7HBJTHGR0GGW7KXW28M5JS8QE",
+        "emailAddress": "invalid-email"
+    });
+
+    let resp = client
+        .post(format!("{}/api/user", app.base_url))
+        .json(&payload)
+        .send()
+        .await
+        .expect("request failed");
+
+    // Should return an error for invalid email
+    assert!(!resp.status().is_success());
+    assert_eq!(resp.status(), 400);
+
     app.stop().await;
 }
 

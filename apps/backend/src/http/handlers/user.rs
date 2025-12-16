@@ -22,6 +22,7 @@ use crate::{
 pub struct CreateUserRequest {
     /// User's Stacks wallet address (principal)
     pub wallet_address: String,
+    pub email_address: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -76,7 +77,11 @@ pub async fn create_user(
     let repo = UserRepository::new(state.postgres.clone());
 
     let (user, token) = repo
-        .create_user(&payload.wallet_address, &state.config.jwt_secret)
+        .create_user(
+            &payload.wallet_address,
+            payload.email_address.as_deref(),
+            &state.config.jwt_secret,
+        )
         .await
         .map_err(|e| e.to_response())?;
 
