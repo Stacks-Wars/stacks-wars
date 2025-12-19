@@ -10,14 +10,21 @@ export interface ApiResponse<T> {
 
 export class ApiClient {
 	private static getHeaders(): HeadersInit {
-		const { token } = useAuthStore.getState();
 		const headers: HeadersInit = {
 			"Content-Type": "application/json",
 			Accept: "application/json",
 		};
 
-		if (token) {
-			headers["Authorization"] = `Bearer ${token}`;
+		// Only try to get token on client side
+		if (typeof window !== "undefined") {
+			try {
+				const token = useAuthStore.getState().getToken();
+				if (token) {
+					headers["Authorization"] = `Bearer ${token}`;
+				}
+			} catch (error) {
+				// Ignore errors when accessing auth store
+			}
 		}
 
 		return headers;

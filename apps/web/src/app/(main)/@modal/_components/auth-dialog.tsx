@@ -3,7 +3,6 @@
 import { SiGoogle } from "@icons-pack/react-simple-icons";
 import {
 	connect,
-	disconnect,
 	getLocalStorage,
 	isConnected as isWalletConnected,
 	request,
@@ -25,6 +24,9 @@ import {
 	DialogTrigger,
 } from "@/components/ui/dialog";
 import { authClient } from "@/lib/auth-client";
+import { ApiClient } from "@/lib/api/client";
+import type { AuthResponse } from "@/lib/definitions";
+import { useAuthStore } from "@/lib/stores/auth";
 
 type AuthMode = "login" | "signup";
 type AuthType = "wallet" | "google";
@@ -44,6 +46,7 @@ export function AuthDialog({
 }: AuthDialogProps) {
 	const [isConnecting, setIsConnecting] = useState<AuthType | null>(null);
 	const [isConnected, setIsConnected] = useState<AuthType | null>(null);
+	const { login, logout } = useAuthStore();
 	const router = useRouter();
 
 	const isSignup = mode === "signup";
@@ -52,13 +55,15 @@ export function AuthDialog({
 		? "Choose your preferred method to create an account"
 		: "Choose your preferred authentication method to continue";
 	const walletText = isSignup ? "Sign up with Wallet" : "Connect Wallet";
-	const googleText = isSignup ? "Sign up with Google" : "Continue with Google";
+	const googleText = isSignup
+		? "Sign up with Google"
+		: "Continue with Google";
 
 	const handleWalletConnect = async () => {
 		setIsConnecting("wallet");
 		try {
 			if (isWalletConnected()) {
-				disconnect();
+				logout();
 			}
 
 			await connect({ network: "mainnet" });
@@ -75,45 +80,57 @@ export function AuthDialog({
 				return;
 			}
 
-			const { data: nonceData, error: nonceError } =
-				await authClient.siws.nonce({
+			//const { data: nonceData, error: nonceError } =
+			//	await authClient.siws.nonce({
+			//		walletAddress: address,
+			//	});
+
+			//if (nonceError || !nonceData?.nonce) {
+			//	toast.error("Failed to generate authentication nonce");
+			//	return;
+			//}
+
+			//const message = `Sign in to ${siteConfig.title} ${DOMAIN_NAME} ${nonceData.nonce}`;
+
+			//const signResponse = await request("stx_signMessage", {
+			//	message: message,
+			//});
+
+			//if (!signResponse?.publicKey || !signResponse?.signature) {
+			//	toast.error("Message signing was cancelled or failed");
+			//	return;
+			//}
+
+			//const { data: verificationData, error: verificationError } =
+			//	await authClient.siws.verify({
+			//		message: message,
+			//		signature: signResponse.signature,
+			//		walletAddress: address,
+			//		publicKey: signResponse.publicKey,
+			//	});
+
+			// post user to api to create or login
+			// if emailAddress field, be construct one using address + domain
+			const authResponse = await ApiClient.post<AuthResponse>(
+				"/api/user",
+				{
 					walletAddress: address,
-				});
+				}
+			);
 
-			if (nonceError || !nonceData?.nonce) {
-				toast.error("Failed to generate authentication nonce");
-				return;
-			}
-
-			const message = `Sign in to ${siteConfig.title} ${DOMAIN_NAME} ${nonceData.nonce}`;
-
-			const signResponse = await request("stx_signMessage", {
-				message: message,
-			});
-
-			if (!signResponse?.publicKey || !signResponse?.signature) {
-				toast.error("Message signing was cancelled or failed");
-				return;
-			}
-
-			const { data: verificationData, error: verificationError } =
-				await authClient.siws.verify({
-					message: message,
-					signature: signResponse.signature,
-					walletAddress: address,
-					publicKey: signResponse.publicKey,
-				});
-
-			if (verificationError) {
+			if (authResponse.error || !authResponse.data) {
 				toast.error("Authentication verification failed");
-				console.error("Verification error:", verificationError);
+				console.error(`API error: ${authResponse.error}`);
 				return;
 			}
 
-			if (verificationData) {
+			if (authResponse.data.token && authResponse.data.user) {
 				toast.success("Authenticated");
-				router.push("/games");
+				//router.back();
 				setIsConnected("wallet");
+
+				// store user and token in auth store
+				login(authResponse.data.user, authResponse.data.token);
 				// return verificationData;
 			}
 		} catch (error) {
@@ -192,7 +209,9 @@ export function AuthDialog({
 							<div className="w-full border-t border-border" />
 						</div>
 						<div className="relative flex justify-center text-xs">
-							<span className="bg-card px-3 text-muted-foreground">or</span>
+							<span className="bg-card px-3 text-muted-foreground">
+								or
+							</span>
 						</div>
 					</div>
 
@@ -244,14 +263,11 @@ export function AuthDialog({
 				</p>
 				<p className="text-center text-xs text-muted-foreground">
 					By continuing, you agree to our{" "}
-					<Link
-						href="/terms-of-service"
-						className="text-accent hover:underline"
-					>
+					<Link href={"/"} className="text-accent hover:underline">
 						Terms of Service
 					</Link>{" "}
 					and{" "}
-					<Link href="/privacy-policy" className="text-accent hover:underline">
+					<Link href="/" className="text-accent hover:underline">
 						Privacy Policy
 					</Link>
 				</p>

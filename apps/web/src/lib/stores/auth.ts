@@ -2,10 +2,10 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { User } from "@/lib/definitions";
 import { disconnectWallet } from "../wallet";
+import { setAuthToken, getAuthToken, removeAuthToken } from "../auth/cookies";
 
 interface AuthState {
 	user: User | null;
-	token: string | null;
 	isAuthenticated: boolean;
 	isLoading: boolean;
 
@@ -14,30 +14,31 @@ interface AuthState {
 	logout: () => void;
 	updateUser: (user: Partial<User>) => void;
 	setLoading: (isLoading: boolean) => void;
+	getToken: () => string | null;
 }
 
 export const useAuthStore = create<AuthState>()(
 	persist(
 		(set) => ({
 			user: null,
-			token: null,
 			isAuthenticated: false,
 			isLoading: false,
 
-			login: (user, token) =>
+			login: (user, token) => {
+				setAuthToken(token);
 				set({
 					user,
-					token,
 					isAuthenticated: true,
 					isLoading: false,
-				}),
+				});
+			},
 
 			logout: () => {
 				disconnectWallet();
+				removeAuthToken();
 
 				set({
 					user: null,
-					token: null,
 					isAuthenticated: false,
 					isLoading: false,
 				});
@@ -49,14 +50,15 @@ export const useAuthStore = create<AuthState>()(
 				})),
 
 			setLoading: (isLoading) => set({ isLoading }),
+
+			getToken: () => getAuthToken(),
 		}),
 		{
 			name: "auth-storage",
 			partialize: (state) => ({
 				user: state.user,
-				token: state.token,
 				isAuthenticated: state.isAuthenticated,
 			}),
-		},
-	),
+		}
+	)
 );

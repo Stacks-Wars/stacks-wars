@@ -8,10 +8,6 @@ import Link from "next/link";
 export default async function GamesPage() {
 	const games = await ApiClient.get<Game[]>("/api/games");
 
-	console.log(
-		`game: ${games}\n game data: ${games.data}\n games length: ${games.data?.length}`
-	);
-
 	return (
 		<div className="container mx-auto">
 			{games.data?.map((game) => (
@@ -56,7 +52,7 @@ export default async function GamesPage() {
 						</div>
 					</div>
 					<Image
-						src={"/images/lexi-wars.png"}
+						src={"/images/lexi-wars.svg"}
 						alt="lexi wars"
 						width={358}
 						height={182}
