@@ -1,114 +1,75 @@
-"use client";
-
-import { useEffect, useState } from "react";
+import GameCard from "@/components/main/game-card";
 import { ApiClient } from "@/lib/api/client";
 import type { Game } from "@/lib/definitions";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import Link from "next/link";
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
-export default function GamesPage() {
-	const [games, setGames] = useState<Game[]>([]);
-	const [isLoading, setIsLoading] = useState(true);
+export default async function GamesPage() {
+	const games = await ApiClient.get<Game[]>("/api/games");
 
-	useEffect(() => {
-		loadGames();
-	}, []);
-
-	const loadGames = async () => {
-		setIsLoading(true);
-		try {
-			const response = await ApiClient.get<Game[]>("/api/game");
-			if (response.data) {
-				// Filter only active games
-				setGames(response.data.filter((g) => g.isActive));
-			}
-		} catch (error) {
-			console.error("Failed to load games:", error);
-		} finally {
-			setIsLoading(false);
-		}
-	};
-
-	if (isLoading) {
-		return (
-			<div className="flex min-h-screen items-center justify-center">
-				<Loader2 className="h-8 w-8 animate-spin" />
-			</div>
-		);
-	}
+	console.log(
+		`game: ${games}\n game data: ${games.data}\n games length: ${games.data?.length}`
+	);
 
 	return (
-		<div className="container mx-auto px-4 py-8">
-			<div className="flex flex-col gap-8">
-				<div className="flex items-center justify-between">
+		<div className="container mx-auto">
+			{games.data?.map((game) => (
+				<GameCard {...game} />
+			))}
+			<div className="flex flex-col items-center">
+				<div className="flex justify-between items-center lg:gap-36 gap-10 bg-card lg:p-20 p-5 lg:rounded-xl rounded-[12px]">
 					<div>
-						<h1 className="text-4xl font-bold">Browse Games</h1>
-						<p className="text-muted-foreground">
-							Choose a game to create a lobby
+						<h3 className="lg:text-[40px]/10 text-[10px]/[10px] font-medium lg:mb-4 mb-1">
+							Lexi Wars
+						</h3>
+						<p className="lg:text-2xl/6 text-[6.5px]/[6.5px] lg:mb-7 mb-2">
+							A word battle game where players complete with
+							words.
 						</p>
-					</div>
-					<Link href="/">
-						<Button variant="outline">Back to Home</Button>
-					</Link>
-				</div>
-
-				{games.length === 0 ? (
-					<Card>
-						<CardContent className="pt-6">
-							<p className="text-center text-muted-foreground">
-								No games available yet. Create your first game!
+						<div className="flex lg:gap-4 gap-1 lg:mb-9 mb-2">
+							<span className="lg:text-xl/6 text-[6px] bg-foreground/10 rounded-full lg:py-4 py-1 lg:px-7 px-2">
+								Word
+							</span>
+							<span className="lg:text-xl/6 text-[6px] bg-foreground/10 rounded-full lg:py-4 py-1 lg:px-7 px-2">
+								Strategy
+							</span>
+							<span className="lg:text-xl/6 text-[6px] bg-foreground/10 rounded-full lg:py-4 py-1 lg:px-7 px-2">
+								Multiplayer
+							</span>
+						</div>
+						<div className="lg:text-xl text-[5px] flex gap-5">
+							<p>
+								<span className="font-medium ">
+									Active Rooms:
+								</span>{" "}
+								<span>3</span>
 							</p>
-						</CardContent>
-					</Card>
-				) : (
-					<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-						{games.map((game) => (
-							<Link key={game.id} href={`/games/${game.path}`}>
-								<Card className="cursor-pointer transition-all hover:scale-105 hover:shadow-lg">
-									<CardHeader>
-										{game.imageUrl && (
-											<div className="mb-4 aspect-video w-full overflow-hidden rounded-md">
-												<Image
-													src={game.imageUrl}
-													alt={game.name}
-													className="h-full w-full object-cover"
-													width={60}
-													height={60}
-												/>
-											</div>
-										)}
-										<CardTitle>{game.name}</CardTitle>
-										<CardDescription>
-											{game.description}
-										</CardDescription>
-									</CardHeader>
-									<CardContent>
-										<div className="flex items-center justify-between text-sm text-muted-foreground">
-											<span>
-												{game.minPlayers}-
-												{game.maxPlayers} players
-											</span>
-											{game.category && (
-												<span className="rounded-full bg-primary/10 px-2 py-1 text-xs">
-													{game.category}
-												</span>
-											)}
-										</div>
-									</CardContent>
-								</Card>
-							</Link>
-						))}
+							<p>
+								<span className="f ont-medium">Ratings:</span>{" "}
+								<span>4.5</span>
+							</p>
+							<p>
+								<span className="font-medium">Volume:</span>{" "}
+								<span>1K STX</span>
+							</p>
+						</div>
 					</div>
-				)}
+					<Image
+						src={"/images/lexi-wars.png"}
+						alt="lexi wars"
+						width={358}
+						height={182}
+						className="lg:w-89.5 w-24"
+						loading="lazy"
+					/>
+				</div>
+				<Button
+					className="-translate-y-1/2 w-full lg:max-w-80 max-w-24 lg:px-12 px-3 lg:py-6 py-1.5 rounded-full lg:text-xl text-[5px] font-medium"
+					asChild
+				>
+					<Link href={"/games"}>Play Now</Link>
+				</Button>
 			</div>
 		</div>
 	);

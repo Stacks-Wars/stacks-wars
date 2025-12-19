@@ -175,13 +175,6 @@
       },
     },
   },
-  "catalog": {
-    "@better-auth/expo": "1.4.5",
-    "@tanstack/react-query": "^5.90.12",
-    "better-auth": "1.4.5",
-    "dotenv": "^17.2.2",
-    "zod": "^4.1.13",
-  },
   "packages": {
     "@0no-co/graphql.web": ["@0no-co/graphql.web@1.2.0", "", { "peerDependencies": { "graphql": "^14.0.0 || ^15.0.0 || ^16.0.0" }, "optionalPeers": ["graphql"] }, "sha512-/1iHy9TTr63gE1YcR5idjx8UREz1s0kFhydf3bBLCXyqjhkIc6igAzTOx3zPifCwFR87tsh/4Pa9cNts6d2otw=="],
 

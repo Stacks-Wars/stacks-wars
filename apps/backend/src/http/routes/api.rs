@@ -1,6 +1,6 @@
 // Read-focused API routes mounted under `/api` (public/read-only)
 
-use axum::{Router, middleware::from_fn_with_state, routing::get};
+use axum::{middleware::from_fn_with_state, routing::get, Router};
 
 use crate::{
     http::handlers::{
@@ -13,7 +13,7 @@ use crate::{
         token_info::{get_token_info_mainnet, get_token_info_testnet},
         user::get_user,
     },
-    middleware::{ApiRateLimit, rate_limit_with_state},
+    middleware::{rate_limit_with_state, ApiRateLimit},
     state::AppState,
 };
 
@@ -22,7 +22,7 @@ pub fn routes(state_for_layer: AppState) -> Router<AppState> {
         .route("/user/{user_id}", get(get_user))
         .route("/platform-rating", get(list_ratings))
         .route("/platform-rating/{user_id}", get(get_rating))
-        .route("/game", get(list_games))
+        .route("/games", get(list_games))
         .route("/game/{game_id}", get(get_game))
         .route("/game/by-path/{path}", get(get_game_by_path))
         .route("/game/by-creator/{creator_id}", get(get_games_by_creator))
