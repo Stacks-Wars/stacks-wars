@@ -5,7 +5,6 @@ import {
 	connect,
 	getLocalStorage,
 	isConnected as isWalletConnected,
-	request,
 } from "@stacks/connect";
 import { DOMAIN_NAME, siteConfig } from "@stacks-wars/shared";
 import { CheckCircle2, Loader2, Wallet } from "lucide-react";
@@ -25,8 +24,9 @@ import {
 } from "@/components/ui/dialog";
 import { authClient } from "@/lib/auth-client";
 import { ApiClient } from "@/lib/api/client";
-import type { AuthResponse } from "@/lib/definitions";
-import { useAuthStore } from "@/lib/stores/auth";
+import type { User } from "@/lib/definitions";
+import { useUserStore } from "@/lib/stores/user";
+import { disconnectWallet } from "@/lib/wallet";
 
 type AuthMode = "login" | "signup";
 type AuthType = "wallet" | "google";
@@ -46,7 +46,7 @@ export function AuthDialog({
 }: AuthDialogProps) {
 	const [isConnecting, setIsConnecting] = useState<AuthType | null>(null);
 	const [isConnected, setIsConnected] = useState<AuthType | null>(null);
-	const { login, logout } = useAuthStore();
+	const { setUser, clearUser, user } = useUserStore();
 	const router = useRouter();
 
 	const isSignup = mode === "signup";
@@ -62,8 +62,9 @@ export function AuthDialog({
 	const handleWalletConnect = async () => {
 		setIsConnecting("wallet");
 		try {
-			if (isWalletConnected()) {
-				logout();
+			if (isWalletConnected() || user != null) {
+				disconnectWallet();
+				clearUser();
 			}
 
 			await connect({ network: "mainnet" });
@@ -111,12 +112,9 @@ export function AuthDialog({
 
 			// post user to api to create or login
 			// if emailAddress field, be construct one using address + domain
-			const authResponse = await ApiClient.post<AuthResponse>(
-				"/api/user",
-				{
-					walletAddress: address,
-				}
-			);
+			const authResponse = await ApiClient.post<User>("/api/user", {
+				walletAddress: address,
+			});
 
 			if (authResponse.error || !authResponse.data) {
 				toast.error("Authentication verification failed");
@@ -124,14 +122,11 @@ export function AuthDialog({
 				return;
 			}
 
-			if (authResponse.data.token && authResponse.data.user) {
+			if (authResponse.data) {
 				toast.success("Authenticated");
-				//router.back();
 				setIsConnected("wallet");
-
-				// store user and token in auth store
-				login(authResponse.data.user, authResponse.data.token);
-				// return verificationData;
+				setUser(authResponse.data);
+				router.back();
 			}
 		} catch (error) {
 			console.error("Stacks authentication error:", error);

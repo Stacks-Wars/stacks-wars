@@ -3,11 +3,10 @@
 import type { Route } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import Nav from "@/components/main/nav";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
-import { useAuthStore } from "@/lib/stores/auth";
+import { useUserStore } from "@/lib/stores/user";
 
 const navItems: { href: Route; label: string }[] = [
 	{ href: "/games", label: "Games" },
@@ -27,13 +26,11 @@ function formatAddress(
 	const start = address.slice(0, length);
 	const end = address.slice(-length);
 	return `${start}${separator}${end}`;
-
-	return address;
 }
 
 export default function Header() {
 	const pathname = usePathname();
-	const { user } = useAuthStore();
+	const { user } = useUserStore();
 
 	return (
 		<header className="container mx-auto">

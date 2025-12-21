@@ -165,4 +165,12 @@ impl RedisKey {
             user_id.into(),
         ])
     }
+
+    /// Revoked token key for JWT token revocation (pattern: `revoked_token:{jti}`).
+    pub fn revoked_token(jti: &str) -> String {
+        Self::build(&[
+            KeyPart::Str("revoked_token".to_string()),
+            KeyPart::Str(jti.to_string()),
+        ])
+    }
 }

@@ -3,13 +3,16 @@
 use axum::{
     Json,
     extract::{Path, State},
-    http::StatusCode,
+    http::{StatusCode, header},
+    response::{IntoResponse, Response},
 };
+use axum_extra::extract::cookie::{Cookie, SameSite};
+use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    auth::AuthClaims, db::user::UserRepository, errors::AppError, models::User, state::AppState,
+    auth::AuthClaims, db::user::UserRepository, errors::AppError, models::{User, keys::RedisKey}, state::AppState,
 };
 
 // ============================================================================
@@ -23,13 +26,6 @@ pub struct CreateUserRequest {
     /// User's Stacks wallet address (principal)
     pub wallet_address: String,
     pub email_address: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateUserResponse {
-    pub user: User,
-    pub token: String,
 }
 
 /// Request body for updating username
@@ -69,11 +65,11 @@ pub struct UpdateProfileRequest {
 
 /// Register a new user and return user details with JWT token.
 ///
-/// Public endpoint. Returns a JSON object containing `user` and `token` on success.
+/// Public endpoint. Returns the created User and sets an httpOnly cookie with the auth token.
 pub async fn create_user(
     State(state): State<AppState>,
     Json(payload): Json<CreateUserRequest>,
-) -> Result<Json<CreateUserResponse>, (StatusCode, String)> {
+) -> Result<Response, (StatusCode, String)> {
     let repo = UserRepository::new(state.postgres.clone());
 
     let (user, token) = repo
@@ -85,7 +81,26 @@ pub async fn create_user(
         .await
         .map_err(|e| e.to_response())?;
 
-    Ok(Json(CreateUserResponse { user, token }))
+    // Create httpOnly cookie for the token
+    let is_production = std::env::var("ENVIRONMENT")
+        .unwrap_or_else(|_| "development".to_string())
+        == "production";
+
+    let cookie = Cookie::build(("auth_token", token.clone()))
+        .path("/")
+        .max_age(time::Duration::days(7))
+        .same_site(SameSite::Strict)
+        .http_only(true)
+        .secure(is_production)
+        .build();
+
+    let mut response = Json(user).into_response();
+    response.headers_mut().insert(
+        header::SET_COOKIE,
+        cookie.to_string().parse().unwrap(),
+    );
+
+    Ok(response)
 }
 
 // ============================================================================
@@ -191,4 +206,62 @@ pub async fn update_profile(
         .map_err(|e| e.to_response())?;
 
     Ok(Json(user))
+}
+
+// ============================================================================
+// User Logout
+// ============================================================================
+
+/// Logout the authenticated user by revoking their JWT token.
+///
+/// Revokes the token by storing its JTI in Redis with the remaining TTL.
+/// Also clears the auth_token cookie.
+pub async fn logout(
+    State(state): State<AppState>,
+    AuthClaims(claims): AuthClaims,
+) -> Result<Response, (StatusCode, String)> {
+    // Get the JTI and remaining TTL from the token
+    let jti = claims.jti();
+    let ttl = claims.remaining_ttl();
+
+    // Store revoked token in Redis with remaining TTL
+    let key = RedisKey::revoked_token(jti);
+    
+    let mut conn = state.redis.get().await.map_err(|e| {
+        tracing::error!("Failed to get Redis connection for logout: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Logout failed".to_string(),
+        )
+    })?;
+
+    // Set the revoked token with expiration matching the token's remaining lifetime
+    let _: () = conn
+        .set_ex(&key, true, ttl as u64)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to revoke token in Redis: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Logout failed".to_string(),
+            )
+        })?;
+
+    // Create cookie with max-age=0 to clear it
+    let cookie = Cookie::build(("auth_token", ""))
+        .path("/")
+        .max_age(time::Duration::seconds(0))
+        .same_site(SameSite::Strict)
+        .http_only(true)
+        .build();
+
+    let mut response = StatusCode::NO_CONTENT.into_response();
+    response.headers_mut().insert(
+        header::SET_COOKIE,
+        cookie.to_string().parse().unwrap(),
+    );
+
+    tracing::info!("User {} logged out successfully", claims.user_id().unwrap_or_default());
+
+    Ok(response)
 }

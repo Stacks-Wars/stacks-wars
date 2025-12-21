@@ -20,7 +20,7 @@ async fn test_lobby_list_connection_and_initial_list() {
 
     // Create test user
     let (creator_id, creator_token) = factory
-        .create_test_user(Some("list-viewer"))
+        .create_test_user(None)
         .await
         .expect("Failed to create user");
 
@@ -97,7 +97,7 @@ async fn test_lobby_list_status_filter() {
 
     // Create test users
     let (creator_id, creator_token) = factory
-        .create_test_user(Some("filter-tester"))
+        .create_test_user(None)
         .await
         .expect("Failed to create user");
 
@@ -170,7 +170,7 @@ async fn test_lobby_list_subscribe_update() {
 
     // Create test user
     let (creator_id, creator_token) = factory
-        .create_test_user(Some("subscribe-tester"))
+        .create_test_user(None)
         .await
         .expect("Failed to create user");
 
@@ -246,7 +246,7 @@ async fn test_lobby_list_load_more() {
 
     // Create test user
     let (creator_id, creator_token) = factory
-        .create_test_user(Some("load-more-tester"))
+        .create_test_user(None)
         .await
         .expect("Failed to create user");
 

@@ -80,7 +80,7 @@ impl TestApp {
             wallet: "test_wallet".to_string(),
             iat: now.timestamp(),
             exp: (now + ChronoDuration::days(expiry_days)).timestamp(),
-            jti: Some(Uuid::new_v4().to_string()),
+            jti: Uuid::new_v4().to_string(),
         };
 
         let token = encode(
@@ -159,7 +159,7 @@ impl TestFactory {
             wallet: wallet.clone(),
             iat: now.timestamp(),
             exp: (now + ChronoDuration::days(expiry_days)).timestamp(),
-            jti: Some(Uuid::new_v4().to_string()),
+            jti: Uuid::new_v4().to_string(),
         };
 
         let token = jsonwebtoken::encode(
@@ -169,6 +169,11 @@ impl TestFactory {
         )?;
 
         Ok((user_id, token))
+    }
+
+    /// Generate auth_token cookie string from JWT token for testing
+    pub fn create_auth_cookie(&self, token: &str) -> String {
+        format!("auth_token={}", token)
     }
 
     /// Insert a game directly into the database and return the game id

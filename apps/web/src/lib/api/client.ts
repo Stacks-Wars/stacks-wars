@@ -1,5 +1,3 @@
-import { useAuthStore } from "@/lib/stores/auth";
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 export interface ApiResponse<T> {
@@ -10,24 +8,10 @@ export interface ApiResponse<T> {
 
 export class ApiClient {
 	private static getHeaders(): HeadersInit {
-		const headers: HeadersInit = {
+		return {
 			"Content-Type": "application/json",
 			Accept: "application/json",
 		};
-
-		// Only try to get token on client side
-		if (typeof window !== "undefined") {
-			try {
-				const token = useAuthStore.getState().getToken();
-				if (token) {
-					headers["Authorization"] = `Bearer ${token}`;
-				}
-			} catch (error) {
-				// Ignore errors when accessing auth store
-			}
-		}
-
-		return headers;
 	}
 
 	static async get<T>(endpoint: string): Promise<ApiResponse<T>> {

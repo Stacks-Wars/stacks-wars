@@ -12,15 +12,15 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { ApiClient } from "@/lib/api/client";
-import type { AuthResponse } from "@/lib/definitions";
-import { useAuthStore } from "@/lib/stores/auth";
+import type { User } from "@/lib/definitions";
+import { useUserStore } from "@/lib/stores/user";
 import { connectWallet, isWalletConnected } from "@/lib/wallet";
 
 export default function LoginModal() {
 	const router = useRouter();
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const { login } = useAuthStore();
+	const { setUser } = useUserStore();
 
 	const handleConnect = async () => {
 		// Check if already connected
@@ -36,7 +36,7 @@ export default function LoginModal() {
 			const walletAddress = await connectWallet();
 
 			// Authenticate with backend
-			const authResponse = await ApiClient.post<AuthResponse>("/api/user", {
+			const authResponse = await ApiClient.post<User>("/api/user", {
 				walletAddress,
 			});
 
@@ -44,12 +44,13 @@ export default function LoginModal() {
 				throw new Error(authResponse.error || "Authentication failed");
 			}
 
-			// Update auth store
-			login(authResponse.data.user, authResponse.data.token);
+			setUser(authResponse.data);
 
 			router.back();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to connect wallet");
+			setError(
+				err instanceof Error ? err.message : "Failed to connect wallet"
+			);
 		} finally {
 			setIsLoading(false);
 		}
@@ -62,8 +63,8 @@ export default function LoginModal() {
 					<CardHeader>
 						<CardTitle>Connect Wallet</CardTitle>
 						<CardDescription>
-							Connect your Stacks wallet to join games and compete with other
-							players.
+							Connect your Stacks wallet to join games and compete
+							with other players.
 						</CardDescription>
 					</CardHeader>
 					<div className="flex flex-col gap-4">
@@ -88,8 +89,8 @@ export default function LoginModal() {
 							)}
 						</Button>
 						<p className="text-center text-xs text-muted-foreground">
-							By connecting your wallet, you agree to our Terms of Service and
-							Privacy Policy.
+							By connecting your wallet, you agree to our Terms of
+							Service and Privacy Policy.
 						</p>
 					</div>
 				</CardContent>

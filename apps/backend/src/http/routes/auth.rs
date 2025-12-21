@@ -11,7 +11,7 @@ use crate::{
         lobby::{create_lobby, delete_lobby},
         platform_rating::{create_rating, delete_rating, update_rating},
         season::create_season,
-        user::{update_display_name, update_profile, update_username},
+        user::{logout, update_display_name, update_profile, update_username},
     },
     middleware::{AuthRateLimit, rate_limit_with_state},
     state::AppState,
@@ -29,6 +29,7 @@ pub fn routes(state_for_layer: AppState) -> Router<AppState> {
         .route("/lobby", post(create_lobby))
         .route("/lobby/{lobby_id}", delete(delete_lobby))
         .route("/season", post(create_season))
+        .route("/logout", post(logout))
         .layer(from_fn_with_state(
             state_for_layer.clone(),
             rate_limit_with_state::<AuthRateLimit>,
