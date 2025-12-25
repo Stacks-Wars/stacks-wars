@@ -1,9 +1,17 @@
-import React from 'react';
+import Header from "@/components/main/header";
 
 export default function GameLayout({
-  children,
+	children,
+	modal,
 }: {
-  children: React.ReactNode;
+	children: React.ReactNode;
+	modal: React.ReactNode;
 }) {
-  return <>{children}</>;
+	return (
+		<>
+			<Header />
+			{children}
+			{modal}
+		</>
+	);
 }
