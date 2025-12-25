@@ -41,7 +41,7 @@ async fn create_lobby() {
 
     let resp = client
         .post(format!("{}/api/lobby", app.base_url))
-        .bearer_auth(&token)
+        .header("Cookie", factory.create_auth_cookie(&token))
         .json(&lobby_payload)
         .send()
         .await
@@ -176,7 +176,7 @@ async fn list_my_lobbies() {
 
     let resp = client
         .post(format!("{}/api/lobby", app.base_url))
-        .bearer_auth(&token)
+        .header("Cookie", factory.create_auth_cookie(&token))
         .json(&lobby_payload)
         .send()
         .await
@@ -188,7 +188,7 @@ async fn list_my_lobbies() {
     // list my lobbies and assert created one is present
     let resp = client
         .get(format!("{}/api/lobby/my", app.base_url))
-        .bearer_auth(&token)
+        .header("Cookie", factory.create_auth_cookie(&token))
         .send()
         .await
         .expect("request failed");
@@ -237,7 +237,7 @@ async fn delete_lobby() {
 
     let resp = client
         .post(format!("{}/api/lobby", app.base_url))
-        .bearer_auth(&token)
+        .header("Cookie", factory.create_auth_cookie(&token))
         .json(&lobby_payload)
         .send()
         .await
@@ -249,7 +249,7 @@ async fn delete_lobby() {
     // delete the lobby
     let resp = client
         .delete(format!("{}/api/lobby/{}", app.base_url, lobby_id))
-        .bearer_auth(&token)
+        .header("Cookie", factory.create_auth_cookie(&token))
         .send()
         .await
         .expect("request failed");

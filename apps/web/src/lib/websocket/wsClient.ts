@@ -20,17 +20,13 @@ export class webSocketClient {
 	private reconnectTimeout: NodeJS.Timeout | null = null;
 	private pingInterval: NodeJS.Timeout | null = null;
 
-	constructor(
-		private lobbyPath: string,
-		private token?: string
-	) {}
+	constructor(private lobbyPath: string) {}
 
 	connect(wsUrl: string): Promise<void> {
 		return new Promise((resolve, reject) => {
 			try {
-				const url = this.token ? `${wsUrl}?token=${this.token}` : wsUrl;
-				console.log(`[WS] Connecting to ${url}`);
-				this.ws = new WebSocket(url);
+				console.log(`[WS] Connecting to ${wsUrl}`);
+				this.ws = new WebSocket(wsUrl);
 
 				this.ws.onopen = () => {
 					console.log(`[WS] Connected to lobby ${this.lobbyPath}`);

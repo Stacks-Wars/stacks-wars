@@ -33,7 +33,7 @@ async fn api_rate_limit_unauthenticated_and_authenticated() {
     app.reset_redis().await.unwrap();
     for i in 1..=61 {
         let resp = client
-            .get(format!("{}/api/game", app.base_url))
+            .get(format!("{}/api/games", app.base_url))
             .send()
             .await
             .expect("request failed");
@@ -60,13 +60,14 @@ async fn api_rate_limit_unauthenticated_and_authenticated() {
 
     // Authenticated (user-based => 300/min)
     app.reset_redis().await.unwrap();
+    let factory = app.factory();
     let user_id = Uuid::new_v4();
     let token = app.generate_jwt_for_user(user_id).unwrap();
     let mut prev: Option<usize> = None;
     for _ in 0..3 {
         let resp = client
             .get(format!("{}/api/lobby/my", app.base_url))
-            .bearer_auth(&token)
+            .header("Cookie", factory.create_auth_cookie(&token))
             .send()
             .await
             .expect("request failed");
@@ -91,6 +92,7 @@ async fn auth_rate_limit_applies_to_write_routes() {
     let client = reqwest::Client::new();
 
     app.reset_redis().await.unwrap();
+    let factory = app.factory();
     let user_id = Uuid::new_v4();
     let token = app.generate_jwt_for_user(user_id).unwrap();
 
@@ -98,7 +100,7 @@ async fn auth_rate_limit_applies_to_write_routes() {
     for _ in 0..3 {
         let resp = client
             .post(format!("{}/api/lobby", app.base_url))
-            .bearer_auth(&token)
+            .header("Cookie", factory.create_auth_cookie(&token))
             .json(&json!({ "invalid": "payload" }))
             .send()
             .await

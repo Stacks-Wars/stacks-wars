@@ -29,14 +29,11 @@ impl WsConnection {
         token: &str,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let ws_url = base_url.replace("http://", "ws://");
-        let url = format!(
-            "{}/ws/room/{}?authorization=Bearer%20{}",
-            ws_url, lobby_path, token
-        );
+        let url = format!("{}/ws/room/{}", ws_url, lobby_path);
 
         let request = tokio_tungstenite::tungstenite::http::Request::builder()
             .uri(&url)
-            .header("Authorization", format!("Bearer {}", token))
+            .header("Cookie", format!("auth_token={}", token))
             .header(
                 "Sec-WebSocket-Key",
                 tokio_tungstenite::tungstenite::handshake::client::generate_key(),
@@ -75,10 +72,6 @@ impl WsConnection {
             query_params.push(format!("status={}", statuses.join(",")));
         }
 
-        if let Some(tok) = token {
-            query_params.push(format!("authorization=Bearer%20{}", tok));
-        }
-
         if !query_params.is_empty() {
             url.push('?');
             url.push_str(&query_params.join("&"));
@@ -102,7 +95,7 @@ impl WsConnection {
             );
 
         if let Some(tok) = token {
-            request_builder = request_builder.header("Authorization", format!("Bearer {}", tok));
+            request_builder = request_builder.header("Cookie", format!("auth_token={}", tok));
         }
 
         let request = request_builder

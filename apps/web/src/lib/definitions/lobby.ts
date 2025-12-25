@@ -37,6 +37,6 @@ export interface CreateLobbyRequest {
 	tokenSymbol?: string;
 	tokenContractId?: string;
 	contractAddress?: string;
-	isPrivate?: boolean;
-	isSponsored?: boolean;
+	isPrivate: boolean;
+	isSponsored: boolean;
 }

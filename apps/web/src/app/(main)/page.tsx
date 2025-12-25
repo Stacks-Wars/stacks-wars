@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useAuthStore } from "@/lib/stores/auth";
+import { useUserStore } from "@/lib/stores/user";
 
 export default function HomePage() {
-	const { isAuthenticated, user } = useAuthStore();
+	const { isAuthenticated, user } = useUserStore();
 
 	return (
 		<div className="container mx-auto px-4 py-8">

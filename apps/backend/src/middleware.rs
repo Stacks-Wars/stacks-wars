@@ -285,6 +285,7 @@ pub fn cors_layer() -> CorsLayer {
             axum::http::header::AUTHORIZATION,
             axum::http::header::CONTENT_TYPE,
             axum::http::header::ACCEPT,
+            axum::http::header::COOKIE,
         ])
         .allow_credentials(true)
         .max_age(Duration::from_secs(3600))

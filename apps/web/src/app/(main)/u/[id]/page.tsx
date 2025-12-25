@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { useAuthStore } from "@/lib/stores/auth";
+import { useUserStore } from "@/lib/stores/user";
 import { ApiClient } from "@/lib/api/client";
 import type { User, Game, CreateGameRequest } from "@/lib/definitions";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ import Link from "next/link";
 
 export default function UserProfilePage() {
 	const params = useParams();
-	const { user: currentUser, logout } = useAuthStore();
+	const { user: currentUser } = useUserStore();
 	const [user, setUser] = useState<User | null>(null);
 	const [games, setGames] = useState<Game[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
@@ -37,6 +37,15 @@ export default function UserProfilePage() {
 	const [isCreating, setIsCreating] = useState(false);
 
 	const isOwnProfile = currentUser?.id === params.id;
+
+	const logout = async () => {
+		try {
+			await ApiClient.post("/api/logout");
+			window.location.reload();
+		} catch (error) {
+			console.error("Logout failed:", error);
+		}
+	};
 
 	const loadProfile = async () => {
 		setIsLoading(true);

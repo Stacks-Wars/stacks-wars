@@ -1,5 +1,3 @@
-import { useAuthStore } from "@/lib/stores/auth";
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 export interface ApiResponse<T> {
@@ -10,17 +8,10 @@ export interface ApiResponse<T> {
 
 export class ApiClient {
 	private static getHeaders(): HeadersInit {
-		const { token } = useAuthStore.getState();
-		const headers: HeadersInit = {
+		return {
 			"Content-Type": "application/json",
 			Accept: "application/json",
 		};
-
-		if (token) {
-			headers["Authorization"] = `Bearer ${token}`;
-		}
-
-		return headers;
 	}
 
 	static async get<T>(endpoint: string): Promise<ApiResponse<T>> {

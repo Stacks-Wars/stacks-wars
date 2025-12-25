@@ -3,10 +3,8 @@
 import { SiGoogle } from "@icons-pack/react-simple-icons";
 import {
 	connect,
-	disconnect,
 	getLocalStorage,
 	isConnected as isWalletConnected,
-	request,
 } from "@stacks/connect";
 import { DOMAIN_NAME, siteConfig } from "@stacks-wars/shared";
 import { CheckCircle2, Loader2, Wallet } from "lucide-react";
@@ -25,6 +23,10 @@ import {
 	DialogTrigger,
 } from "@/components/ui/dialog";
 import { authClient } from "@/lib/auth-client";
+import { ApiClient } from "@/lib/api/client";
+import type { User } from "@/lib/definitions";
+import { useUserStore } from "@/lib/stores/user";
+import { disconnectWallet } from "@/lib/wallet";
 
 type AuthMode = "login" | "signup";
 type AuthType = "wallet" | "google";
@@ -44,6 +46,7 @@ export function AuthDialog({
 }: AuthDialogProps) {
 	const [isConnecting, setIsConnecting] = useState<AuthType | null>(null);
 	const [isConnected, setIsConnected] = useState<AuthType | null>(null);
+	const { setUser, clearUser, user } = useUserStore();
 	const router = useRouter();
 
 	const isSignup = mode === "signup";
@@ -52,13 +55,16 @@ export function AuthDialog({
 		? "Choose your preferred method to create an account"
 		: "Choose your preferred authentication method to continue";
 	const walletText = isSignup ? "Sign up with Wallet" : "Connect Wallet";
-	const googleText = isSignup ? "Sign up with Google" : "Continue with Google";
+	const googleText = isSignup
+		? "Sign up with Google"
+		: "Continue with Google";
 
 	const handleWalletConnect = async () => {
 		setIsConnecting("wallet");
 		try {
-			if (isWalletConnected()) {
-				disconnect();
+			if (isWalletConnected() || user != null) {
+				disconnectWallet();
+				clearUser();
 			}
 
 			await connect({ network: "mainnet" });
@@ -75,46 +81,52 @@ export function AuthDialog({
 				return;
 			}
 
-			const { data: nonceData, error: nonceError } =
-				await authClient.siws.nonce({
-					walletAddress: address,
-				});
+			//const { data: nonceData, error: nonceError } =
+			//	await authClient.siws.nonce({
+			//		walletAddress: address,
+			//	});
 
-			if (nonceError || !nonceData?.nonce) {
-				toast.error("Failed to generate authentication nonce");
-				return;
-			}
+			//if (nonceError || !nonceData?.nonce) {
+			//	toast.error("Failed to generate authentication nonce");
+			//	return;
+			//}
 
-			const message = `Sign in to ${siteConfig.title} ${DOMAIN_NAME} ${nonceData.nonce}`;
+			//const message = `Sign in to ${siteConfig.title} ${DOMAIN_NAME} ${nonceData.nonce}`;
 
-			const signResponse = await request("stx_signMessage", {
-				message: message,
+			//const signResponse = await request("stx_signMessage", {
+			//	message: message,
+			//});
+
+			//if (!signResponse?.publicKey || !signResponse?.signature) {
+			//	toast.error("Message signing was cancelled or failed");
+			//	return;
+			//}
+
+			//const { data: verificationData, error: verificationError } =
+			//	await authClient.siws.verify({
+			//		message: message,
+			//		signature: signResponse.signature,
+			//		walletAddress: address,
+			//		publicKey: signResponse.publicKey,
+			//	});
+
+			// post user to api to create or login
+			// if emailAddress field, be construct one using address + domain
+			const authResponse = await ApiClient.post<User>("/api/user", {
+				walletAddress: address,
 			});
 
-			if (!signResponse?.publicKey || !signResponse?.signature) {
-				toast.error("Message signing was cancelled or failed");
-				return;
-			}
-
-			const { data: verificationData, error: verificationError } =
-				await authClient.siws.verify({
-					message: message,
-					signature: signResponse.signature,
-					walletAddress: address,
-					publicKey: signResponse.publicKey,
-				});
-
-			if (verificationError) {
+			if (authResponse.error || !authResponse.data) {
 				toast.error("Authentication verification failed");
-				console.error("Verification error:", verificationError);
+				console.error(`API error: ${authResponse.error}`);
 				return;
 			}
 
-			if (verificationData) {
+			if (authResponse.data) {
 				toast.success("Authenticated");
-				router.push("/games");
 				setIsConnected("wallet");
-				// return verificationData;
+				setUser(authResponse.data);
+				router.back();
 			}
 		} catch (error) {
 			console.error("Stacks authentication error:", error);
@@ -192,7 +204,9 @@ export function AuthDialog({
 							<div className="w-full border-t border-border" />
 						</div>
 						<div className="relative flex justify-center text-xs">
-							<span className="bg-card px-3 text-muted-foreground">or</span>
+							<span className="bg-card px-3 text-muted-foreground">
+								or
+							</span>
 						</div>
 					</div>
 
@@ -244,14 +258,11 @@ export function AuthDialog({
 				</p>
 				<p className="text-center text-xs text-muted-foreground">
 					By continuing, you agree to our{" "}
-					<Link
-						href="/terms-of-service"
-						className="text-accent hover:underline"
-					>
+					<Link href={"/"} className="text-accent hover:underline">
 						Terms of Service
 					</Link>{" "}
 					and{" "}
-					<Link href="/privacy-policy" className="text-accent hover:underline">
+					<Link href="/" className="text-accent hover:underline">
 						Privacy Policy
 					</Link>
 				</p>

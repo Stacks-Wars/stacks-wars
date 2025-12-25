@@ -25,7 +25,7 @@ async fn create_game() {
 
     let resp = client
         .post(format!("{}/api/game", app.base_url))
-        .bearer_auth(&token)
+        .header("Cookie", factory.create_auth_cookie(&token))
         .json(&payload)
         .send()
         .await
@@ -92,7 +92,7 @@ async fn list_games() {
         .expect("create game failed");
 
     let resp = client
-        .get(format!("{}/api/game", app.base_url))
+        .get(format!("{}/api/games", app.base_url))
         .send()
         .await
         .expect("request failed");

@@ -1,43 +1,37 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { User } from "@/lib/definitions";
-import { disconnectWallet } from "../wallet";
 
-interface AuthState {
+interface UserState {
 	user: User | null;
-	token: string | null;
 	isAuthenticated: boolean;
 	isLoading: boolean;
 
 	// Actions
-	login: (user: User, token: string) => void;
-	logout: () => void;
+	setUser: (user: User) => void;
+	clearUser: () => void;
 	updateUser: (user: Partial<User>) => void;
 	setLoading: (isLoading: boolean) => void;
 }
 
-export const useAuthStore = create<AuthState>()(
+export const useUserStore = create<UserState>()(
 	persist(
 		(set) => ({
 			user: null,
-			token: null,
 			isAuthenticated: false,
 			isLoading: false,
 
-			login: (user, token) =>
+			setUser: (user) => {
 				set({
 					user,
-					token,
 					isAuthenticated: true,
 					isLoading: false,
-				}),
+				});
+			},
 
-			logout: () => {
-				disconnectWallet();
-
+			clearUser: () => {
 				set({
 					user: null,
-					token: null,
 					isAuthenticated: false,
 					isLoading: false,
 				});
@@ -51,12 +45,11 @@ export const useAuthStore = create<AuthState>()(
 			setLoading: (isLoading) => set({ isLoading }),
 		}),
 		{
-			name: "auth-storage",
+			name: "user-storage",
 			partialize: (state) => ({
 				user: state.user,
-				token: state.token,
 				isAuthenticated: state.isAuthenticated,
 			}),
-		},
-	),
+		}
+	)
 );

@@ -21,11 +21,6 @@ export interface UpdateUserRequest {
 	profileImage?: string;
 }
 
-export interface AuthResponse {
-	user: User;
-	token: string;
-}
-
 export interface PlayerState {
 	userId: string;
 	lobbyId: string;

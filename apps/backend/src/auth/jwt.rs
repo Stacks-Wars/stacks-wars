@@ -1,7 +1,7 @@
 // JWT utilities: token generation and validation (HS256, claims, expiry)
 
 use chrono::{Duration, Utc};
-use jsonwebtoken::{EncodingKey, Header, encode};
+use jsonwebtoken::{encode, EncodingKey, Header};
 use uuid::Uuid;
 
 use crate::{errors::AppError, models::User};
@@ -20,9 +20,8 @@ pub struct Claims {
     pub iat: i64,
     /// Expiration timestamp (seconds since Unix epoch)
     pub exp: i64,
-    /// JWT ID for token tracking/revocation (optional)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub jti: Option<String>,
+    /// JWT ID for token tracking/revocation
+    pub jti: String,
 }
 
 impl Claims {
@@ -42,6 +41,16 @@ impl Claims {
     pub fn age_seconds(&self) -> i64 {
         Utc::now().timestamp() - self.iat
     }
+
+    /// Get remaining time to live in seconds
+    pub fn remaining_ttl(&self) -> i64 {
+        (self.exp - Utc::now().timestamp()).max(0)
+    }
+
+    /// Get the JWT ID for this token
+    pub fn jti(&self) -> &str {
+        &self.jti
+    }
 }
 
 /// Generate JWT token for user authentication
@@ -60,7 +69,7 @@ pub fn generate_jwt(user: &User, secret: &str) -> Result<String, AppError> {
         wallet: user.wallet_address.to_string(),
         iat: now.timestamp(),
         exp: (now + Duration::days(expiry_days)).timestamp(),
-        jti: Some(Uuid::new_v4().to_string()),
+        jti: Uuid::new_v4().to_string(),
     };
 
     encode(
