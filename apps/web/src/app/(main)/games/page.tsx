@@ -17,7 +17,7 @@ export default async function GamesPage() {
 				</p>
 			</div>
 			{games.data?.map((game, i) => (
-				<GameCard key={i} {...game} />
+				<GameCard key={i} game={game} open="createLobbyPage" />
 			))}
 		</div>
 	);

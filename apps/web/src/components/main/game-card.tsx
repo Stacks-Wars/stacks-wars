@@ -4,7 +4,13 @@ import Link from "next/link";
 import type { Game } from "@/lib/definitions";
 import { IoStar } from "react-icons/io5";
 
-export default function GameCard(game: Game) {
+export default function GameCard({
+	game,
+	open,
+}: {
+	game: Game;
+	open?: "gamePage" | "createLobbyPage";
+}) {
 	return (
 		<div className="flex flex-col items-center w-full">
 			<div className="flex flex-col-reverse sm:flex-row justify-between items-center gap-4 lg:gap-36 bg-card px-4 lg:px-17.5 py-10 lg:py-15.5 rounded-4xl w-full">
@@ -47,12 +53,20 @@ export default function GameCard(game: Game) {
 					className="w-40 md:w-89.5"
 				/>
 			</div>
-			<Button
-				className="-translate-y-1/2 w-full max-w-28 md:max-w-80 rounded-full text-xs md:text-xl sm:font-medium"
-				asChild
-			>
-				<Link href={`/games/${game.path}`}>Play Now</Link>
-			</Button>
+			{open && (
+				<Button
+					className="-translate-y-1/2 w-full max-w-28 md:max-w-80 rounded-full text-xs md:text-xl sm:font-medium"
+					asChild
+				>
+					{open === "createLobbyPage" ? (
+						<Link href={`/games/${game.path}`}>Play Now</Link>
+					) : (
+						<Link href={{ pathname: `/game/${game.path}` }}>
+							View Game
+						</Link>
+					)}
+				</Button>
+			)}
 		</div>
 	);
 }
