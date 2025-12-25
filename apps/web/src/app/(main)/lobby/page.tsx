@@ -1,12 +1,13 @@
 import LobbyCard from "@/components/main/lobby-card";
-import type { Lobby } from "@/lib/definitions";
+import type { LobbyExtended } from "@/lib/definitions";
 
-const lobby: Lobby = {
+const lobby: LobbyExtended = {
 	id: "1",
-	name: "Test Lobby",
+	name: "Test lobby Test lobby Test lobby Test lobby Test l",
 	path: "test-lobby",
 	gamePath: "test-game",
-	description: "This is a test lobby",
+	description:
+		" Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby T",
 	gameId: "game1",
 	creatorId: "user1",
 	entryAmount: 10,
@@ -19,6 +20,11 @@ const lobby: Lobby = {
 	status: "waiting",
 	createdAt: new Date().toISOString(),
 	updatedAt: new Date().toISOString(),
+	participantCount: 1,
+	creatorWalletAddress: "SPF0V8KWBS70F0WDKTMY65B3G591NN52PTHHN51D",
+	gameImageUrl: "/images/lexi-wars.svg",
+	gameMinPlayers: 0,
+	gameMaxPlayers: 0,
 };
 
 export default function LobbyPage() {

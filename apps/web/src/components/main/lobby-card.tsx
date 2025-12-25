@@ -1,25 +1,33 @@
-import type { Lobby } from "@/lib/definitions";
+import type { LobbyExtended } from "@/lib/definitions";
 import { Button } from "../ui/button";
 import Image from "next/image";
 import { Badge } from "../ui/badge";
 import { Lock, LockOpen, Users } from "lucide-react";
 import { BiCoinStack } from "react-icons/bi";
+import Link from "next/link";
+import { formatAddress } from "@/lib/utils";
 
-export default function LobbyCard({ lobby }: { lobby: Lobby }) {
+export default function LobbyCard({ lobby }: { lobby: LobbyExtended }) {
 	return (
-		<div className="bg-card p-6 lg:p-12 rounded-4xl border max-w-152.5 space-y-4 lg:space-y-8">
+		<div className="bg-card p-6 lg:p-12 rounded-4xl border max-w-150 space-y-4 lg:space-y-8">
 			<div className="space-y-4 lg:space-y-6.5">
 				<div className="flex justify-between items-center">
-					<div>
+					<div className="max-w-50 lg:max-w-100">
 						<p className="truncate text-xl lg:text-2xl font-medium">
 							{lobby.name}
 						</p>
-						<p className="truncate text-xs lg:text-lg text-foreground/50">
+						<Link
+							href={`/u/${lobby.creatorUsername || lobby.creatorWalletAddress}`}
+							className="truncate text-xs lg:text-lg text-foreground/50"
+						>
 							Creator -{" "}
 							<span className="text-foreground">
-								@{lobby.creatorId}
+								@
+								{lobby.creatorDisplayName ||
+									lobby.creatorUsername ||
+									formatAddress(lobby.creatorWalletAddress)}
 							</span>
-						</p>
+						</Link>
 					</div>
 					<Badge className="py-2.5 lg:py-3.5 px-3.5 lg:px-6.5 text-xs lg:text-sm font-medium">
 						{lobby.status}
@@ -39,7 +47,7 @@ export default function LobbyCard({ lobby }: { lobby: Lobby }) {
 					)}
 					<p className="flex items-center gap-1 lg:gap-2.5">
 						<Users size={20} className="size-4 lg:size-5" />
-						<span>4</span>
+						<span>{lobby.participantCount}</span>
 					</p>
 					{lobby.currentAmount && (
 						<p className="flex items-center gap-1 lg:gap-2.5">
@@ -48,33 +56,33 @@ export default function LobbyCard({ lobby }: { lobby: Lobby }) {
 								className="size-4 lg:size-5"
 							/>
 							<span>
-								{lobby.currentAmount}
-								{lobby.tokenSymbol}
+								{lobby.currentAmount} {lobby.tokenSymbol}
 							</span>
 						</p>
 					)}
 					{lobby.entryAmount && (
 						<p>
-							Entry Fee: {lobby.entryAmount}
-							{lobby.tokenSymbol}
+							Entry Fee: {lobby.entryAmount} {lobby.tokenSymbol}
 						</p>
 					)}
 				</div>
 				<Image
-					src={"/images/lexi-wars.svg"}
+					src={lobby.gameImageUrl}
 					alt="game-cover"
 					width={516}
 					height={185}
 					loading="lazy"
 					className="w-full h-30 lg:h-45 rounded-3xl"
 				/>
-				<p className="text-sm lg:text-xl">{lobby.description}</p>
+				<p className="text-sm lg:text-xl line-clamp-2">
+					{lobby.description}
+				</p>
 			</div>
 			<Button
 				variant={"secondary"}
 				className="rounded-full w-full text-base lg:text-xl font-medium py-2.5 lg:py-6"
 			>
-				Open Room
+				<Link href={`/room/${lobby.path}`}>Open Room</Link>
 			</Button>
 		</div>
 	);

@@ -138,9 +138,9 @@ pub struct LobbyExtended {
     pub contract_address: Option<WalletAddress>,
     pub is_private: bool,
     pub is_sponsored: bool,
-
-    // Postgres-backed status
     pub status: LobbyStatus,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 
     // Runtime fields from Redis
     pub participant_count: usize,
@@ -157,9 +157,6 @@ pub struct LobbyExtended {
     pub game_image_url: String,
     pub game_min_players: i16,
     pub game_max_players: i16,
-
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
 }
 
 impl LobbyExtended {
