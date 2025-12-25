@@ -16,26 +16,13 @@ import {
 	SheetTitle,
 	SheetTrigger,
 } from "@/components/ui/sheet";
+import { formatAddress } from "@/lib/wallet";
 
 const navItems: { href: Route; label: string }[] = [
 	{ href: "/games", label: "Games" },
 	{ href: "/leaderboard", label: "Leaderboard" },
 	{ href: "/lobby", label: "Lobby" },
 ];
-
-function formatAddress(
-	address: string,
-	options: {
-		length?: number;
-		separator?: string;
-	} = {}
-): string {
-	const { length = 4, separator = "..." } = options;
-
-	const start = address.slice(0, length);
-	const end = address.slice(-length);
-	return `${start}${separator}${end}`;
-}
 
 export default function Header() {
 	const pathname = usePathname();
