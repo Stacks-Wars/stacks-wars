@@ -336,7 +336,7 @@ export default function CreateLobbyForm(game: Game) {
 
 						<Button
 							type="submit"
-							className="flex justify-self-end w-fit rounded-full"
+							className="flex justify-self-end w-full sm:w-fit rounded-full"
 							disabled={normalForm.formState.isSubmitting}
 						>
 							{normalForm.formState.isSubmitting
@@ -496,7 +496,7 @@ export default function CreateLobbyForm(game: Game) {
 
 						<Button
 							type="submit"
-							className="flex justify-self-end w-fit rounded-full"
+							className="flex justify-self-end w-full sm:w-fit rounded-full"
 							disabled={sponsoredForm.formState.isSubmitting}
 						>
 							{sponsoredForm.formState.isSubmitting
