@@ -12,8 +12,8 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::{
-    db::lobby::LobbyRepository,
-    models::LobbyStatus,
+    db::{lobby::LobbyRepository, lobby_state::LobbyStateRepository},
+    models::{LobbyExtended, LobbyStatus},
     state::{AppState, ConnectionContext, ConnectionInfo},
     ws::{
         core::manager,
@@ -55,15 +55,37 @@ async fn handle_socket(socket: WebSocket, params: LobbyQueryParams, state: AppSt
 
     // Send initial lobby list
     let lobby_repo = LobbyRepository::new(state.postgres.clone());
+    let lobby_state_repo = LobbyStateRepository::new(state.redis.clone());
     let status_filter = parse_status_enum(&status_strings);
-    send_lobby_list(&conn, &lobby_repo, &Some(status_filter), 0, 12).await;
+    let status_filter_opt = if status_filter.is_empty() {
+        None
+    } else {
+        Some(status_filter)
+    };
+    send_lobby_list(
+        &conn,
+        &lobby_repo,
+        &lobby_state_repo,
+        &status_filter_opt,
+        0,
+        12,
+    )
+    .await;
 
     // Message loop
     while let Some(msg) = receiver.next().await {
         match msg {
             Ok(Message::Text(text)) => {
                 if let Ok(lobby_msg) = serde_json::from_str::<LobbyClientMessage>(&text) {
-                    handle_message(lobby_msg, &conn, &state, &lobby_repo, connection_id).await;
+                    handle_message(
+                        lobby_msg,
+                        &conn,
+                        &state,
+                        &lobby_repo,
+                        &lobby_state_repo,
+                        connection_id,
+                    )
+                    .await;
                 }
             }
             Ok(Message::Close(_)) => break,
@@ -80,6 +102,7 @@ async fn handle_message(
     conn: &Arc<ConnectionInfo>,
     state: &AppState,
     lobby_repo: &LobbyRepository,
+    lobby_state_repo: &LobbyStateRepository,
     connection_id: Uuid,
 ) {
     match msg {
@@ -106,19 +129,32 @@ async fn handle_message(
 
                 // Send updated lobby list
                 let status_filter = Some(new_statuses);
-                send_lobby_list(conn, lobby_repo, &status_filter, 0, limit).await;
+                send_lobby_list(conn, lobby_repo, lobby_state_repo, &status_filter, 0, limit).await;
             } else {
                 // No filter - send all lobbies
-                send_lobby_list(conn, lobby_repo, &None, 0, limit).await;
+                send_lobby_list(conn, lobby_repo, lobby_state_repo, &None, 0, limit).await;
             }
         }
         LobbyClientMessage::LoadMore { offset } => {
             // Get current filter from connection context
-            let status_filter = match &conn.context {
-                ConnectionContext::Lobby(opt_strings) => Some(parse_status_enum(opt_strings)),
-                _ => None,
+            let status_filter_vec = match &conn.context {
+                ConnectionContext::Lobby(opt_strings) => parse_status_enum(opt_strings),
+                _ => vec![],
             };
-            send_lobby_list(conn, lobby_repo, &status_filter, offset, 12).await;
+            let status_filter_opt = if status_filter_vec.is_empty() {
+                None
+            } else {
+                Some(status_filter_vec)
+            };
+            send_lobby_list(
+                conn,
+                lobby_repo,
+                lobby_state_repo,
+                &status_filter_opt,
+                offset,
+                12,
+            )
+            .await;
         }
     }
 }
@@ -126,11 +162,12 @@ async fn handle_message(
 async fn send_lobby_list(
     conn: &Arc<ConnectionInfo>,
     lobby_repo: &LobbyRepository,
+    lobby_state_repo: &LobbyStateRepository,
     status_filter: &Option<Vec<LobbyStatus>>,
     offset: usize,
     limit: usize,
 ) {
-    match fetch_lobbies(lobby_repo, status_filter, offset, limit).await {
+    match fetch_lobbies(lobby_repo, lobby_state_repo, status_filter, offset, limit).await {
         Ok((lobbies, total)) => {
             let _ = manager::send_to_connection(
                 conn,
@@ -153,24 +190,64 @@ async fn send_lobby_list(
 
 async fn fetch_lobbies(
     lobby_repo: &LobbyRepository,
+    lobby_state_repo: &LobbyStateRepository,
     status_filter: &Option<Vec<LobbyStatus>>,
     offset: usize,
     limit: usize,
-) -> Result<(Vec<crate::models::Lobby>, usize), String> {
-    let lobbies = if let Some(statuses) = status_filter {
+) -> Result<(Vec<LobbyExtended>, usize), String> {
+    use crate::models::LobbyState;
+
+    // Fetch lobbies with joined user and game data using optimized query
+    let lobbies_with_joins = if let Some(statuses) = status_filter {
         lobby_repo
-            .find_by_statuses(statuses, offset, limit)
+            .find_by_statuses_with_joins(statuses, offset, limit)
             .await
             .map_err(|e| format!("Failed to fetch lobbies: {}", e))?
     } else {
         lobby_repo
-            .find_all(offset, limit)
+            .find_all_with_joins(offset, limit)
             .await
             .map_err(|e| format!("Failed to fetch lobbies: {}", e))?
     };
 
-    let total = lobbies.len();
-    Ok((lobbies, total))
+    tracing::debug!("Fetched {} lobbies with joins", lobbies_with_joins.len());
+    let total = lobbies_with_joins.len();
+
+    // Fetch lobby states from Redis for all lobbies using pipeline (single round-trip)
+    let lobby_ids: Vec<uuid::Uuid> = lobbies_with_joins.iter().map(|l| l.id).collect();
+
+    let states_batch = lobby_state_repo
+        .get_states_batch(&lobby_ids)
+        .await
+        .map_err(|e| format!("Failed to fetch lobby states: {}", e))?;
+
+    // Construct LobbyExtended objects
+    let mut extended_lobbies = Vec::new();
+    for (lobby_with_joins, (lobby_id, state_opt)) in
+        lobbies_with_joins.into_iter().zip(states_batch.into_iter())
+    {
+        // Use the lobby state from Redis, or create a default state if not found
+        let state = state_opt.unwrap_or_else(|| LobbyState::new(lobby_id));
+
+        let (creator_wallet, creator_username, creator_display_name) =
+            lobby_with_joins.creator_info();
+        let (game_image_url, game_min_players, game_max_players) = lobby_with_joins.game_info();
+
+        let extended = LobbyExtended::from_parts(
+            lobby_with_joins.to_lobby(),
+            state,
+            creator_wallet,
+            creator_username,
+            creator_display_name,
+            game_image_url,
+            game_min_players,
+            game_max_players,
+        );
+        extended_lobbies.push(extended);
+    }
+
+    tracing::debug!("Constructed {} extended lobbies", extended_lobbies.len());
+    Ok((extended_lobbies, total))
 }
 
 fn parse_status_filter(param: &Option<String>) -> Option<Vec<String>> {

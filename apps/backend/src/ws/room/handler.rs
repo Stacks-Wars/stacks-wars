@@ -76,18 +76,21 @@ async fn handle_socket(
 
     let lobby_repo = LobbyRepository::new(state.postgres.clone());
 
-    // Fetch lobby by path first to get the ID
-    let db_lobby_result = lobby_repo.find_by_path(&lobby_path).await;
-    let lobby = match db_lobby_result {
-        Ok(db_lobby) => db_lobby,
+    // Fetch lobby by path with joined user and game data
+    let lobby_with_joins = match lobby_repo.find_by_path_with_joins(&lobby_path).await {
+        Ok(l) => l,
         Err(_) => {
             let err = RoomError::NotFound;
             tracing::error!("Lobby not found for path {}: {:?}", lobby_path, err);
             return;
         }
     };
-    let lobby_id = lobby.id;
-    let game_path = lobby.game_path.clone();
+
+    let lobby_id = lobby_with_joins.id;
+    let game_path = lobby_with_joins.game_path.clone();
+    let (creator_wallet, creator_username, creator_display_name) = lobby_with_joins.creator_info();
+    let (game_image_url, game_min_players, game_max_players) = lobby_with_joins.game_info();
+    let lobby = lobby_with_joins.to_lobby();
 
     let conn = Arc::new(ConnectionInfo {
         connection_id,
@@ -113,7 +116,16 @@ async fn handle_socket(
     // Validate we have the minimum required data
     match state_info_result {
         Ok(state_info) => {
-            let lobby_ext = LobbyExtended::from_parts(lobby, state_info);
+            let lobby_ext = LobbyExtended::from_parts(
+                lobby,
+                state_info,
+                creator_wallet,
+                creator_username,
+                creator_display_name,
+                game_image_url,
+                game_min_players,
+                game_max_players,
+            );
             let players = players_result.unwrap_or_default();
             let join_requests = join_requests_result
                 .unwrap_or_default()

@@ -9,7 +9,10 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    auth::AuthClaims, db::lobby::LobbyRepository, models::Lobby, state::AppState,
+    auth::AuthClaims,
+    db::{lobby::LobbyRepository, lobby_state::LobbyStateRepository},
+    models::{Lobby, LobbyExtended},
+    state::AppState,
     ws::lobby::LobbyServerMessage,
 };
 
@@ -86,15 +89,41 @@ pub async fn create_lobby(
     // Broadcast lobby creation to lobby list subscribers
     tokio::spawn({
         let state_clone = state.clone();
-        let lobby_clone = lobby.clone();
+        let lobby_id = lobby.id();
         async move {
             use crate::ws::broadcast;
 
-            let _ = broadcast::broadcast_lobby_list(
-                &state_clone,
-                &LobbyServerMessage::LobbyCreated { lobby: lobby_clone },
-            )
-            .await;
+            // Fetch lobby with joins to construct LobbyExtended for broadcast
+            let lobby_repo = LobbyRepository::new(state_clone.postgres.clone());
+            let lobby_state_repo = LobbyStateRepository::new(state_clone.redis.clone());
+
+            if let Ok(lobby_with_joins) = lobby_repo.find_by_id_with_joins(lobby_id).await {
+                if let Ok(lobby_state) = lobby_state_repo.get_state(lobby_id).await {
+                    let (creator_wallet, creator_username, creator_display_name) =
+                        lobby_with_joins.creator_info();
+                    let (game_image_url, game_min_players, game_max_players) =
+                        lobby_with_joins.game_info();
+
+                    let lobby_extended = LobbyExtended::from_parts(
+                        lobby_with_joins.to_lobby(),
+                        lobby_state,
+                        creator_wallet,
+                        creator_username,
+                        creator_display_name,
+                        game_image_url,
+                        game_min_players,
+                        game_max_players,
+                    );
+
+                    let _ = broadcast::broadcast_lobby_list(
+                        &state_clone,
+                        &LobbyServerMessage::LobbyCreated {
+                            lobby: lobby_extended,
+                        },
+                    )
+                    .await;
+                }
+            }
         }
     });
 

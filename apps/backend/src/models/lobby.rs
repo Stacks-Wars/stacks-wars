@@ -148,13 +148,32 @@ pub struct LobbyExtended {
     pub started_at: Option<i64>,
     pub finished_at: Option<i64>,
 
+    // Creator information from users table
+    pub creator_wallet_address: WalletAddress,
+    pub creator_username: Option<String>,
+    pub creator_display_name: Option<String>,
+
+    // Game information from games table
+    pub game_image_url: String,
+    pub game_min_players: i16,
+    pub game_max_players: i16,
+
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
 
 impl LobbyExtended {
     /// Build a flattened extended lobby payload from Postgres `Lobby` and Redis `LobbyState`.
-    pub fn from_parts(db: Lobby, runtime: LobbyState) -> Self {
+    pub fn from_parts(
+        db: Lobby,
+        runtime: LobbyState,
+        creator_wallet_address: WalletAddress,
+        creator_username: Option<String>,
+        creator_display_name: Option<String>,
+        game_image_url: String,
+        game_min_players: i16,
+        game_max_players: i16,
+    ) -> Self {
         Self {
             id: db.id(),
             path: db.path,
@@ -175,6 +194,12 @@ impl LobbyExtended {
             creator_last_ping: runtime.creator_last_ping,
             started_at: runtime.started_at,
             finished_at: runtime.finished_at,
+            creator_wallet_address,
+            creator_username,
+            creator_display_name,
+            game_image_url,
+            game_min_players,
+            game_max_players,
             created_at: db.created_at,
             updated_at: db.updated_at,
         }
