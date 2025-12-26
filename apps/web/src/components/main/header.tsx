@@ -16,7 +16,7 @@ import {
 	SheetTitle,
 	SheetTrigger,
 } from "@/components/ui/sheet";
-import { formatAddress } from "@/lib/wallet";
+import { formatAddress } from "@/lib/utils";
 
 const navItems: { href: Route; label: string }[] = [
 	{ href: "/games", label: "Games" },

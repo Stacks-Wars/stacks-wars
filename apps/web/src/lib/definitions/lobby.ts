@@ -25,6 +25,14 @@ export interface LobbyExtended extends Lobby {
 	creatorLastPing?: number;
 	startedAt?: number;
 	finishedAt?: number;
+
+	creatorWalletAddress: string;
+	creatorUsername?: string;
+	creatorDisplayName?: string;
+
+	gameImageUrl: string;
+	gameMinPlayers: number;
+	gameMaxPlayers: number;
 }
 
 export interface CreateLobbyRequest {

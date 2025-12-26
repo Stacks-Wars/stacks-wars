@@ -50,20 +50,6 @@ export function getStxAddress() {
 	return stxAddress;
 }
 
-export function formatAddress(
-	address: string,
-	options: {
-		length?: number;
-		separator?: string;
-	} = {}
-): string {
-	const { length = 4, separator = "..." } = options;
-
-	const start = address.slice(0, length);
-	const end = address.slice(-length);
-	return `${start}${separator}${end}`;
-}
-
 /**
  * Get full account details from the wallet
  */

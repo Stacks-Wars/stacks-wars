@@ -28,7 +28,7 @@ import { ApiClient } from "@/lib/api/client";
 import { useUserStore } from "@/lib/stores/user";
 import type { Game, Lobby, CreateLobbyRequest } from "@/lib/definitions";
 import { useRouter } from "next/navigation";
-import { formatAddress } from "@/lib/wallet";
+import { formatAddress } from "@/lib/utils";
 
 // Zod schemas
 const normalLobbySchema = z.object({

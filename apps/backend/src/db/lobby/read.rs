@@ -1,12 +1,45 @@
-use sqlx::{Row, query, query_as};
+use sqlx::{FromRow, Row, query, query_as};
 use uuid::Uuid;
 
 use crate::{
     errors::AppError,
-    models::{Lobby, LobbyStatus},
+    models::{Lobby, LobbyStatus, WalletAddress},
 };
 
 use super::LobbyRepository;
+
+/// Intermediate struct for fetching lobbies with joined user and game data
+#[derive(Debug, FromRow)]
+pub struct LobbyWithJoins {
+    // Lobby fields
+    pub id: Uuid,
+    pub path: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub game_id: Uuid,
+    pub game_path: String,
+    pub creator_id: Uuid,
+    pub entry_amount: Option<f64>,
+    pub current_amount: Option<f64>,
+    pub token_symbol: Option<String>,
+    pub token_contract_id: Option<WalletAddress>,
+    pub contract_address: Option<WalletAddress>,
+    pub is_private: bool,
+    pub is_sponsored: bool,
+    pub status: LobbyStatus,
+    pub created_at: chrono::NaiveDateTime,
+    pub updated_at: chrono::NaiveDateTime,
+
+    // User fields
+    pub creator_wallet_address: WalletAddress,
+    pub creator_username: Option<String>,
+    pub creator_display_name: Option<String>,
+
+    // Game fields
+    pub game_image_url: String,
+    pub game_min_players: i16,
+    pub game_max_players: i16,
+}
 
 impl LobbyRepository {
     /// Find a lobby by its ID.
@@ -93,7 +126,7 @@ impl LobbyRepository {
         let lobbies = query_as::<_, Lobby>(
             r#"
             SELECT * FROM lobbies
-            WHERE status IN ('waiting', 'starting', 'inprogress')
+            WHERE status IN ('waiting', 'starting', 'in_progress')
             ORDER BY created_at DESC
             "#,
         )
@@ -241,5 +274,196 @@ impl LobbyRepository {
         .map_err(|e| AppError::DatabaseError(format!("Failed to fetch all lobbies: {}", e)))?;
 
         Ok(lobbies)
+    }
+
+    /// Get lobbies with creator and game information using optimized JOIN query
+    pub async fn find_all_with_joins(
+        &self,
+        offset: usize,
+        limit: usize,
+    ) -> Result<Vec<LobbyWithJoins>, AppError> {
+        let lobbies = query_as::<_, LobbyWithJoins>(
+            r#"
+            SELECT
+                l.id, l.path, l.name, l.description, l.game_id, l.game_path,
+                l.creator_id, l.entry_amount, l.current_amount, l.token_symbol,
+                l.token_contract_id, l.contract_address, l.is_private, l.is_sponsored,
+                l.status, l.created_at, l.updated_at,
+                u.wallet_address as creator_wallet_address,
+                u.username as creator_username,
+                u.display_name as creator_display_name,
+                g.image_url as game_image_url,
+                g.min_players as game_min_players,
+                g.max_players as game_max_players
+            FROM lobbies l
+            INNER JOIN users u ON l.creator_id = u.id
+            INNER JOIN games g ON l.game_id = g.id
+            ORDER BY l.created_at DESC
+            LIMIT $1 OFFSET $2
+            "#,
+        )
+        .bind(limit as i64)
+        .bind(offset as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| {
+            AppError::DatabaseError(format!("Failed to fetch lobbies with joins: {}", e))
+        })?;
+
+        Ok(lobbies)
+    }
+
+    /// Get lobbies by multiple statuses with creator and game information using optimized JOIN query
+    pub async fn find_by_statuses_with_joins(
+        &self,
+        statuses: &[LobbyStatus],
+        offset: usize,
+        limit: usize,
+    ) -> Result<Vec<LobbyWithJoins>, AppError> {
+        if statuses.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let lobbies = query_as::<_, LobbyWithJoins>(
+            r#"
+            SELECT
+                l.id, l.path, l.name, l.description, l.game_id, l.game_path,
+                l.creator_id, l.entry_amount, l.current_amount, l.token_symbol,
+                l.token_contract_id, l.contract_address, l.is_private, l.is_sponsored,
+                l.status, l.created_at, l.updated_at,
+                u.wallet_address as creator_wallet_address,
+                u.username as creator_username,
+                u.display_name as creator_display_name,
+                g.image_url as game_image_url,
+                g.min_players as game_min_players,
+                g.max_players as game_max_players
+            FROM lobbies l
+            INNER JOIN users u ON l.creator_id = u.id
+            INNER JOIN games g ON l.game_id = g.id
+            WHERE l.status = ANY($1)
+            ORDER BY l.created_at DESC
+            LIMIT $2 OFFSET $3
+            "#,
+        )
+        .bind(statuses)
+        .bind(limit as i64)
+        .bind(offset as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| {
+            AppError::DatabaseError(format!(
+                "Failed to fetch lobbies by statuses with joins: {}",
+                e
+            ))
+        })?;
+
+        Ok(lobbies)
+    }
+
+    /// Find a lobby by path with creator and game information using optimized JOIN query
+    pub async fn find_by_path_with_joins(&self, path: &str) -> Result<LobbyWithJoins, AppError> {
+        let lobby = query_as::<_, LobbyWithJoins>(
+            r#"
+            SELECT
+                l.id, l.path, l.name, l.description, l.game_id, l.game_path,
+                l.creator_id, l.entry_amount, l.current_amount, l.token_symbol,
+                l.token_contract_id, l.contract_address, l.is_private, l.is_sponsored,
+                l.status, l.created_at, l.updated_at,
+                u.wallet_address as creator_wallet_address,
+                u.username as creator_username,
+                u.display_name as creator_display_name,
+                g.image_url as game_image_url,
+                g.min_players as game_min_players,
+                g.max_players as game_max_players
+            FROM lobbies l
+            INNER JOIN users u ON l.creator_id = u.id
+            INNER JOIN games g ON l.game_id = g.id
+            WHERE l.path = $1
+            "#,
+        )
+        .bind(path)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| {
+            AppError::DatabaseError(format!("Failed to fetch lobby by path with joins: {}", e))
+        })?
+        .ok_or_else(|| AppError::NotFound(format!("Lobby with path '{}' not found", path)))?;
+
+        Ok(lobby)
+    }
+
+    /// Find a lobby by ID with creator and game information using optimized JOIN query
+    pub async fn find_by_id_with_joins(&self, lobby_id: Uuid) -> Result<LobbyWithJoins, AppError> {
+        let lobby = query_as::<_, LobbyWithJoins>(
+            r#"
+            SELECT
+                l.id, l.path, l.name, l.description, l.game_id, l.game_path,
+                l.creator_id, l.entry_amount, l.current_amount, l.token_symbol,
+                l.token_contract_id, l.contract_address, l.is_private, l.is_sponsored,
+                l.status, l.created_at, l.updated_at,
+                u.wallet_address as creator_wallet_address,
+                u.username as creator_username,
+                u.display_name as creator_display_name,
+                g.image_url as game_image_url,
+                g.min_players as game_min_players,
+                g.max_players as game_max_players
+            FROM lobbies l
+            INNER JOIN users u ON l.creator_id = u.id
+            INNER JOIN games g ON l.game_id = g.id
+            WHERE l.id = $1
+            "#,
+        )
+        .bind(lobby_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| {
+            AppError::DatabaseError(format!("Failed to fetch lobby by ID with joins: {}", e))
+        })?
+        .ok_or_else(|| AppError::NotFound(format!("Lobby with ID '{}' not found", lobby_id)))?;
+
+        Ok(lobby)
+    }
+}
+
+impl LobbyWithJoins {
+    /// Convert to a plain Lobby struct
+    pub fn to_lobby(self) -> Lobby {
+        Lobby {
+            id: self.id,
+            path: self.path,
+            name: self.name,
+            description: self.description,
+            game_id: self.game_id,
+            game_path: self.game_path,
+            creator_id: self.creator_id,
+            entry_amount: self.entry_amount,
+            current_amount: self.current_amount,
+            token_symbol: self.token_symbol,
+            token_contract_id: self.token_contract_id,
+            contract_address: self.contract_address,
+            is_private: self.is_private,
+            is_sponsored: self.is_sponsored,
+            status: self.status,
+            created_at: self.created_at,
+            updated_at: self.updated_at,
+        }
+    }
+
+    /// Extract creator information
+    pub fn creator_info(&self) -> (WalletAddress, Option<String>, Option<String>) {
+        (
+            self.creator_wallet_address.clone(),
+            self.creator_username.clone(),
+            self.creator_display_name.clone(),
+        )
+    }
+
+    /// Extract game information
+    pub fn game_info(&self) -> (String, i16, i16) {
+        (
+            self.game_image_url.clone(),
+            self.game_min_players,
+            self.game_max_players,
+        )
     }
 }

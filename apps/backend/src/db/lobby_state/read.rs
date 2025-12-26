@@ -129,4 +129,47 @@ impl LobbyStateRepository {
             .filter(|state| state.status == status)
             .collect())
     }
+
+    /// Batch fetch lobby states
+    pub async fn get_states_batch(
+        &self,
+        lobby_ids: &[Uuid],
+    ) -> Result<Vec<(Uuid, Option<LobbyState>)>, AppError> {
+        if lobby_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut conn =
+            self.redis.get().await.map_err(|e| {
+                AppError::RedisError(format!("Failed to get Redis connection: {}", e))
+            })?;
+
+        // Build pipeline with HGETALL commands for each lobby
+        let mut pipe = redis::pipe();
+        for lobby_id in lobby_ids {
+            let key = RedisKey::lobby_state(*lobby_id);
+            pipe.hgetall(&key);
+        }
+
+        // Execute pipeline - get all results in one round-trip
+        let results: Vec<HashMap<String, String>> = pipe
+            .query_async(&mut *conn)
+            .await
+            .map_err(AppError::RedisCommandError)?;
+
+        // Parse results
+        let mut states = Vec::with_capacity(lobby_ids.len());
+        for (lobby_id, map) in lobby_ids.iter().zip(results.into_iter()) {
+            if map.is_empty() {
+                states.push((*lobby_id, None));
+            } else {
+                match LobbyState::from_redis_hash(&map) {
+                    Ok(state) => states.push((*lobby_id, Some(state))),
+                    Err(_) => states.push((*lobby_id, None)),
+                }
+            }
+        }
+
+        Ok(states)
+    }
 }
