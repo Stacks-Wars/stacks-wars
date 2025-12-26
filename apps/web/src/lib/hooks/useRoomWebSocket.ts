@@ -20,8 +20,8 @@ import type {
 	LobbyStatus,
 	PlayerState,
 } from "@/lib/definitions";
-import { useLobbyStore } from "../stores/lobby";
-import { webSocketClient } from "../websocket/wsClient";
+import { useLobbyStore } from "../stores/room";
+import { WebSocketClient } from "../websocket/wsClient";
 
 interface UseRoomOptions {
 	lobbyPath: string;
@@ -34,7 +34,7 @@ export function useRoomWebSocket({
 	lobbyPath,
 	wsUrl = `${WS_URL}/ws/room`,
 }: UseRoomOptions) {
-	const clientRef = useRef<webSocketClient | null>(null);
+	const clientRef = useRef<WebSocketClient | null>(null);
 	const [gamePlugin, setGamePlugin] = useState<GamePlugin | undefined>();
 	const [gameState, setGameState] = useState<unknown>(null);
 
@@ -62,7 +62,7 @@ export function useRoomWebSocket({
 
 	useEffect(() => {
 		// Initialize WebSocket connection
-		const client = new webSocketClient(lobbyPath);
+		const client = new WebSocketClient();
 		clientRef.current = client;
 		setConnecting(true);
 		setError(null);
