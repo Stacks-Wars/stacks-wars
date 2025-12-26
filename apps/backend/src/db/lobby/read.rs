@@ -126,7 +126,7 @@ impl LobbyRepository {
         let lobbies = query_as::<_, Lobby>(
             r#"
             SELECT * FROM lobbies
-            WHERE status IN ('waiting', 'starting', 'inprogress')
+            WHERE status IN ('waiting', 'starting', 'in_progress')
             ORDER BY created_at DESC
             "#,
         )

@@ -257,7 +257,7 @@ fn parse_status_filter(param: &Option<String>) -> Option<Vec<String>> {
             .filter(|part| {
                 matches!(
                     part.as_str(),
-                    "waiting" | "starting" | "in_progress" | "finished"
+                    "waiting" | "starting" | "in_progress" | "inprogress" | "finished"
                 )
             })
             .collect()
@@ -273,7 +273,7 @@ fn parse_status_enum(strings: &Option<Vec<String>>) -> Vec<LobbyStatus> {
                 .filter_map(|s| match s.as_str() {
                     "waiting" => Some(LobbyStatus::Waiting),
                     "starting" => Some(LobbyStatus::Starting),
-                    "in_progress" => Some(LobbyStatus::InProgress),
+                    "in_progress" | "inprogress" => Some(LobbyStatus::InProgress),
                     "finished" => Some(LobbyStatus::Finished),
                     _ => None,
                 })
