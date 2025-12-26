@@ -1,15 +1,14 @@
 /**
  * WebSocket Client
  *
- * Single WebSocket connection that routes messages to appropriate game handlers.
- * Uses the wrapper message format: { game, type, payload }
+ * WebSocket client for handling connections with automatic reconnection.
  */
 
 export type MessageHandler = (message: unknown) => void;
 export type ErrorHandler = (error: Event | Error) => void;
 export type CloseHandler = () => void;
 
-export class webSocketClient {
+export class WebSocketClient {
 	private ws: WebSocket | null = null;
 	private messageHandlers: Set<MessageHandler> = new Set();
 	private errorHandlers: Set<ErrorHandler> = new Set();
@@ -20,7 +19,7 @@ export class webSocketClient {
 	private reconnectTimeout: NodeJS.Timeout | null = null;
 	private pingInterval: NodeJS.Timeout | null = null;
 
-	constructor(private lobbyPath: string) {}
+	constructor() {}
 
 	connect(wsUrl: string): Promise<void> {
 		return new Promise((resolve, reject) => {
@@ -29,7 +28,7 @@ export class webSocketClient {
 				this.ws = new WebSocket(wsUrl);
 
 				this.ws.onopen = () => {
-					console.log(`[WS] Connected to lobby ${this.lobbyPath}`);
+					console.log(`[WS] Connected to ${wsUrl}`);
 					this.reconnectAttempts = 0;
 					this.startPingInterval();
 					resolve();

@@ -1,17 +1,19 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { User } from "@/lib/definitions";
+import type { User, LobbyStatus } from "@/lib/definitions";
 
 interface UserState {
 	user: User | null;
 	isAuthenticated: boolean;
 	isLoading: boolean;
+	lobbyFilter: LobbyStatus[];
 
 	// Actions
 	setUser: (user: User) => void;
 	clearUser: () => void;
 	updateUser: (user: Partial<User>) => void;
 	setLoading: (isLoading: boolean) => void;
+	setLobbyFilter: (filter: LobbyStatus[]) => void;
 }
 
 export const useUserStore = create<UserState>()(
@@ -20,6 +22,7 @@ export const useUserStore = create<UserState>()(
 			user: null,
 			isAuthenticated: false,
 			isLoading: false,
+			lobbyFilter: ["waiting", "inProgress"],
 
 			setUser: (user) => {
 				set({
@@ -43,12 +46,15 @@ export const useUserStore = create<UserState>()(
 				})),
 
 			setLoading: (isLoading) => set({ isLoading }),
+
+			setLobbyFilter: (filter) => set({ lobbyFilter: filter }),
 		}),
 		{
 			name: "user-storage",
 			partialize: (state) => ({
 				user: state.user,
 				isAuthenticated: state.isAuthenticated,
+				lobbyFilter: state.lobbyFilter,
 			}),
 		}
 	)

@@ -1,39 +1,80 @@
-import LobbyCard from "@/components/main/lobby-card";
-import type { LobbyExtended } from "@/lib/definitions";
+"use client";
 
-const lobby: LobbyExtended = {
-	id: "1",
-	name: "Test lobby Test lobby Test lobby Test lobby Test l",
-	path: "test-lobby",
-	gamePath: "test-game",
-	description:
-		" Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby Test lobby T",
-	gameId: "game1",
-	creatorId: "user1",
-	entryAmount: 10,
-	currentAmount: 10,
-	tokenSymbol: "STX",
-	tokenContractId: "contract1",
-	contractAddress: "address1",
-	isPrivate: false,
-	isSponsored: false,
-	status: "waiting",
-	createdAt: new Date().toISOString(),
-	updatedAt: new Date().toISOString(),
-	participantCount: 1,
-	creatorWalletAddress: "SPF0V8KWBS70F0WDKTMY65B3G591NN52PTHHN51D",
-	gameImageUrl: "/images/lexi-wars.svg",
-	gameMinPlayers: 0,
-	gameMaxPlayers: 0,
-};
+import LobbyCard, { LobbyCardSkeleton } from "@/components/main/lobby-card";
+import { LobbyFilter } from "@/app/(main)/lobby/_components/lobby-filter";
+import { useLobbyListWebSocket } from "@/lib/hooks/useLobbyListWebSocket";
+import { useUserStore } from "@/lib/stores/user";
+import Loading from "@/app/loading";
+import type { LobbyStatus } from "@/lib/definitions";
 
 export default function LobbyPage() {
+	const lobbyFilter = useUserStore((state) => state.lobbyFilter);
+	const setLobbyFilter = useUserStore((state) => state.setLobbyFilter);
+
+	const { lobbies, total, isConnected, isConnecting, error, subscribe } =
+		useLobbyListWebSocket({
+			statusFilter: lobbyFilter,
+			limit: 12,
+		});
+
+	const handleFilterChange = (newStatuses: LobbyStatus[]) => {
+		setLobbyFilter(newStatuses);
+		// Send subscribe message to update filter on server
+		subscribe(newStatuses);
+	};
+
+	if (isConnecting) {
+		return <Loading />;
+	}
+
 	return (
 		<div className="container mx-auto px-4">
-			<h1 className="text-2xl lg:text-5xl font-bold text-center py-4 lg:py-15">
-				Available Lobbies
-			</h1>
-			<LobbyCard lobby={lobby} />
+			<div className="flex items-center justify-between gap-4 py-4 lg:py-15">
+				<h1 className="text-xl lg:text-[40px] font-bold">
+					Available Lobbies
+				</h1>
+				<div className="flex items-center gap-4">
+					<LobbyFilter
+						value={lobbyFilter}
+						onChange={handleFilterChange}
+					/>
+				</div>
+			</div>
+
+			{error && (
+				<div className="mb-4 p-4 bg-destructive/10 text-destructive rounded-md">
+					{error}
+				</div>
+			)}
+
+			{lobbies === null ? (
+				<div className="grid gap-5 sm:grid-cols-2 justify-items-center max-w-305 mx-auto">
+					{Array.from({ length: 6 }).map((_, i) => (
+						<LobbyCardSkeleton key={i} />
+					))}
+				</div>
+			) : lobbies.length === 0 ? (
+				<div className="text-center py-12">
+					<p className="text-xl text-muted-foreground">
+						No lobbies found matching your filters
+					</p>
+					<p className="text-sm text-muted-foreground mt-2">
+						Try adjusting your filter settings
+					</p>
+				</div>
+			) : (
+				<div className="grid gap-5 sm:grid-cols-2 justify-items-center max-w-305 mx-auto">
+					{lobbies.map((lobby) => (
+						<LobbyCard key={lobby.id} lobby={lobby} />
+					))}
+				</div>
+			)}
+
+			{total > (lobbies?.length || 0) && (
+				<div className="text-center py-4 text-sm text-muted-foreground">
+					Showing {lobbies?.length || 0} of {total} lobbies
+				</div>
+			)}
 		</div>
 	);
 }
