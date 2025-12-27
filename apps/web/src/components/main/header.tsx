@@ -105,7 +105,7 @@ export default function Header() {
 					{isAuthenticated ? (
 						<Link
 							href={`/u/${user.username || user.walletAddress}`}
-							className="flex gap-3 items-center"
+							className="flex gap-3 items-center max-w-75 w-full truncate"
 						>
 							<Avatar className="size-12.5">
 								<AvatarImage
@@ -204,7 +204,7 @@ export default function Header() {
 								<Link
 									href={`/u/${user.username || user.walletAddress}`}
 									onClick={() => setOpen(false)}
-									className="flex gap-3 items-center mx-7"
+									className="flex gap-3 items-center mx-7 max-w-75 w-full truncate"
 								>
 									<Avatar className="size-12">
 										<AvatarImage

@@ -28,7 +28,7 @@ export default async function page({
 	const isOwnProfile = currentUserId === user.id;
 
 	return (
-		<div className="sm:container mx-auto sm:px-4">
+		<div className="container mx-auto sm:px-4">
 			<div className="flex flex-col">
 				<Image
 					src={"/images/cover.svg"}
@@ -64,19 +64,19 @@ export default async function page({
 					)}
 				</div>
 			</div>
-			<div className="mt-4 sm:mt-7 flex flex-col items-center sm:items-start gap-1">
-				<p className="text-xl sm:text-4xl font-bold">
+			<div className="mt-4 sm:mt-7 space-y-1 w-full max-w-full px-4 text-center sm:text-left">
+				<p className="text-xl sm:text-4xl font-bold truncate w-full">
 					{user.displayName}
 				</p>
 				{user.username ? (
-					<p className="text-sm sm:text-2xl font-medium">
+					<p className="text-sm sm:text-2xl font-medium truncate w-full ">
 						@{user.username}{" "}
 						<span className="font-normal text-xs sm:text-xl text-foreground/70">
 							({formatAddress(user.walletAddress)})
 						</span>
 					</p>
 				) : (
-					<p>{user.walletAddress}</p>
+					<p className="truncate w-full">{user.walletAddress}</p>
 				)}
 			</div>
 			{/* Player Rank */}

@@ -32,27 +32,28 @@ import { useRouter } from "next/navigation";
 
 // Validation schema
 const editProfileSchema = z.object({
-	username: z.string().refine(
-		(val) => {
-			if (!val || val === "") return true;
-			return (
-				val.length >= 3 &&
-				val.length <= 20 &&
-				/^[a-zA-Z0-9_]+$/.test(val)
-			);
-		},
-		{
-			message:
-				"Username must be 3-20 characters and contain only letters, numbers, and underscores",
-		}
-	),
-	displayName: z.string().refine(
-		(val) => {
-			if (!val || val === "") return true;
-			return val.length >= 2 && val.length <= 50;
-		},
-		{ message: "Display name must be 2-50 characters" }
-	),
+	username: z
+		.string()
+		.min(3, "Username must be at least 3 characters")
+		.max(20, "Username must be at most 20 characters")
+		.refine(
+			(val) => {
+				if (val === "") return true;
+				return /^[a-zA-Z0-9_]+$/.test(val);
+			},
+			{
+				message:
+					"Username must contain only letters, numbers, and underscores",
+			}
+		)
+		.optional()
+		.or(z.literal("")),
+	displayName: z
+		.string()
+		.min(2, "Display name must be at least 2 characters")
+		.max(50, "Display name must be at most 50 characters")
+		.optional()
+		.or(z.literal("")),
 });
 
 type EditProfileFormValues = z.infer<typeof editProfileSchema>;
@@ -157,6 +158,7 @@ export default function EditProfile({
 											placeholder="Enter username"
 											className="text-sm sm:text-base h-10 sm:h-12"
 											{...field}
+											maxLength={20}
 										/>
 									</FormControl>
 									<FormDescription className="text-xs sm:text-sm">
@@ -180,6 +182,7 @@ export default function EditProfile({
 											placeholder="Enter display name"
 											className="text-sm sm:text-base h-10 sm:h-12"
 											{...field}
+											maxLength={50}
 										/>
 									</FormControl>
 									<FormDescription className="text-xs sm:text-sm">
