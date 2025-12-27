@@ -13,22 +13,22 @@ export default function GameCard({
 }) {
 	return (
 		<div className="flex flex-col items-center w-full">
-			<div className="flex flex-col-reverse sm:flex-row justify-between items-center gap-4 lg:gap-36 bg-card px-4 lg:px-17.5 py-10 lg:py-15.5 rounded-4xl w-full">
-				<div>
-					<h3 className="md:text-[40px] text-2xl truncate font-bold pb-7">
+			<div className="flex flex-col-reverse sm:flex-row justify-between sm:items-center bg-card px-4 lg:px-17.5 py-10 lg:py-15.5 rounded-4xl w-full">
+				<div className="sm:w-1/2 space-y-4 sm:space-y-2 md:space-y-4">
+					<h3 className="lg:text-[40px] text-2xl w-full truncate font-bold pb-3">
 						{game.name}
 					</h3>
-					<p className="text-base truncate md:text-2xl sm:font-medium pb-4">
+					<p className="text-base line-clamp-2 lg:text-2xl sm:font-medium">
 						{game.description}
 					</p>
-					<div className="flex flex-wrap gap-3 pb-4">
+					<div className="flex gap-3 w-full overflow-hidden">
 						{game.category && (
-							<span className="text-xs md:text-sm bg-foreground/10 rounded-full py-2 md:py-2.5 px-4 md:px-5 md:font-medium">
+							<span className="text-xs lg:text-sm bg-foreground/10 rounded-full py-2 md:py-2.5 px-4 md:px-5 md:font-medium">
 								{game.category}
 							</span>
 						)}
 					</div>
-					<div className="text-sm md:text-xl md:font-medium flex flex-wrap gap-4">
+					<div className="text-sm lg:text-xl lg:font-medium flex gap-4 w-full truncate">
 						<p>
 							<span className="font-medium ">Active Rooms:</span>{" "}
 							<span>3</span>
@@ -50,12 +50,12 @@ export default function GameCard({
 					width={358}
 					height={182}
 					loading="lazy"
-					className="w-40 md:w-89.5"
+					className="max-w-40 md:max-w-89.5 w-full self-center"
 				/>
 			</div>
 			{open && (
 				<Button
-					className="-translate-y-1/2 w-full max-w-28 md:max-w-80 rounded-full text-xs md:text-xl sm:font-medium"
+					className="-translate-y-1/2 w-full max-w-28 lg:max-w-80 rounded-full text-xs lg:text-xl sm:font-medium -mb-6 lg:-mb-7.5"
 					asChild
 				>
 					{open === "createLobbyPage" ? (
