@@ -1,311 +1,88 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import { useUserStore } from "@/lib/stores/user";
-import { ApiClient } from "@/lib/api/client";
-import type { User, Game, CreateGameRequest } from "@/lib/definitions";
+import NotFound from "@/app/not-found";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from "@/components/ui/dialog";
-import { Loader2, Plus } from "lucide-react";
-import Link from "next/link";
+import { ApiClient } from "@/lib/api/client";
+import type { User } from "@/lib/definitions";
+import { formatAddress } from "@/lib/utils";
+import Image from "next/image";
+import { FiEdit3 } from "react-icons/fi";
+import { getAuthenticatedUserId } from "@/lib/auth/jwt";
+import EditProfile from "./_components/edit-profile";
 
-export default function UserProfilePage() {
-	const params = useParams();
-	const { user: currentUser } = useUserStore();
-	const [user, setUser] = useState<User | null>(null);
-	const [games, setGames] = useState<Game[]>([]);
-	const [isLoading, setIsLoading] = useState(true);
-	const [isCreateOpen, setIsCreateOpen] = useState(false);
-	const [isCreating, setIsCreating] = useState(false);
+export default async function page({
+	params,
+}: {
+	params: Promise<{ id: string }>;
+}) {
+	const id = (await params).id;
 
-	const isOwnProfile = currentUser?.id === params.id;
+	const response = await ApiClient.get<User>(`/api/user/${id}`);
 
-	const logout = async () => {
-		try {
-			await ApiClient.post("/api/logout");
-			window.location.reload();
-		} catch (error) {
-			console.error("Logout failed:", error);
-		}
-	};
-
-	const loadProfile = async () => {
-		setIsLoading(true);
-		try {
-			const response = await ApiClient.get<User>(
-				`/api/user/${params.id}`
-			);
-			if (response.data) {
-				setUser(response.data);
-			}
-
-			// Load user's created games
-			const gamesResponse = await ApiClient.get<Game[]>(
-				`/api/game/by-creator/${params.id}`
-			);
-			if (gamesResponse.data) {
-				setGames(gamesResponse.data);
-			}
-		} catch (error) {
-			console.error("Failed to load profile:", error);
-		} finally {
-			setIsLoading(false);
-		}
-	};
-
-	useEffect(() => {
-		loadProfile();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [params.id]);
-
-	const handleCreateGame = async (e: React.FormEvent<HTMLFormElement>) => {
-		e.preventDefault();
-		setIsCreating(true);
-
-		const formData = new FormData(e.currentTarget);
-		const gameData: CreateGameRequest = {
-			name: formData.get("name") as string,
-			path: (formData.get("name") as string)
-				.toLowerCase()
-				.replace(/\s+/g, "-"),
-			description: formData.get("description") as string,
-			imageUrl: formData.get("imageUrl") as string,
-			minPlayers: parseInt(formData.get("minPlayers") as string),
-			maxPlayers: parseInt(formData.get("maxPlayers") as string),
-			category: formData.get("category") as string,
-		};
-
-		try {
-			const response = await ApiClient.post<Game>("/api/game", gameData);
-			if (response.data) {
-				setGames([...games, response.data]);
-				setIsCreateOpen(false);
-				e.currentTarget.reset();
-			} else if (response.error) {
-				console.error("Failed to create game:", response.error);
-			}
-		} catch (error) {
-			console.error("Failed to create game:", error);
-		} finally {
-			setIsCreating(false);
-		}
-	};
-
-	if (isLoading) {
-		return (
-			<div className="flex min-h-screen items-center justify-center">
-				<Loader2 className="h-8 w-8 animate-spin" />
-			</div>
-		);
+	if (!response.data) {
+		return <NotFound />;
 	}
+	const user = response.data;
 
-	if (!user) {
-		return (
-			<div className="container mx-auto px-4 py-8">
-				<p>User not found</p>
-			</div>
-		);
-	}
+	// Check if this is the current user's profile
+	const currentUserId = await getAuthenticatedUserId();
+	const isOwnProfile = currentUserId === user.id;
 
 	return (
-		<div className="container mx-auto px-4 py-8">
-			<div className="flex flex-col gap-8">
-				<div className="flex items-center justify-between">
-					<div>
-						<h1 className="text-4xl font-bold">
-							{user.displayName || user.username || "Anonymous"}
-						</h1>
-						<p className="text-muted-foreground">
-							{user.walletAddress}
-						</p>
-					</div>
+		<div className="sm:container mx-auto sm:px-4">
+			<div className="flex flex-col">
+				<Image
+					src={"/images/cover.svg"}
+					alt="cover photo"
+					width={1240}
+					height={280}
+					className="h-35 sm:h-70 sm:rounded-4xl w-full object-cover"
+				/>
+				<div className="flex justify-between px-4">
+					<Avatar className="rounded-full -translate-y-1/2 translate-x-10 sm:translate-x-20 -mb-12.5 sm:-mb-22.5 sm:border-4 border-background size-25 sm:size-45 text-3xl sm:text-6xl">
+						<AvatarImage
+							//src={"/images/avatar.svg"}
+							alt="profile photo"
+							width={180}
+							height={180}
+						/>
+						<AvatarFallback>
+							{(
+								user.displayName ||
+								user.username ||
+								user.walletAddress
+							)
+								.slice(0, 2)
+								.toUpperCase()}
+						</AvatarFallback>
+					</Avatar>
 					{isOwnProfile && (
-						<div className="flex gap-2">
-							<Button variant="outline" onClick={logout}>
-								Logout
+						<EditProfile currentUser={user}>
+							<Button className="rounded-full text-xs sm:text-base bg-muted hover:bg-muted/90 h-6 sm:h-12 has-[>svg]:px-3.5 sm:has-[>svg]:px-7 -translate-y-1/2">
+								<FiEdit3 /> Edit Profile
 							</Button>
-							<Link href="/games">
-								<Button>Browse Games</Button>
-							</Link>
-						</div>
+						</EditProfile>
 					)}
 				</div>
-
-				{isOwnProfile && (
-					<Card>
-						<CardHeader>
-							<div className="flex items-center justify-between">
-								<div>
-									<CardTitle>Your Games</CardTitle>
-									<CardDescription>
-										Games you&apos;ve created
-									</CardDescription>
-								</div>
-								<Dialog
-									open={isCreateOpen}
-									onOpenChange={setIsCreateOpen}
-								>
-									<DialogTrigger asChild>
-										<Button>
-											<Plus className="mr-2 h-4 w-4" />
-											Create Game
-										</Button>
-									</DialogTrigger>
-									<DialogContent>
-										<DialogHeader>
-											<DialogTitle>
-												Create New Game
-											</DialogTitle>
-											<DialogDescription>
-												Add a new game to the platform
-											</DialogDescription>
-										</DialogHeader>
-										<form
-											onSubmit={handleCreateGame}
-											className="space-y-4"
-										>
-											<div>
-												<Label htmlFor="name">
-													Game Name
-												</Label>
-												<Input
-													id="name"
-													name="name"
-													required
-													placeholder="Coin Flip"
-												/>
-											</div>
-											<div>
-												<Label htmlFor="description">
-													Description
-												</Label>
-												<Textarea
-													id="description"
-													name="description"
-													required
-													placeholder="A fast-paced guessing game..."
-												/>
-											</div>
-											<div>
-												<Label htmlFor="imageUrl">
-													Image URL
-												</Label>
-												<Input
-													id="imageUrl"
-													name="imageUrl"
-													required
-													placeholder="https://example.com/image.png"
-												/>
-											</div>
-											<div className="grid grid-cols-2 gap-4">
-												<div>
-													<Label htmlFor="minPlayers">
-														Min Players
-													</Label>
-													<Input
-														id="minPlayers"
-														name="minPlayers"
-														type="number"
-														required
-														min="1"
-														defaultValue="2"
-													/>
-												</div>
-												<div>
-													<Label htmlFor="maxPlayers">
-														Max Players
-													</Label>
-													<Input
-														id="maxPlayers"
-														name="maxPlayers"
-														type="number"
-														required
-														min="2"
-														defaultValue="10"
-													/>
-												</div>
-											</div>
-											<div>
-												<Label htmlFor="category">
-													Category
-												</Label>
-												<Input
-													id="category"
-													name="category"
-													placeholder="Guessing Games"
-												/>
-											</div>
-											<Button
-												type="submit"
-												disabled={isCreating}
-												className="w-full"
-											>
-												{isCreating ? (
-													<>
-														<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-														Creating...
-													</>
-												) : (
-													"Create Game"
-												)}
-											</Button>
-										</form>
-									</DialogContent>
-								</Dialog>
-							</div>
-						</CardHeader>
-						<CardContent>
-							{games.length === 0 ? (
-								<p className="text-center text-muted-foreground">
-									No games created yet
-								</p>
-							) : (
-								<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-									{games.map((game) => (
-										<Link
-											key={game.id}
-											href={`/games/${game.path}`}
-										>
-											<Card className="cursor-pointer transition-colors hover:bg-accent">
-												<CardHeader>
-													<CardTitle>
-														{game.name}
-													</CardTitle>
-													<CardDescription>
-														{game.description?.substring(
-															0,
-															100
-														)}
-														...
-													</CardDescription>
-												</CardHeader>
-											</Card>
-										</Link>
-									))}
-								</div>
-							)}
-						</CardContent>
-					</Card>
+			</div>
+			<div className="mt-4 sm:mt-7 flex flex-col items-center sm:items-start gap-1">
+				<p className="text-xl sm:text-4xl font-bold">
+					{user.displayName}
+				</p>
+				{user.username ? (
+					<p className="text-sm sm:text-2xl font-medium">
+						@{user.username}{" "}
+						<span className="font-normal text-xs sm:text-xl text-foreground/70">
+							({formatAddress(user.walletAddress)})
+						</span>
+					</p>
+				) : (
+					<p>{user.walletAddress}</p>
 				)}
 			</div>
+			{/* Player Rank */}
+			{/* Player Active Lobbies */}
+			{/* Player Games */}
+			{/* Private user uncliamed rewards */}
 		</div>
 	);
 }
