@@ -12,7 +12,11 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    auth::AuthClaims, db::user::UserRepository, errors::AppError, models::{User, keys::RedisKey}, state::AppState,
+    auth::AuthClaims,
+    db::user::UserRepository,
+    errors::AppError,
+    models::{User, keys::RedisKey},
+    state::AppState,
 };
 
 // ============================================================================
@@ -54,9 +58,6 @@ pub struct UpdateProfileRequest {
     /// Optional new display name
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
-    /// Optional new trust rating (admin only)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub trust_rating: Option<f64>,
 }
 
 // ============================================================================
@@ -82,9 +83,8 @@ pub async fn create_user(
         .map_err(|e| e.to_response())?;
 
     // Create httpOnly cookie for the token
-    let is_production = std::env::var("ENVIRONMENT")
-        .unwrap_or_else(|_| "development".to_string())
-        == "production";
+    let is_production =
+        std::env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string()) == "production";
 
     let cookie = Cookie::build(("auth_token", token.clone()))
         .path("/")
@@ -95,10 +95,9 @@ pub async fn create_user(
         .build();
 
     let mut response = Json(user).into_response();
-    response.headers_mut().insert(
-        header::SET_COOKIE,
-        cookie.to_string().parse().unwrap(),
-    );
+    response
+        .headers_mut()
+        .insert(header::SET_COOKIE, cookie.to_string().parse().unwrap());
 
     Ok(response)
 }
@@ -107,17 +106,21 @@ pub async fn create_user(
 // User Retrieval
 // ============================================================================
 
-/// Get a user's public profile by UUID.
+/// Get a user's public profile by UUID, wallet address, or username.
 ///
 /// Public endpoint returning `User` or `404` if not found.
+/// Accepts any of:
+/// - UUID (e.g., "550e8400-e29b-41d4-a716-446655440000")
+/// - Wallet address (e.g., "SP2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKNRV9EJ7")
+/// - Username (case-insensitive)
 pub async fn get_user(
     State(state): State<AppState>,
-    Path(user_id): Path<Uuid>,
+    Path(identifier): Path<String>,
 ) -> Result<Json<User>, (StatusCode, String)> {
     let repo = UserRepository::new(state.postgres.clone());
 
     let user = repo
-        .find_by_id(user_id)
+        .find_user(&identifier)
         .await
         .map_err(|e| e.to_response())?;
 
@@ -226,7 +229,7 @@ pub async fn logout(
 
     // Store revoked token in Redis with remaining TTL
     let key = RedisKey::revoked_token(jti);
-    
+
     let mut conn = state.redis.get().await.map_err(|e| {
         tracing::error!("Failed to get Redis connection for logout: {}", e);
         (
@@ -236,16 +239,13 @@ pub async fn logout(
     })?;
 
     // Set the revoked token with expiration matching the token's remaining lifetime
-    let _: () = conn
-        .set_ex(&key, true, ttl as u64)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to revoke token in Redis: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Logout failed".to_string(),
-            )
-        })?;
+    let _: () = conn.set_ex(&key, true, ttl as u64).await.map_err(|e| {
+        tracing::error!("Failed to revoke token in Redis: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Logout failed".to_string(),
+        )
+    })?;
 
     // Create cookie with max-age=0 to clear it
     let cookie = Cookie::build(("auth_token", ""))
@@ -256,12 +256,14 @@ pub async fn logout(
         .build();
 
     let mut response = StatusCode::NO_CONTENT.into_response();
-    response.headers_mut().insert(
-        header::SET_COOKIE,
-        cookie.to_string().parse().unwrap(),
-    );
+    response
+        .headers_mut()
+        .insert(header::SET_COOKIE, cookie.to_string().parse().unwrap());
 
-    tracing::info!("User {} logged out successfully", claims.user_id().unwrap_or_default());
+    tracing::info!(
+        "User {} logged out successfully",
+        claims.user_id().unwrap_or_default()
+    );
 
     Ok(response)
 }

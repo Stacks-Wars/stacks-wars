@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { Route } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -7,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import { useUserStore } from "@/lib/stores/user";
-import { useState } from "react";
 import { MenuIcon } from "lucide-react";
 import {
 	Sheet,
@@ -16,6 +16,7 @@ import {
 	SheetTitle,
 	SheetTrigger,
 } from "@/components/ui/sheet";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatAddress } from "@/lib/utils";
 
 const navItems: { href: Route; label: string }[] = [
@@ -26,8 +27,41 @@ const navItems: { href: Route; label: string }[] = [
 
 export default function Header() {
 	const pathname = usePathname();
-	const { user } = useUserStore();
+	const { user, clearUser } = useUserStore();
 	const [open, setOpen] = useState(false);
+	const [authenticatedUserId, setAuthenticatedUserId] = useState<
+		string | null
+	>(null);
+	const [isChecking, setIsChecking] = useState(true);
+
+	// Check authentication status on mount
+	useEffect(() => {
+		async function checkAuth() {
+			try {
+				const response = await fetch("/api/auth/me");
+				const data = await response.json();
+
+				setAuthenticatedUserId(data.userId);
+
+				// Sync local storage with server authentication state
+				if (!data.userId && user) {
+					clearUser();
+				} else if (data.userId && user && user.id !== data.userId) {
+					clearUser();
+				}
+			} catch (error) {
+				console.error("Failed to check authentication:", error);
+				setAuthenticatedUserId(null);
+			} finally {
+				setIsChecking(false);
+			}
+		}
+
+		checkAuth();
+	}, [user, clearUser]);
+
+	// Determine if user is authenticated based on server validation
+	const isAuthenticated = !isChecking && authenticatedUserId && user;
 
 	return (
 		<header className="container mx-auto px-4">
@@ -68,17 +102,28 @@ export default function Header() {
 
 				{/* Desktop Profile/Auth */}
 				<div className="hidden lg:block">
-					{user ? (
+					{isAuthenticated ? (
 						<Link
-							href={`/u/${user.id}`}
-							className="flex gap-3 items-center"
+							href={`/u/${user.username || user.walletAddress}`}
+							className="flex gap-3 items-center max-w-75 w-full truncate"
 						>
-							<Image
-								src={"/images/avatar.svg"}
-								alt="profile image"
-								width={60}
-								height={60}
-							/>
+							<Avatar className="size-12.5">
+								<AvatarImage
+									//src={"/images/avatar.svg"}
+									alt="profile photo"
+									width={50}
+									height={50}
+								/>
+								<AvatarFallback>
+									{(
+										user.displayName ||
+										user.username ||
+										user.walletAddress
+									)
+										.slice(0, 2)
+										.toUpperCase()}
+								</AvatarFallback>
+							</Avatar>
 							{user.displayName ? (
 								<div className="flex flex-col gap-2">
 									<p className="text-2xl/6">
@@ -89,34 +134,30 @@ export default function Header() {
 											formatAddress(user.walletAddress)}
 									</p>
 								</div>
-							) : user.username ? (
-								<div className="flex flex-col gap-2">
-									<p className="text-2xl/6">
-										{user.username}
-									</p>
-									<p className="text-base/4 text-foreground/53">
-										{formatAddress(user.walletAddress)}
-									</p>
-								</div>
 							) : (
 								<p className="text-2xl/6">
-									{formatAddress(user.walletAddress)}
+									{user.username ||
+										formatAddress(user.walletAddress)}
 								</p>
 							)}
 						</Link>
 					) : (
-						<div className="flex items-center gap-4">
-							<Button className="rounded-full" asChild>
-								<Link href={"/signup"}>Create an Account</Link>
-							</Button>
-							<Button
-								variant={"outline"}
-								className="rounded-full"
-								asChild
-							>
-								<Link href={"/login"}>Login</Link>
-							</Button>
-						</div>
+						!isChecking && (
+							<div className="flex items-center gap-4">
+								<Button className="rounded-full" asChild>
+									<Link href={"/signup"}>
+										Create an Account
+									</Link>
+								</Button>
+								<Button
+									variant={"outline"}
+									className="rounded-full"
+									asChild
+								>
+									<Link href={"/login"}>Login</Link>
+								</Button>
+							</div>
+						)
 					)}
 				</div>
 
@@ -159,18 +200,29 @@ export default function Header() {
 
 						{/* Mobile Profile/Auth */}
 						<div className="border-t pt-10">
-							{user ? (
+							{isAuthenticated ? (
 								<Link
-									href={`/u/${user.id}`}
+									href={`/u/${user.username || user.walletAddress}`}
 									onClick={() => setOpen(false)}
-									className="flex gap-3 items-center mx-7"
+									className="flex gap-3 items-center mx-7 max-w-75 w-full truncate"
 								>
-									<Image
-										src={"/images/avatar.svg"}
-										alt="profile image"
-										width={48}
-										height={48}
-									/>
+									<Avatar className="size-12">
+										<AvatarImage
+											//src={"/images/avatar.svg"}
+											alt="profile photo"
+											width={48}
+											height={48}
+										/>
+										<AvatarFallback>
+											{(
+												user.displayName ||
+												user.username ||
+												user.walletAddress
+											)
+												.slice(0, 2)
+												.toUpperCase()}
+										</AvatarFallback>
+									</Avatar>
 									{user.displayName ? (
 										<div className="flex flex-col gap-1">
 											<p className="text-lg font-medium">
@@ -183,49 +235,43 @@ export default function Header() {
 													)}
 											</p>
 										</div>
-									) : user.username ? (
-										<div className="flex flex-col gap-1">
-											<p className="text-lg font-medium">
-												{user.username}
-											</p>
-											<p className="text-sm text-foreground/53">
-												{formatAddress(
-													user.walletAddress
-												)}
-											</p>
-										</div>
 									) : (
 										<p className="text-lg font-medium">
-											{formatAddress(user.walletAddress)}
+											{user.username ||
+												formatAddress(
+													user.walletAddress
+												)}
 										</p>
 									)}
 								</Link>
 							) : (
-								<div className="flex flex-col gap-6 mx-7">
-									<Button
-										className="rounded-full w-full"
-										asChild
-									>
-										<Link
-											href={"/signup"}
-											onClick={() => setOpen(false)}
+								!isChecking && (
+									<div className="flex flex-col gap-6 mx-7">
+										<Button
+											className="rounded-full w-full"
+											asChild
 										>
-											Create an Account
-										</Link>
-									</Button>
-									<Button
-										variant={"outline"}
-										className="rounded-full w-full"
-										asChild
-									>
-										<Link
-											href={"/login"}
-											onClick={() => setOpen(false)}
+											<Link
+												href={"/signup"}
+												onClick={() => setOpen(false)}
+											>
+												Create an Account
+											</Link>
+										</Button>
+										<Button
+											variant={"outline"}
+											className="rounded-full w-full"
+											asChild
 										>
-											Login
-										</Link>
-									</Button>
-								</div>
+											<Link
+												href={"/login"}
+												onClick={() => setOpen(false)}
+											>
+												Login
+											</Link>
+										</Button>
+									</div>
+								)
 							)}
 						</div>
 					</SheetContent>

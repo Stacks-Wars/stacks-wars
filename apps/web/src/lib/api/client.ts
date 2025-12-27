@@ -106,6 +106,39 @@ export class ApiClient {
 		}
 	}
 
+	static async patch<T>(
+		endpoint: string,
+		body?: any
+	): Promise<ApiResponse<T>> {
+		try {
+			const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+				method: "PATCH",
+				headers: this.getHeaders(),
+				credentials: "include",
+				body: body ? JSON.stringify(body) : undefined,
+			});
+
+			const data = await response.json();
+
+			if (!response.ok) {
+				return {
+					error: data.message || "Request failed",
+					status: response.status,
+				};
+			}
+
+			return {
+				data,
+				status: response.status,
+			};
+		} catch (error) {
+			return {
+				error: error instanceof Error ? error.message : "Network error",
+				status: 500,
+			};
+		}
+	}
+
 	static async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
 		try {
 			const response = await fetch(`${API_BASE_URL}${endpoint}`, {

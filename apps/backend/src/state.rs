@@ -59,21 +59,21 @@ impl AppState {
         // Redis connection pool built from config.redis_url
         let manager = RedisConnectionManager::new(config.redis_url.clone())?;
         let redis_pool = Pool::builder()
-            .max_size(100)
-            .min_idle(Some(20))
-            .connection_timeout(Duration::from_secs(5))
-            .max_lifetime(Some(Duration::from_secs(300)))
-            .idle_timeout(Some(Duration::from_secs(30)))
+            .max_size(30)
+            .min_idle(Some(5))
+            .connection_timeout(Duration::from_secs(2))
+            .max_lifetime(None)
+            .idle_timeout(Some(Duration::from_secs(120)))
             .build(manager)
             .await?;
 
         // PostgreSQL connection pool built from config.database_url
         let postgres_pool = PgPoolOptions::new()
-            .max_connections(50)
-            .min_connections(10)
-            .acquire_timeout(Duration::from_secs(5))
-            .idle_timeout(Duration::from_secs(300))
-            .max_lifetime(Duration::from_secs(1800))
+            .max_connections(20)
+            .min_connections(2)
+            .acquire_timeout(Duration::from_secs(10))
+            .idle_timeout(Duration::from_secs(600))
+            .max_lifetime(Duration::from_secs(3600))
             .connect(&config.database_url)
             .await?;
 

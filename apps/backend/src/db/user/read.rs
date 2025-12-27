@@ -71,33 +71,29 @@ impl UserRepository {
         Ok(user)
     }
 
-    /// Find a user ID by wallet address or username.
-    pub async fn find_user_id(&self, identifier: &str) -> Result<Uuid, AppError> {
-        // Validate identifier format first to avoid unnecessary DB queries
+    /// Find a user by UUID, wallet address, or username.
+    pub async fn find_user(&self, identifier: &str) -> Result<User, AppError> {
+        // Try parsing as UUID first
+        if let Ok(user_id) = Uuid::parse_str(identifier) {
+            if let Ok(user) = self.find_by_id(user_id).await {
+                tracing::debug!("Found user by UUID: {}", user.id);
+                return Ok(user);
+            }
+        }
+
         // Try wallet address if format is valid
         if let Ok(wallet) = WalletAddress::new(identifier) {
-            if let Ok(Some(user_id)) =
-                sqlx::query_scalar::<_, Uuid>("SELECT id FROM users WHERE wallet_address = $1")
-                    .bind(wallet.as_str())
-                    .fetch_optional(&self.pool)
-                    .await
-            {
-                tracing::debug!("Found user by wallet: {}", user_id);
-                return Ok(user_id);
+            if let Ok(user) = self.find_by_wallet(wallet.as_str()).await {
+                tracing::debug!("Found user by wallet: {}", user.id);
+                return Ok(user);
             }
         }
 
         // Fallback to username lookup if format is valid
         if let Ok(username) = Username::new(identifier) {
-            let normalized_username = username.as_str().to_lowercase();
-            if let Ok(Some(user_id)) =
-                sqlx::query_scalar::<_, Uuid>("SELECT id FROM users WHERE LOWER(username) = $1")
-                    .bind(&normalized_username)
-                    .fetch_optional(&self.pool)
-                    .await
-            {
-                tracing::debug!("Found user by username: {}", user_id);
-                return Ok(user_id);
+            if let Ok(user) = self.find_by_username(username.as_str()).await {
+                tracing::debug!("Found user by username: {}", user.id);
+                return Ok(user);
             }
         }
 
@@ -118,36 +114,6 @@ impl UserRepository {
                 .map_err(|e| {
                     AppError::DatabaseError(format!("Failed to check user existence: {}", e))
                 })?;
-
-        Ok(exists)
-    }
-
-    /// Check if a wallet address is already registered.
-    pub async fn exists_by_wallet(&self, wallet_address: &str) -> Result<bool, AppError> {
-        let exists = sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS(SELECT 1 FROM users WHERE wallet_address = $1)",
-        )
-        .bind(wallet_address)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to check wallet existence: {}", e)))?;
-
-        Ok(exists)
-    }
-
-    /// Check if a username is already taken (case-insensitive).
-    pub async fn exists_by_username(&self, username: &str) -> Result<bool, AppError> {
-        let normalized_username = username.to_lowercase();
-
-        let exists = sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(username) = $1)",
-        )
-        .bind(&normalized_username)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|e| {
-            AppError::DatabaseError(format!("Failed to check username existence: {}", e))
-        })?;
 
         Ok(exists)
     }
