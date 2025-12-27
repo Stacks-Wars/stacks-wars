@@ -16,9 +16,11 @@ export default async function GamesPage() {
 					rewards
 				</p>
 			</div>
-			{games.data?.map((game, i) => (
-				<GameCard key={i} game={game} open="createLobbyPage" />
-			))}
+			<div className="grid grid-cols-1 gap-4 sm:gap-6">
+				{games.data?.map((game, i) => (
+					<GameCard key={i} game={game} open="createLobbyPage" />
+				))}
+			</div>
 		</div>
 	);
 }
