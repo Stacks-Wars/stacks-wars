@@ -2,12 +2,15 @@ import NotFound from "@/app/not-found";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ApiClient } from "@/lib/api/client";
-import type { User } from "@/lib/definitions";
+import type { User, Game } from "@/lib/definitions";
 import { formatAddress } from "@/lib/utils";
 import Image from "next/image";
 import { FiEdit3 } from "react-icons/fi";
 import { getAuthenticatedUserId } from "@/lib/auth/jwt";
 import EditProfile from "./_components/edit-profile";
+import GameCard from "@/components/main/game-card";
+import Link from "next/link";
+import { IoAdd } from "react-icons/io5";
 
 export default async function page({
 	params,
@@ -26,6 +29,12 @@ export default async function page({
 	// Check if this is the current user's profile
 	const currentUserId = await getAuthenticatedUserId();
 	const isOwnProfile = currentUserId === user.id;
+
+	// Fetch user's created games
+	const gamesResponse = await ApiClient.get<Game[]>(
+		`/api/game/by-creator/${user.id}`
+	);
+	const games = gamesResponse.data || [];
 
 	return (
 		<div className="container mx-auto sm:px-4">
@@ -81,8 +90,40 @@ export default async function page({
 			</div>
 			{/* Player Rank */}
 			{/* Player Active Lobbies */}
-			{/* Player Games */}
 			{/* Private user uncliamed rewards */}
+			{(games.length > 0 || isOwnProfile) && (
+				<div className="mt-8 sm:mt-12 px-4 sm:px-0">
+					<div className="flex justify-between items-center mb-4 sm:mb-6">
+						<h2 className="text-xl sm:text-3xl font-bold">
+							{isOwnProfile ? "My Games" : "Created Games"}
+						</h2>
+						{isOwnProfile && (
+							<Button
+								asChild
+								className="rounded-full text-xs sm:text-base h-8 sm:h-12 has-[>svg]:px-3.5 sm:has-[>svg]:px-7"
+							>
+								<Link href="/create-game">
+									<IoAdd className="text-lg sm:text-xl" />{" "}
+									Create Game
+								</Link>
+							</Button>
+						)}
+					</div>
+					{games.length > 0 ? (
+						<div className="grid grid-cols-1 gap-4 sm:gap-6">
+							{games.map((game) => (
+								<GameCard key={game.id} game={game} />
+							))}
+						</div>
+					) : (
+						<div className="text-center py-8 sm:py-12 text-muted-foreground">
+							<p className="text-sm sm:text-base">
+								No games created yet
+							</p>
+						</div>
+					)}
+				</div>
+			)}
 		</div>
 	);
 }
