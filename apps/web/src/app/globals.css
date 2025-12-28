@@ -44,6 +44,10 @@
 }
 
 :root {
+			--gradient-secondary: linear-gradient(to bottom, var(--chart-4), var(--secondary));
+			--secondary-gradient-secondary: linear-gradient(to bottom, var(--secondary), var(--chart-4));
+		--gradient-card-bg: linear-gradient(to bottom, var(--border), var(--background));
+		--secondary-gradient-card-bg: linear-gradient(to bottom, var(--background), var(--border));
 	--radius: 0.5rem;
 	--background: oklch(0 0 0);
 	--foreground: oklch(1 0 0);
@@ -76,9 +80,15 @@
 	--sidebar-accent-foreground: oklch(0.205 0 0);
 	--sidebar-border: oklch(0.922 0 0);
 	--sidebar-ring: oklch(0.708 0 0);
+  --gradient-primary-bg: linear-gradient(to bottom, var(--primary), var(--background));
+		--secondary-gradient-primary-bg: linear-gradient(135deg, var(--primary), var(--background), var(--background), var(--background));
 }
 
 .dark {
+			--gradient-secondary: linear-gradient(to bottom, var(--chart-4), var(--secondary));
+			--secondary-gradient-secondary: linear-gradient(to bottom, var(--secondary), var(--chart-4));
+		--gradient-card-bg: linear-gradient(to bottom, var(--border), var(--background));
+		--secondary-gradient-card-bg: linear-gradient(to bottom, var(--background), var(--border));
 	--background: oklch(0 0 0);
 	--foreground: oklch(1 0 0);
 	--card: oklch(0.1543 0 0);
@@ -110,6 +120,8 @@
 	--sidebar-accent-foreground: oklch(0.205 0 0);
 	--sidebar-border: oklch(0.922 0 0);
 	--sidebar-ring: oklch(0.708 0 0);
+	--gradient-primary-bg: linear-gradient(to bottom, var(--primary), var(--background));
+	--secondary-gradient-primary-bg: linear-gradient(135deg, var(--primary), var(--background), var(--background), var(--background), var(--background));
 }
 
 @layer base {
