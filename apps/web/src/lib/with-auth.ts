@@ -6,7 +6,7 @@ import type { Session } from "./definitions/auth";
 
 // HOC for pages that require authentication
 export function withAuth<P extends { session: Session }>(
-	component: (props: P) => Promise<JSX.Element>,
+	component: (props: P) => Promise<JSX.Element>
 ): (props: Omit<P, "session">) => Promise<JSX.Element> {
 	return async (props: Omit<P, "session">) => {
 		const headersList = await headers();

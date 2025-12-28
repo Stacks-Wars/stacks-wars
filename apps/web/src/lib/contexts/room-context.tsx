@@ -36,7 +36,9 @@ export function RoomProvider({
 	const engineState = useRoomWebSocket({ lobbyPath });
 
 	return (
-		<RoomContext.Provider value={engineState}>{children}</RoomContext.Provider>
+		<RoomContext.Provider value={engineState}>
+			{children}
+		</RoomContext.Provider>
 	);
 }
 
@@ -44,7 +46,7 @@ export function useRoom() {
 	const context = useContext(RoomContext);
 	if (!context) {
 		throw new Error(
-			"useGameEngineContext must be used within GameEngineProvider",
+			"useGameEngineContext must be used within GameEngineProvider"
 		);
 	}
 	return context;
