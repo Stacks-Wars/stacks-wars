@@ -7,7 +7,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
-import { useUserStore } from "@/lib/stores/user";
+import { useUser, useUserActions } from "@/lib/stores/user";
 import { MenuIcon } from "lucide-react";
 import {
 	Sheet,
@@ -27,7 +27,8 @@ const navItems: { href: Route; label: string }[] = [
 
 export default function Header() {
 	const pathname = usePathname();
-	const { user, clearUser } = useUserStore();
+	const { clearUser } = useUserActions();
+	const user = useUser();
 	const [open, setOpen] = useState(false);
 	const [authenticatedUserId, setAuthenticatedUserId] = useState<
 		string | null

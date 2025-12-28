@@ -3,13 +3,13 @@
 import LobbyCard, { LobbyCardSkeleton } from "@/components/main/lobby-card";
 import { LobbyFilter } from "@/app/(main)/lobby/_components/lobby-filter";
 import { useLobbyListWebSocket } from "@/lib/hooks/useLobbyListWebSocket";
-import { useUserStore } from "@/lib/stores/user";
+import { useLobbyFilter, useUserActions } from "@/lib/stores/user";
 import Loading from "@/app/loading";
 import type { LobbyStatus } from "@/lib/definitions";
 
 export default function LobbyPage() {
-	const lobbyFilter = useUserStore((state) => state.lobbyFilter);
-	const setLobbyFilter = useUserStore((state) => state.setLobbyFilter);
+	const lobbyFilter = useLobbyFilter();
+	const { setLobbyFilter } = useUserActions();
 
 	const { lobbies, total, isConnected, isConnecting, error, subscribe } =
 		useLobbyListWebSocket({

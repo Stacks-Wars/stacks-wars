@@ -89,7 +89,7 @@ pub async fn create_user(
     let cookie = Cookie::build(("auth_token", token.clone()))
         .path("/")
         .max_age(time::Duration::days(7))
-        .same_site(SameSite::None)
+        .same_site(SameSite::Strict)
         .http_only(true)
         .secure(is_production)
         .build();

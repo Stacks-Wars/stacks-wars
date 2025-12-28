@@ -26,7 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ApiClient } from "@/lib/api/client";
-import { useUserStore } from "@/lib/stores/user";
+import { useUserActions } from "@/lib/stores/user";
 import type { User } from "@/lib/definitions";
 import { useRouter } from "next/navigation";
 
@@ -69,7 +69,7 @@ export default function EditProfile({
 }: EditProfileProps) {
 	const [open, setOpen] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const updateUser = useUserStore((state) => state.updateUser);
+	const { updateUser } = useUserActions();
 	const router = useRouter();
 
 	const form = useForm<EditProfileFormValues>({

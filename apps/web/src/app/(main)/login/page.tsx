@@ -13,20 +13,25 @@ import {
 } from "@/components/ui/card";
 import { ApiClient } from "@/lib/api/client";
 import type { User } from "@/lib/definitions";
-import { useUserStore } from "@/lib/stores/user";
-import { connectWallet, isWalletConnected } from "@/lib/wallet";
+import { useUser, useUserActions } from "@/lib/stores/user";
+import {
+	connectWallet,
+	disconnectWallet,
+	isWalletConnected,
+} from "@/lib/wallet";
 
 export default function LoginModal() {
 	const router = useRouter();
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const { setUser } = useUserStore();
+	const { setUser, clearUser } = useUserActions();
+	const user = useUser();
 
 	const handleConnect = async () => {
 		// Check if already connected
-		if (isWalletConnected()) {
-			console.log("Already authenticated");
-			return;
+		if (isWalletConnected() || user != null) {
+			disconnectWallet();
+			clearUser();
 		}
 
 		setIsLoading(true);
