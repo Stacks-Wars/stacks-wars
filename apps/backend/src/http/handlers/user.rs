@@ -83,15 +83,12 @@ pub async fn create_user(
         .map_err(|e| e.to_response())?;
 
     // Create httpOnly cookie for the token
-    let is_production =
-        std::env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string()) == "production";
-
     let cookie = Cookie::build(("auth_token", token.clone()))
         .path("/")
         .max_age(time::Duration::days(7))
-        .same_site(SameSite::Strict)
+        .same_site(SameSite::None)
         .http_only(true)
-        .secure(is_production)
+        .secure(true)
         .build();
 
     let mut response = Json(user).into_response();
@@ -251,8 +248,9 @@ pub async fn logout(
     let cookie = Cookie::build(("auth_token", ""))
         .path("/")
         .max_age(time::Duration::seconds(0))
-        .same_site(SameSite::Strict)
+        .same_site(SameSite::None)
         .http_only(true)
+        .secure(true)
         .build();
 
     let mut response = StatusCode::NO_CONTENT.into_response();
