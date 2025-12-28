@@ -9,7 +9,6 @@ import {
 import { DOMAIN_NAME, siteConfig } from "@stacks-wars/shared";
 import { CheckCircle2, Loader2, Wallet } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type React from "react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -25,8 +24,8 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { ApiClient } from "@/lib/api/client";
 import type { User } from "@/lib/definitions";
-import { useUserStore } from "@/lib/stores/user";
-import { disconnectWallet } from "@/lib/wallet";
+import { useUser, useUserActions } from "@/lib/stores/user";
+import { connectWallet, disconnectWallet } from "@/lib/wallet";
 
 type AuthMode = "login" | "signup";
 type AuthType = "wallet" | "google";
@@ -46,8 +45,8 @@ export function AuthDialog({
 }: AuthDialogProps) {
 	const [isConnecting, setIsConnecting] = useState<AuthType | null>(null);
 	const [isConnected, setIsConnected] = useState<AuthType | null>(null);
-	const { setUser, clearUser, user } = useUserStore();
-	const router = useRouter();
+	const user = useUser();
+	const { setUser, clearUser } = useUserActions();
 
 	const isSignup = mode === "signup";
 	const title = isSignup ? "Create your account" : "Sign in to your account";
@@ -62,22 +61,14 @@ export function AuthDialog({
 	const handleWalletConnect = async () => {
 		setIsConnecting("wallet");
 		try {
-			if (isWalletConnected() || user != null) {
-				disconnectWallet();
+			if (user != null) {
 				clearUser();
 			}
 
-			await connect({ network: "mainnet" });
-			if (!isWalletConnected()) {
-				toast.error("Failed to connect to wallet");
-				return;
-			}
-
-			const walletData = getLocalStorage();
-			const address = walletData?.addresses?.stx?.[0]?.address;
+			const address = await connectWallet();
 
 			if (!address) {
-				toast.error("No Stacks address found");
+				toast.error("Failed to connect to wallet");
 				return;
 			}
 
@@ -126,7 +117,7 @@ export function AuthDialog({
 				toast.success("Authenticated");
 				setIsConnected("wallet");
 				setUser(authResponse.data);
-				router.back();
+				onOpenChange?.(false);
 			}
 		} catch (error) {
 			console.error("Stacks authentication error:", error);

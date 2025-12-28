@@ -2,52 +2,50 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { User, LobbyStatus } from "@/lib/definitions";
 
-interface UserState {
-	user: User | null;
-	isAuthenticated: boolean;
-	isLoading: boolean;
-	lobbyFilter: LobbyStatus[];
-
-	// Actions
+interface UserActions {
 	setUser: (user: User) => void;
 	clearUser: () => void;
 	updateUser: (user: Partial<User>) => void;
-	setLoading: (isLoading: boolean) => void;
 	setLobbyFilter: (filter: LobbyStatus[]) => void;
 }
 
-export const useUserStore = create<UserState>()(
+interface UserState {
+	user: User | null;
+	isAuthenticated: boolean;
+	lobbyFilter: LobbyStatus[];
+
+	actions: UserActions;
+}
+
+const useUserStore = create<UserState>()(
 	persist(
 		(set) => ({
 			user: null,
 			isAuthenticated: false,
-			isLoading: false,
 			lobbyFilter: ["waiting", "inProgress"],
 
-			setUser: (user) => {
-				set({
-					user,
-					isAuthenticated: true,
-					isLoading: false,
-				});
+			actions: {
+				setUser: (user) => {
+					set({
+						user,
+						isAuthenticated: true,
+					});
+				},
+
+				clearUser: () => {
+					set({
+						user: null,
+						isAuthenticated: false,
+					});
+				},
+
+				updateUser: (updates) =>
+					set((state) => ({
+						user: state.user ? { ...state.user, ...updates } : null,
+					})),
+
+				setLobbyFilter: (filter) => set({ lobbyFilter: filter }),
 			},
-
-			clearUser: () => {
-				set({
-					user: null,
-					isAuthenticated: false,
-					isLoading: false,
-				});
-			},
-
-			updateUser: (updates) =>
-				set((state) => ({
-					user: state.user ? { ...state.user, ...updates } : null,
-				})),
-
-			setLoading: (isLoading) => set({ isLoading }),
-
-			setLobbyFilter: (filter) => set({ lobbyFilter: filter }),
 		}),
 		{
 			name: "user-storage",
@@ -59,3 +57,9 @@ export const useUserStore = create<UserState>()(
 		}
 	)
 );
+
+export const useUser = () => useUserStore((state) => state.user);
+export const useIsAuthenticated = () =>
+	useUserStore((state) => state.isAuthenticated);
+export const useLobbyFilter = () => useUserStore((state) => state.lobbyFilter);
+export const useUserActions = () => useUserStore((state) => state.actions);

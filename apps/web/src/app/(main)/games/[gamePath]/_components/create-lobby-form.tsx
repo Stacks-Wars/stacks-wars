@@ -25,7 +25,7 @@ import {
 	FormMessage,
 } from "@/components/ui/form";
 import { ApiClient } from "@/lib/api/client";
-import { useUserStore } from "@/lib/stores/user";
+import { useUser } from "@/lib/stores/user";
 import type { Game, Lobby, CreateLobbyRequest } from "@/lib/definitions";
 import { useRouter } from "next/navigation";
 import { formatAddress } from "@/lib/utils";
@@ -81,7 +81,7 @@ type NormalLobbyFormValues = z.infer<typeof normalLobbySchema>;
 type SponsoredLobbyFormValues = z.infer<typeof sponsoredLobbySchema>;
 
 export default function CreateLobbyForm(game: Game) {
-	const { user } = useUserStore();
+	const user = useUser();
 	const [error, setError] = useState<string | null>(null);
 	const router = useRouter();
 
