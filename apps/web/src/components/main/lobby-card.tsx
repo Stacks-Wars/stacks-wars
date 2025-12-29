@@ -80,6 +80,7 @@ export default function LobbyCard({ lobby }: { lobby: LobbyExtended }) {
 				</p>
 			</div>
 			<Button
+				asChild
 				variant={"secondary"}
 				className="rounded-full w-full text-base lg:text-xl font-medium py-2.5 lg:py-6"
 			>

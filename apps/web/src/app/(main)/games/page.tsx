@@ -17,8 +17,12 @@ export default async function GamesPage() {
 				</p>
 			</div>
 			<div className="grid grid-cols-1 gap-4 sm:gap-6">
-				{games.data?.map((game, i) => (
-					<GameCard key={i} game={game} open="createLobbyPage" />
+				{games.data?.map((game) => (
+					<GameCard
+						key={game.id}
+						game={game}
+						open="createLobbyPage"
+					/>
 				))}
 			</div>
 		</div>
