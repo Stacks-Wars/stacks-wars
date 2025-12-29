@@ -1,4 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { JoinRequest, PlayerState } from "@/lib/definitions";
 import { formatAddress } from "@/lib/utils";
@@ -49,6 +50,9 @@ export default function Player({ player, isCreator }: PlayerProps) {
 			</Link>
 
 			<div className="flex items-center gap-4">
+				{player.isCreator && (
+					<Badge variant={"secondary"}>Creator</Badge>
+				)}
 				<p className="flex items-center gap-1">
 					<span>{player.trustRating}</span>{" "}
 					<IoStar className="text-yellow-400" />

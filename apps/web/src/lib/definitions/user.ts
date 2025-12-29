@@ -47,4 +47,5 @@ export interface JoinRequest {
 	displayName?: string;
 	trustRating: number;
 	state: "pending" | "accepted" | "rejected";
+	isCreator: boolean;
 }
