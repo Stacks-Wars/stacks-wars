@@ -122,8 +122,11 @@ export default function Lobby() {
 			</div>
 			{isCreator && (
 				<div className="fixed bottom-4 left-0 right-0">
-					<div className="container mx-auto">
-						<Button className="w-full max-w-sm mx-auto flex rounded-full text-base lg:text-xl font-semibold">
+					<div className="container mx-auto px-4">
+						<Button
+							size={"lg"}
+							className="w-full sm:max-w-md mx-auto flex rounded-full text-sm sm:text-base lg:text-xl font-semibold h-11 sm:h-12 lg:h-14"
+						>
 							Start Game
 						</Button>
 					</div>

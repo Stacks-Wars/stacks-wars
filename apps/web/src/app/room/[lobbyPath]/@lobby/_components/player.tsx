@@ -13,12 +13,12 @@ interface PlayerProps {
 
 export default function Player({ player, isCreator }: PlayerProps) {
 	return (
-		<div className="bg-card px-6 p-4 rounded-2xl flex justify-between items-center">
+		<div className="bg-card px-3 sm:px-4 lg:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl flex justify-between items-center gap-3">
 			<Link
 				href={`/u/${player.username || player.walletAddress}`}
-				className="flex gap-2 items-center max-w-1/2 truncate"
+				className="flex gap-2 sm:gap-3 items-center min-w-0 flex-1"
 			>
-				<Avatar className="size-15 uppercase">
+				<Avatar className="size-10 sm:size-12 lg:size-15 uppercase shrink-0">
 					<AvatarImage src={""} alt="player profile picture" />
 					<AvatarFallback>
 						{(
@@ -28,20 +28,20 @@ export default function Player({ player, isCreator }: PlayerProps) {
 						).slice(0, 2)}
 					</AvatarFallback>
 				</Avatar>
-				<div>
+				<div className="min-w-0 flex-1">
 					{player.displayName ? (
 						<>
-							<p className="text-xl font-medium">
+							<p className="text-sm sm:text-base lg:text-xl font-medium truncate">
 								{player.displayName}
 							</p>
-							<p className="text-base">
+							<p className="text-xs sm:text-sm lg:text-base text-muted-foreground truncate">
 								@
 								{player.username ||
 									formatAddress(player.walletAddress)}
 							</p>
 						</>
 					) : (
-						<p className="text-xl font-medium">
+						<p className="text-sm sm:text-base lg:text-xl font-medium truncate">
 							{player.username ||
 								formatAddress(player.walletAddress)}
 						</p>
@@ -49,40 +49,43 @@ export default function Player({ player, isCreator }: PlayerProps) {
 				</div>
 			</Link>
 
-			<div className="flex items-center gap-4">
+			<div className="flex items-center gap-2 shrink-0">
 				{player.isCreator && (
-					<Badge variant={"secondary"}>Creator</Badge>
+					<Badge variant={"secondary"} className="text-xs sm:text-sm">
+						Creator
+					</Badge>
 				)}
-				<p className="flex items-center gap-1">
-					<span>{player.trustRating}</span>{" "}
-					<IoStar className="text-yellow-400" />
+				<p className="flex items-center gap-1 text-sm sm:text-base">
+					<span>{player.trustRating}</span>
+					<IoStar className="text-yellow-400 size-3 sm:size-4" />
 				</p>
-				{isCreator && (
-					<div>
-						{player.state === "pending" && (
-							<div className="flex gap-4">
-								<Button className="rounded-full text-base font-medium">
-									Accept
-								</Button>
-								<Button
-									variant={"outline"}
-									className="rounded-full text-base font-medium"
-								>
-									Decline
-								</Button>
-							</div>
-						)}
-						{player.state === "accepted" && (
+			</div>
+
+			{isCreator && (
+				<div className="shrink-0">
+					{player.state === "pending" && (
+						<div className="flex gap-2 sm:gap-3 lg:gap-4">
+							<Button className="rounded-full text-xs sm:text-sm lg:text-base font-medium px-3 sm:px-4 h-8 sm:h-9 lg:h-10">
+								Accept
+							</Button>
 							<Button
 								variant={"outline"}
-								className="rounded-full text-base font-medium"
+								className="rounded-full text-xs sm:text-sm lg:text-base font-medium px-3 sm:px-4 h-8 sm:h-9 lg:h-10"
 							>
-								Remove
+								Decline
 							</Button>
-						)}
-					</div>
-				)}
-			</div>
+						</div>
+					)}
+					{player.state === "accepted" && (
+						<Button
+							variant={"outline"}
+							className="rounded-full text-xs sm:text-sm lg:text-base font-medium px-3 sm:px-4 h-8 sm:h-9 lg:h-10"
+						>
+							Remove
+						</Button>
+					)}
+				</div>
+			)}
 		</div>
 	);
 }
