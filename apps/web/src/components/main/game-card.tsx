@@ -13,7 +13,7 @@ export default function GameCard({
 }) {
 	return (
 		<div className="flex flex-col items-center w-full">
-			<div className="flex flex-col-reverse sm:flex-row justify-between sm:items-center bg-card px-4 lg:px-17.5 py-10 lg:py-15.5 rounded-4xl w-full">
+			<div className="flex flex-col-reverse sm:flex-row border justify-between sm:items-center bg-gradient-primary px-4 lg:px-17.5 py-10 lg:py-15.5 rounded-4xl w-full">
 				<div className="sm:w-1/2 space-y-4 sm:space-y-2 md:space-y-4">
 					<h3 className="lg:text-[40px] text-2xl w-full truncate font-bold pb-3">
 						{game.name}
@@ -55,7 +55,7 @@ export default function GameCard({
 			</div>
 			{open && (
 				<Button
-					className="-translate-y-1/2 w-full max-w-28 lg:max-w-80 rounded-full text-xs lg:text-xl sm:font-medium -mb-6 lg:-mb-7.5"
+					className="-translate-y-1/2 w-full max-w-28 lg:max-w-80 bg-muted-gradient hover:bg-muted-gradient-2 rounded-full text-xs lg:text-xl sm:font-medium -mb-6 lg:-mb-7.5"
 					asChild
 				>
 					{open === "createLobbyPage" ? (
