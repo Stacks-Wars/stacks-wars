@@ -27,7 +27,9 @@ function RoomContent({
 			{lobbyData?.status === "finished" && (
 				<div className="container mx-auto px-4 py-8 text-center">
 					<h2 className="text-2xl font-bold">Game Completed!</h2>
-					<p className="mt-2 text-muted-foreground">Thanks for playing!</p>
+					<p className="mt-2 text-muted-foreground">
+						Thanks for playing!
+					</p>
 				</div>
 			)}
 			{children}

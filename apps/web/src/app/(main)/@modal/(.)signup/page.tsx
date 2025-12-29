@@ -6,6 +6,10 @@ export default function SignupModal() {
 	const router = useRouter();
 
 	return (
-		<AuthDialog mode="signup" open={true} onOpenChange={() => router.back()} />
+		<AuthDialog
+			mode="signup"
+			open={true}
+			onOpenChange={() => router.back()}
+		/>
 	);
 }
