@@ -33,14 +33,14 @@ export default function GameCard({
 							<span className="font-medium ">Active Rooms:</span>{" "}
 							<span>3</span>
 						</p>
-						<p>
+						<p className="flex items-center gap-1">
 							<span className="font-medium">Ratings:</span>{" "}
 							<span>4.5</span>
+							<IoStar className="text-yellow-400" />
 						</p>
-						<p className="flex items-center gap-1">
+						<p>
 							<span className="font-medium">Volume:</span>{" "}
 							<span>1K STX</span>{" "}
-							<IoStar className="text-yellow-400" />
 						</p>
 					</div>
 				</div>
