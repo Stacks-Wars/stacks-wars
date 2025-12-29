@@ -24,6 +24,7 @@ export interface UpdateUserRequest {
 export interface PlayerState {
 	userId: string;
 	lobbyId: string;
+	state: "pending" | "accepted" | "rejected";
 	status: "not_joined" | "joined";
 	walletAddress: string;
 	username?: string;
