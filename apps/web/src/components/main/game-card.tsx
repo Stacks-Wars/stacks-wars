@@ -50,12 +50,12 @@ export default function GameCard({
 					width={358}
 					height={182}
 					loading="lazy"
-					className="md:max-w-40 md:max-w-89.5 w-full self-center"
+					className="max-w-40 md:max-w-89.5 w-full self-center"
 				/>
 			</div>
 			{open && (
 				<Button
-					className="-translate-y-1/2 w-full md:max-w-28 lg:max-w-80 bg-muted-gradient hover:bg-muted-gradient-2 rounded-full text-xs lg:text-xl sm:font-medium mb-4 lg:-mb-7.5"
+					className="-translate-y-1/2 w-full max-w-28 lg:max-w-80 bg-muted-gradient hover:bg-muted-gradient-2 rounded-full text-xs lg:text-xl sm:font-medium -mb-6 lg:-mb-7.5"
 					asChild
 				>
 					{open === "createLobbyPage" ? (
