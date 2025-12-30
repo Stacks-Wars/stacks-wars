@@ -23,6 +23,7 @@ pub struct JoinRequest {
     pub username: Option<String>,
     pub display_name: Option<String>,
     pub trust_rating: f64,
+    pub is_creator: bool,
     pub created_at: i64,
 }
 
@@ -55,6 +56,7 @@ impl JoinRequestRepository {
                 username,
                 display_name,
                 trust_rating,
+                is_creator: false,
                 created_at: Utc::now().timestamp(),
             };
             let _: redis::RedisResult<i32> = conn
