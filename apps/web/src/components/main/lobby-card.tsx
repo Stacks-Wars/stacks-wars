@@ -10,7 +10,7 @@ import { Skeleton } from "../ui/skeleton";
 
 export default function LobbyCard({ lobby }: { lobby: LobbyExtended }) {
 	return (
-		<div className="bg-card p-6 lg:p-12 rounded-4xl border max-w-150 w-full space-y-4 lg:space-y-8">
+		<div className="bg-gradient-primary-2 p-6 lg:p-12 rounded-4xl border max-w-150 w-full space-y-4 lg:space-y-8">
 			<div className="space-y-4 lg:space-y-6.5">
 				<div className="flex justify-between items-center">
 					<div className="max-w-50 lg:max-w-100">
@@ -81,7 +81,7 @@ export default function LobbyCard({ lobby }: { lobby: LobbyExtended }) {
 			</div>
 			<Button
 				variant={"secondary"}
-				className="rounded-full w-full text-base lg:text-xl font-medium py-2.5 lg:py-6"
+				className="bg-gradient-secondary-1 hover:bg-gradient-secondary-2 rounded-full w-full text-base lg:text-xl font-medium py-2.5 lg:py-6"
 			>
 				<Link href={`/room/${lobby.path}`}>Open Room</Link>
 			</Button>
