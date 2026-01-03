@@ -55,7 +55,7 @@ export default function GameCard({
 			</div>
 			{open && (
 				<Button
-					className="-translate-y-1/2 w-full max-w-28 lg:max-w-80 bg-muted-gradient hover:bg-muted-gradient-2 rounded-full text-xs lg:text-xl sm:font-medium -mb-6 lg:-mb-7.5"
+					className="-translate-y-1/2 w-full max-w-28 lg:max-w-80 bg-muted-gradient rounded-full text-xs lg:text-xl sm:font-medium -mb-6 lg:-mb-7.5 transition hover:opacity-90"
 					asChild
 				>
 					{open === "createLobbyPage" ? (

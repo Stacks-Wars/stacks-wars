@@ -163,76 +163,74 @@ export default function LeaderboardPage() {
 			<Card className="bg-transparent border-none shadow-none rounded-none max-w-full my-8">
 				<CardHeader className="px-0 pb-6">
 					<div className="flex flex-wrap justify-center items-end gap-6 md:gap-12">
-						{[
-							topRanked.second,
-							topRanked.first,
-							topRanked.third,
-						].map((player, idx) => {
-							const rankEmoji =
-								idx === 0 ? "🥈" : idx === 1 ? "🥇" : "🥉";
-							const isFirst = idx === 1;
-							return (
-								<div
-									key={idx}
-									className={`relative ${isFirst ? "-translate-y-8 sm:-translate-y-12 md:-translate-y-24" : ""}`}
-								>
-									<div className="absolute -top-3 sm:-top-4 md:-top-6 left-1/2 -translate-x-1/2 text-3xl sm:text-4xl md:text-6xl z-10">
-										{rankEmoji}
+						{[topRanked.second, topRanked.first, topRanked.third]
+							.filter((player) => player !== undefined)
+							.map((player, idx) => {
+								const rankEmoji =
+									idx === 0 ? "🥈" : idx === 1 ? "🥇" : "🥉";
+								const isFirst = idx === 1;
+								return (
+									<div
+										key={idx}
+										className={`relative ${isFirst ? "-translate-y-8 sm:-translate-y-12 md:-translate-y-24" : ""}`}
+									>
+										<div className="absolute -top-3 sm:-top-4 md:-top-6 left-1/2 -translate-x-1/2 text-3xl sm:text-4xl md:text-6xl z-10">
+											{rankEmoji}
+										</div>
+										<Card className="shadow-md bg-gradient-primary pb-12 sm:pb-16 md:pb-20 border-none rounded-t-full rounded-b-0 overflow-hidden px-2 sm:px-3 pt-2 w-28 sm:w-40 md:w-auto">
+											<CardContent className="flex flex-col items-center gap-2 sm:gap-6 md:gap-12 p-2 sm:p-3 md:p-4">
+												<Avatar className="w-20 h-20 sm:w-36 sm:h-36 md:w-60 md:h-60">
+													<AvatarImage
+														alt={`${player?.displayName || player?.username || "Player"}'s avatar`}
+													/>
+													<AvatarFallback className="text-3xl sm:text-6xl md:text-8xl">
+														{(
+															player?.displayName ||
+															player?.username ||
+															player?.walletAddress ||
+															"?"
+														)
+															.slice(0, 2)
+															.toUpperCase()}
+													</AvatarFallback>
+												</Avatar>
+												<div className="flex flex-col items-center gap-0">
+													<div className="text-[7px] sm:text-[9px] md:text-sm text-muted-foreground uppercase">
+														Player Name
+													</div>
+													<div className="font-semibold text-xs sm:text-xl md:text-3xl text-center">
+														{player?.displayName ||
+															player?.username ||
+															"Anonymous"}
+													</div>
+												</div>
+												<div className="flex items-center justify-center gap-2 sm:gap-6 md:gap-16 text-center">
+													<div className="flex flex-col">
+														<div className="text-[9px] sm:text-xs md:text-base text-muted-foreground uppercase font-semibold">
+															Wins
+														</div>
+														<div className="font-medium text-xs sm:text-xl md:text-2xl">
+															{player
+																? player.totalWins
+																: "--"}
+														</div>
+													</div>
+													<div className="flex flex-col">
+														<div className="text-[9px] sm:text-xs md:text-base text-muted-foreground uppercase font-semibold">
+															PTS
+														</div>
+														<div className="font-medium text-xs sm:text-xl md:text-2xl">
+															{player
+																? `${formatPnL(player.pnl)}`
+																: "--"}
+														</div>
+													</div>
+												</div>
+											</CardContent>
+										</Card>
 									</div>
-									<Card className="shadow-md bg-gradient-primary pb-12 sm:pb-16 md:pb-20 border-none rounded-t-full rounded-b-0 overflow-hidden px-2 sm:px-3 pt-2 w-28 sm:w-40 md:w-auto">
-										<CardContent className="flex flex-col items-center gap-2 sm:gap-6 md:gap-12 p-2 sm:p-3 md:p-4">
-											<Avatar className="w-20 h-20 sm:w-36 sm:h-36 md:w-60 md:h-60">
-												<AvatarImage
-													alt={`${player?.displayName || player?.username || "Player"}'s avatar`}
-												/>
-												<AvatarFallback className="text-3xl sm:text-6xl md:text-8xl">
-													{(
-														player?.displayName ||
-														player?.username ||
-														player?.walletAddress ||
-														"?"
-													)
-														.slice(0, 2)
-														.toUpperCase()}
-												</AvatarFallback>
-											</Avatar>
-											<div className="flex flex-col items-center gap-0">
-												<div className="text-[7px] sm:text-[9px] md:text-sm text-muted-foreground uppercase">
-													Player Name
-												</div>
-												<div className="font-semibold text-xs sm:text-xl md:text-3xl text-center">
-													{player?.displayName ||
-														player?.username ||
-														"Anonymous"}
-												</div>
-											</div>
-											<div className="flex items-center justify-center gap-2 sm:gap-6 md:gap-16 text-center">
-												<div className="flex flex-col">
-													<div className="text-[9px] sm:text-xs md:text-base text-muted-foreground uppercase font-semibold">
-														Wins
-													</div>
-													<div className="font-medium text-xs sm:text-xl md:text-2xl">
-														{player
-															? player.totalWins
-															: "--"}
-													</div>
-												</div>
-												<div className="flex flex-col">
-													<div className="text-[9px] sm:text-xs md:text-base text-muted-foreground uppercase font-semibold">
-														PTS
-													</div>
-													<div className="font-medium text-xs sm:text-xl md:text-2xl">
-														{player
-															? `${formatPnL(player.pnl)}`
-															: "--"}
-													</div>
-												</div>
-											</div>
-										</CardContent>
-									</Card>
-								</div>
-							);
-						})}
+								);
+							})}
 					</div>
 				</CardHeader>
 				<CardContent>
@@ -312,7 +310,11 @@ export default function LeaderboardPage() {
 											</TableCell>
 											<TableCell
 												className="cursor-pointer hover:bg-muted/50 transition-colors"
-											onClick={() => router.push(`/u/${entry.username || entry.walletAddress}`)}
+												onClick={() =>
+													router.push(
+														`/u/${entry.username || entry.walletAddress}`
+													)
+												}
 											>
 												<div className="flex items-center gap-3">
 													<Avatar className="size-10 md:size-12">
@@ -371,9 +373,7 @@ export default function LeaderboardPage() {
 														<TrendingUp className="h-4 w-4 md:h-5 md:w-5" />
 													) : entry.pnl < 0 ? (
 														<TrendingDown className="h-4 w-4 md:h-5 md:w-5" />
-													) : (
-														<TrendingUp className="h-4 w-4 md:h-5 md:w-5" />
-													)}
+													) : null}
 													<span>
 														{formatPnL(entry.pnl)}{" "}
 														STX
