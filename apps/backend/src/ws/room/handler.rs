@@ -17,11 +17,14 @@ use std::sync::Arc;
 use tokio::sync::Mutex as TokioMutex;
 use uuid::Uuid;
 
-use crate::db::lobby::LobbyRepository;
-use crate::middleware::{ApiRateLimit, check_rate_limit};
 use crate::ws::core::manager;
 use crate::ws::room::{RoomError, engine::handle_room_message, messages::RoomServerMessage};
 use crate::{auth::extractors::WsAuth, db::lobby_chat::get_chat_history};
+use crate::{db::lobby::LobbyRepository, models::LobbyInfo};
+use crate::{
+    db::{game::GameRepository, user::UserRepository},
+    middleware::{ApiRateLimit, check_rate_limit},
+};
 use crate::{
     db::{
         join_request::JoinRequestRepository, lobby_state::LobbyStateRepository,
@@ -77,7 +80,7 @@ async fn handle_socket(
     let lobby_repo = LobbyRepository::new(state.postgres.clone());
 
     // Fetch lobby by path with joined user and game data
-    let lobby_with_joins = match lobby_repo.find_by_path_with_joins(&lobby_path).await {
+    let lobby = match lobby_repo.find_by_path(&lobby_path).await {
         Ok(l) => l,
         Err(_) => {
             let err = RoomError::NotFound;
@@ -86,11 +89,8 @@ async fn handle_socket(
         }
     };
 
-    let lobby_id = lobby_with_joins.id;
-    let game_path = lobby_with_joins.game_path.clone();
-    let (creator_wallet, creator_username, creator_display_name) = lobby_with_joins.creator_info();
-    let (game_image_url, game_min_players, game_max_players) = lobby_with_joins.game_info();
-    let lobby = lobby_with_joins.to_lobby();
+    let lobby_id = lobby.id;
+    let game_path = lobby.game_path.clone();
 
     let conn = Arc::new(ConnectionInfo {
         connection_id,
@@ -102,11 +102,22 @@ async fn handle_socket(
     // Register the connection
     manager::register_connection(&state, connection_id, conn.clone()).await;
 
+    let game_repo = GameRepository::new(state.postgres.clone());
+    let user_repo = UserRepository::new(state.postgres.clone());
     let lobby_state_repo = LobbyStateRepository::new(state.redis.clone());
     let player_repo = PlayerStateRepository::new(state.redis.clone());
     let jr_repo = JoinRequestRepository::new(state.redis.clone());
 
-    let (state_info_result, players_result, join_requests_result, chat_history_result) = tokio::join!(
+    let (
+        game,
+        creator,
+        state_info_result,
+        players_result,
+        join_requests_result,
+        chat_history_result,
+    ) = tokio::join!(
+        game_repo.find_by_id(lobby.game_id),
+        user_repo.find_by_id(lobby.creator_id),
         lobby_state_repo.get_state(lobby_id),
         player_repo.get_all_in_lobby(lobby_id),
         jr_repo.list(lobby_id),
@@ -114,18 +125,9 @@ async fn handle_socket(
     );
 
     // Validate we have the minimum required data
-    match state_info_result {
-        Ok(state_info) => {
-            let lobby_ext = LobbyExtended::from_parts(
-                lobby,
-                state_info,
-                creator_wallet,
-                creator_username,
-                creator_display_name,
-                game_image_url,
-                game_min_players,
-                game_max_players,
-            );
+    match (state_info_result, game, creator) {
+        (Ok(state_info), Ok(game), Ok(creator)) => {
+            let lobby_ext = LobbyExtended::from_parts(lobby, state_info);
             let players = players_result.unwrap_or_default();
             let join_requests = join_requests_result
                 .unwrap_or_default()
@@ -134,10 +136,16 @@ async fn handle_socket(
                 .collect();
             let chat_history = chat_history_result.unwrap_or_default();
 
+            let lobby_info = LobbyInfo {
+                lobby: lobby_ext,
+                game,
+                creator,
+            };
+
             let _ = manager::send_to_connection(
                 &conn,
                 &RoomServerMessage::LobbyBootstrap {
-                    lobby: lobby_ext,
+                    lobby_info,
                     players,
                     join_requests,
                     chat_history,
@@ -145,7 +153,7 @@ async fn handle_socket(
             )
             .await;
         }
-        Err(_) => {
+        _ => {
             let err = RoomError::NotFound;
             tracing::error!("Lobby state not found for id {}: {:?}", lobby_id, err);
             let msg = RoomServerMessage::from(err);

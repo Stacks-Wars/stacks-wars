@@ -7,7 +7,7 @@ use std::{collections::HashMap, str::FromStr};
 use uuid::Uuid;
 
 /// Lobby lifecycle status enum
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, sqlx::Type)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, sqlx::Type)]
 #[sqlx(type_name = "lobby_status", rename_all = "snake_case")]
 #[serde(rename_all = "camelCase")]
 pub enum LobbyStatus {

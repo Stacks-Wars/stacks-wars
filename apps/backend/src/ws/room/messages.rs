@@ -1,7 +1,7 @@
 // Room message types (client -> server, server -> client)
 use crate::db::join_request::JoinRequest;
 use crate::models::lobby_state::LobbyStatus;
-use crate::models::{ChatMessage, LobbyExtended, PlayerState};
+use crate::models::{ChatMessage, LobbyInfo, PlayerState};
 use crate::ws::room::error::RoomError;
 use uuid::Uuid;
 
@@ -58,7 +58,7 @@ pub enum RoomClientMessage {
 pub enum RoomServerMessage {
     #[serde(rename_all = "camelCase")]
     LobbyBootstrap {
-        lobby: LobbyExtended,
+        lobby_info: LobbyInfo,
         players: Vec<PlayerState>,
         join_requests: Vec<JoinRequest>,
         chat_history: Vec<ChatMessage>,
@@ -70,26 +70,34 @@ pub enum RoomServerMessage {
     },
 
     /// Countdown updates
+    #[serde(rename_all = "camelCase")]
     StartCountdown {
         seconds_remaining: u8,
     },
 
+    #[serde(rename_all = "camelCase")]
     PlayerJoined {
         player_id: Uuid,
     },
+
+    #[serde(rename_all = "camelCase")]
     PlayerLeft {
         player_id: Uuid,
     },
+
+    #[serde(rename_all = "camelCase")]
     PlayerKicked {
         player_id: Uuid,
     },
 
     /// Broadcasted list of join requests (visible to lobby); only creator may accept/reject
+    #[serde(rename_all = "camelCase")]
     JoinRequestsUpdated {
         join_requests: Vec<JoinRequest>,
     },
 
     /// Personal status for a join request
+    #[serde(rename_all = "camelCase")]
     JoinRequestStatus {
         player_id: Uuid,
         accepted: bool,
@@ -101,6 +109,7 @@ pub enum RoomServerMessage {
     },
 
     /// Reaction added to a message
+    #[serde(rename_all = "camelCase")]
     ReactionAdded {
         message_id: Uuid,
         user_id: Uuid,
@@ -108,6 +117,7 @@ pub enum RoomServerMessage {
     },
 
     /// Reaction removed from a message
+    #[serde(rename_all = "camelCase")]
     ReactionRemoved {
         message_id: Uuid,
         user_id: Uuid,
@@ -115,6 +125,7 @@ pub enum RoomServerMessage {
     },
 
     /// Personal pong response; elapsed_ms = now.saturating_sub(client_ts)
+    #[serde(rename_all = "camelCase")]
     Pong {
         elapsed_ms: u64,
     },

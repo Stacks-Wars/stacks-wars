@@ -13,7 +13,7 @@ pub mod lobby_state;
 pub mod player_state;
 
 pub use game::Game;
-pub use lobby::{Lobby, LobbyExtended};
+pub use lobby::{Lobby, LobbyExtended, LobbyInfo};
 pub use platform_rating::PlatformRating;
 pub use season::Season;
 pub use user::User;

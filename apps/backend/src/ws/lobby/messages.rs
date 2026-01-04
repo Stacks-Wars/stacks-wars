@@ -1,5 +1,5 @@
 // Lobby list message types (client -> server, server -> client)
-use crate::models::{LobbyExtended, LobbyStatus};
+use crate::models::{LobbyInfo, LobbyStatus};
 use serde::{Deserialize, Serialize};
 
 /// Messages sent from clients to the lobby list websocket
@@ -26,22 +26,25 @@ fn default_limit() -> usize {
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum LobbyServerMessage {
     /// Initial list of lobbies
+    #[serde(rename_all = "camelCase")]
     LobbyList {
-        lobbies: Vec<LobbyExtended>,
+        lobby_info: Vec<LobbyInfo>,
         total: usize,
     },
 
     /// New lobby created
+    #[serde(rename_all = "camelCase")]
     LobbyCreated {
-        lobby: LobbyExtended,
+        lobby_info: LobbyInfo,
     },
 
     /// Lobby status changed
     LobbyUpdated {
-        lobby: LobbyExtended,
+        lobby: LobbyInfo,
     },
 
     /// Lobby deleted/finished
+    #[serde(rename_all = "camelCase")]
     LobbyRemoved {
         lobby_id: uuid::Uuid,
     },

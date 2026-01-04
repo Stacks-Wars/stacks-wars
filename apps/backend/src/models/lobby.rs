@@ -4,7 +4,7 @@ use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
 use super::WalletAddress;
-use crate::models::{LobbyState, LobbyStatus};
+use crate::models::{Game, LobbyState, LobbyStatus, User};
 
 /// Lobby model mapping to the `lobbies` table (room metadata and status).
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -120,6 +120,14 @@ pub enum LobbyAmountError {
     },
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LobbyInfo {
+    pub lobby: LobbyExtended,
+    pub game: Game,
+    pub creator: User,
+}
+
 /// Flattened Lobby payload combining Postgres metadata and Redis runtime fields.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -147,58 +155,33 @@ pub struct LobbyExtended {
     pub creator_last_ping: Option<u64>,
     pub started_at: Option<i64>,
     pub finished_at: Option<i64>,
-
-    // Creator information from users table
-    pub creator_wallet_address: WalletAddress,
-    pub creator_username: Option<String>,
-    pub creator_display_name: Option<String>,
-
-    // Game information from games table
-    pub game_image_url: String,
-    pub game_min_players: i16,
-    pub game_max_players: i16,
 }
 
 impl LobbyExtended {
     /// Build a flattened extended lobby payload from Postgres `Lobby` and Redis `LobbyState`.
-    pub fn from_parts(
-        db: Lobby,
-        runtime: LobbyState,
-        creator_wallet_address: WalletAddress,
-        creator_username: Option<String>,
-        creator_display_name: Option<String>,
-        game_image_url: String,
-        game_min_players: i16,
-        game_max_players: i16,
-    ) -> Self {
+    pub fn from_parts(lobby: Lobby, state_info: LobbyState) -> Self {
         Self {
-            id: db.id(),
-            path: db.path,
-            name: db.name,
-            description: db.description,
-            game_id: db.game_id,
-            game_path: db.game_path,
-            creator_id: db.creator_id,
-            entry_amount: db.entry_amount,
-            current_amount: db.current_amount,
-            token_symbol: db.token_symbol,
-            token_contract_id: db.token_contract_id,
-            contract_address: db.contract_address,
-            is_private: db.is_private,
-            is_sponsored: db.is_sponsored,
-            status: runtime.status,
-            participant_count: runtime.participant_count,
-            creator_last_ping: runtime.creator_last_ping,
-            started_at: runtime.started_at,
-            finished_at: runtime.finished_at,
-            creator_wallet_address,
-            creator_username,
-            creator_display_name,
-            game_image_url,
-            game_min_players,
-            game_max_players,
-            created_at: db.created_at,
-            updated_at: db.updated_at,
+            id: lobby.id,
+            path: lobby.path,
+            name: lobby.name,
+            description: lobby.description,
+            game_id: lobby.game_id,
+            game_path: lobby.game_path,
+            creator_id: lobby.creator_id,
+            entry_amount: lobby.entry_amount,
+            current_amount: lobby.current_amount,
+            token_symbol: lobby.token_symbol,
+            token_contract_id: lobby.token_contract_id,
+            contract_address: lobby.contract_address,
+            is_private: lobby.is_private,
+            is_sponsored: lobby.is_sponsored,
+            status: lobby.status,
+            created_at: lobby.created_at,
+            updated_at: lobby.updated_at,
+            participant_count: state_info.participant_count,
+            creator_last_ping: state_info.creator_last_ping,
+            started_at: state_info.started_at,
+            finished_at: state_info.finished_at,
         }
     }
 }

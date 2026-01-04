@@ -8,12 +8,18 @@ use axum::{
 };
 use futures::stream::StreamExt;
 use serde::Deserialize;
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 use uuid::Uuid;
 
 use crate::{
-    db::{lobby::LobbyRepository, lobby_state::LobbyStateRepository},
-    models::{LobbyExtended, LobbyStatus},
+    db::{
+        game::GameRepository, lobby::LobbyRepository, lobby_state::LobbyStateRepository,
+        user::UserRepository,
+    },
+    models::{LobbyExtended, LobbyInfo, LobbyState, LobbyStatus},
     state::{AppState, ConnectionContext, ConnectionInfo},
     ws::{
         core::manager,
@@ -168,10 +174,10 @@ async fn send_lobby_list(
     limit: usize,
 ) {
     match fetch_lobbies(lobby_repo, lobby_state_repo, status_filter, offset, limit).await {
-        Ok((lobbies, total)) => {
+        Ok((lobby_info, total)) => {
             let _ = manager::send_to_connection(
                 conn,
-                &LobbyServerMessage::LobbyList { lobbies, total },
+                &LobbyServerMessage::LobbyList { lobby_info, total },
             )
             .await;
         }
@@ -188,66 +194,93 @@ async fn send_lobby_list(
     }
 }
 
+// TODO: Optimize
 async fn fetch_lobbies(
     lobby_repo: &LobbyRepository,
     lobby_state_repo: &LobbyStateRepository,
     status_filter: &Option<Vec<LobbyStatus>>,
     offset: usize,
     limit: usize,
-) -> Result<(Vec<LobbyExtended>, usize), String> {
-    use crate::models::LobbyState;
-
-    // Fetch lobbies with joined user and game data using optimized query
-    let lobbies_with_joins = if let Some(statuses) = status_filter {
+) -> Result<(Vec<LobbyInfo>, usize), String> {
+    // Fetch lobbies with total count using optimized query
+    let (lobbies, total) = if let Some(statuses) = status_filter {
         lobby_repo
-            .find_by_statuses_with_joins(statuses, offset, limit)
+            .find_by_statuses(statuses, offset, limit)
             .await
             .map_err(|e| format!("Failed to fetch lobbies: {}", e))?
     } else {
         lobby_repo
-            .find_all_with_joins(offset, limit)
+            .find_all(offset, limit)
             .await
             .map_err(|e| format!("Failed to fetch lobbies: {}", e))?
     };
 
-    tracing::debug!("Fetched {} lobbies with joins", lobbies_with_joins.len());
-    let total = lobbies_with_joins.len();
+    tracing::debug!(
+        "Fetched {} lobbies with total count: {}",
+        lobbies.len(),
+        total
+    );
 
     // Fetch lobby states from Redis for all lobbies using pipeline (single round-trip)
-    let lobby_ids: Vec<uuid::Uuid> = lobbies_with_joins.iter().map(|l| l.id).collect();
+    let lobby_ids: Vec<Uuid> = lobbies.iter().map(|l| l.id()).collect();
 
     let states_batch = lobby_state_repo
         .get_states_batch(&lobby_ids)
         .await
         .map_err(|e| format!("Failed to fetch lobby states: {}", e))?;
 
-    // Construct LobbyExtended objects
-    let mut extended_lobbies = Vec::new();
-    for (lobby_with_joins, (lobby_id, state_opt)) in
-        lobbies_with_joins.into_iter().zip(states_batch.into_iter())
-    {
+    // Get unique game and user IDs
+    let game_ids: HashSet<Uuid> = lobbies.iter().map(|l| l.game_id).collect();
+    let creator_ids: HashSet<uuid::Uuid> = lobbies.iter().map(|l| l.creator_id).collect();
+
+    // Fetch games and users in parallel
+    let game_repo = GameRepository::new(lobby_repo.pool().clone());
+    let user_repo = UserRepository::new(lobby_repo.pool().clone());
+
+    let mut games = HashMap::new();
+    let mut users = HashMap::new();
+
+    // Fetch all games
+    for game_id in game_ids {
+        if let Ok(game) = game_repo.find_by_id(game_id).await {
+            games.insert(game_id, game);
+        }
+    }
+
+    // Fetch all users
+    for user_id in creator_ids {
+        if let Ok(user) = user_repo.find_by_id(user_id).await {
+            users.insert(user_id, user);
+        }
+    }
+
+    // Construct LobbyInfo objects
+    let mut lobby_info_list = Vec::new();
+    for (lobby, (lobby_id, state_opt)) in lobbies.into_iter().zip(states_batch.into_iter()) {
         // Use the lobby state from Redis, or create a default state if not found
         let state = state_opt.unwrap_or_else(|| LobbyState::new(lobby_id));
 
-        let (creator_wallet, creator_username, creator_display_name) =
-            lobby_with_joins.creator_info();
-        let (game_image_url, game_min_players, game_max_players) = lobby_with_joins.game_info();
+        let extended = LobbyExtended::from_parts(lobby.clone(), state);
 
-        let extended = LobbyExtended::from_parts(
-            lobby_with_joins.to_lobby(),
-            state,
-            creator_wallet,
-            creator_username,
-            creator_display_name,
-            game_image_url,
-            game_min_players,
-            game_max_players,
-        );
-        extended_lobbies.push(extended);
+        // Get game and creator
+        let game = games
+            .get(&lobby.game_id)
+            .ok_or_else(|| format!("Game {} not found", lobby.game_id))?;
+        let creator = users
+            .get(&lobby.creator_id)
+            .ok_or_else(|| format!("User {} not found", lobby.creator_id))?;
+
+        let lobby_info = LobbyInfo {
+            lobby: extended,
+            game: game.clone(),
+            creator: creator.clone(),
+        };
+
+        lobby_info_list.push(lobby_info);
     }
 
-    tracing::debug!("Constructed {} extended lobbies", extended_lobbies.len());
-    Ok((extended_lobbies, total))
+    tracing::debug!("Constructed {} lobby info objects", lobby_info_list.len());
+    Ok((lobby_info_list, total as usize))
 }
 
 fn parse_status_filter(param: &Option<String>) -> Option<Vec<String>> {
