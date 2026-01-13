@@ -1,6 +1,6 @@
 "use client";
 
-import type { LobbyExtended } from "@/lib/definitions";
+import type { Game, LobbyExtended } from "@/lib/definitions";
 import { Button } from "@/components/ui/button";
 import { MessageCircleMore } from "lucide-react";
 import {
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { useState } from "react";
 
-export default function LobbyDetails({ lobby }: { lobby: LobbyExtended }) {
+export default function LobbyDetails({ lobby, game }: { lobby: LobbyExtended; game: Game }) {
 	const [chatOpen, setChatOpen] = useState(false);
 
 	return (
@@ -59,7 +59,7 @@ export default function LobbyDetails({ lobby }: { lobby: LobbyExtended }) {
 							Players
 						</p>
 						<p className="text-base sm:text-lg lg:text-xl font-medium">
-							{lobby.participantCount}/{lobby.gameMaxPlayers}
+							{lobby.participantCount}/{game.maxPlayers}
 						</p>
 					</div>
 

@@ -204,9 +204,9 @@ impl PlayerState {
         let state = data
             .get("state")
             .and_then(|s| match s.as_str() {
-                "Pending" => Some(JoinRequestState::Pending),
-                "Accepted" => Some(JoinRequestState::Accepted),
-                "Rejected" => Some(JoinRequestState::Rejected),
+                "pending" => Some(JoinRequestState::Pending),
+                "accepted" => Some(JoinRequestState::Accepted),
+                "rejected" => Some(JoinRequestState::Rejected),
                 _ => None,
             })
             .unwrap_or(JoinRequestState::Accepted);

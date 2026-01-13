@@ -12,15 +12,27 @@ import { useEffect, useRef, useState } from "react";
 import { getGamePlugin } from "@/app/game/registry";
 import type {
 	ChatMessage,
+	Game,
 	GameMessage,
 	GamePlugin,
 	JoinRequest,
 	LobbyExtended,
-	LobbyMessage,
-	LobbyStatus,
 	PlayerState,
+	RoomServerMessage,
+	User,
 } from "@/lib/definitions";
-import { useLobbyStore } from "../stores/room";
+import {
+	useLobby,
+	useGame,
+	useCreator,
+	usePlayers,
+	useJoinRequests,
+	useChatHistory,
+	useRoomConnected,
+	useRoomError,
+	useRoomConnecting,
+	useLobbyActions,
+} from "../stores/room";
 import { WebSocketClient } from "../websocket/wsClient";
 
 interface UseRoomOptions {
@@ -28,56 +40,65 @@ interface UseRoomOptions {
 	wsUrl?: string;
 }
 
+export interface UseRoomWebSocketReturn {
+	// Connection state
+	isConnected: boolean;
+	isConnecting: boolean;
+	error: string | null;
+	// Lobby state
+	lobby: LobbyExtended | null;
+	game: Game | null;
+	creator: User | null;
+	players: PlayerState[];
+	joinRequests: JoinRequest[];
+	chatHistory: ChatMessage[];
+	// Game state
+	gameState: unknown;
+	gamePlugin: GamePlugin | undefined;
+	// Actions
+	sendGameMessage: (type: string, payload: unknown) => void;
+	sendLobbyMessage: (type: string, payload?: unknown) => void;
+}
+
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
 
 export function useRoomWebSocket({
 	lobbyPath,
 	wsUrl = `${WS_URL}/ws/room`,
-}: UseRoomOptions) {
+}: UseRoomOptions): UseRoomWebSocketReturn {
 	const clientRef = useRef<WebSocketClient | null>(null);
 	const [gamePlugin, setGamePlugin] = useState<GamePlugin | undefined>();
 	const [gameState, setGameState] = useState<unknown>(null);
 
-	const {
-		setLobby,
-		setPlayers,
-		setJoinRequests,
-		setChatHistory,
-		addChatMessage,
-		addPlayer,
-		removePlayer,
-		updateLobbyStatus,
-		setConnected,
-		setConnecting,
-		setError,
-		reset,
-		isConnected,
-		isConnecting,
-		error,
-		lobby,
-		players,
-		joinRequests,
-		chatHistory,
-	} = useLobbyStore();
+	const lobby = useLobby();
+	const game = useGame();
+	const creator = useCreator();
+	const players = usePlayers();
+	const joinRequests = useJoinRequests();
+	const chatHistory = useChatHistory();
+	const isConnected = useRoomConnected();
+	const isConnecting = useRoomConnecting();
+	const error = useRoomError();
+	const lobbyActions = useLobbyActions();
 
 	useEffect(() => {
 		// Initialize WebSocket connection
 		const client = new WebSocketClient();
 		clientRef.current = client;
-		setConnecting(true);
-		setError(null);
+		lobbyActions.setConnecting(true);
+		lobbyActions.setError(null);
 
 		// Connect to WebSocket
 		client
 			.connect(`${wsUrl}/${lobbyPath}`)
 			.then(() => {
-				setConnected(true);
-				setConnecting(false);
+				lobbyActions.setConnected(true);
+				lobbyActions.setConnecting(false);
 			})
 			.catch((err) => {
 				console.error("[Room] Connection failed:", err);
-				setError("Failed to connect to game server");
-				setConnecting(false);
+				lobbyActions.setError("Failed to connect to game server");
+				lobbyActions.setConnecting(false);
 			});
 
 		// Message router
@@ -90,7 +111,7 @@ export function useRoomWebSocket({
 					payload?: unknown;
 				};
 
-				if (msg.game && gamePlugin && msg.game === gamePlugin.id) {
+				if (msg.game && gamePlugin && msg.game === gamePlugin.path) {
 					// Route to game plugin
 					console.log(
 						`[Room] Routing message to game: ${msg.game}`,
@@ -101,7 +122,7 @@ export function useRoomWebSocket({
 					);
 				} else {
 					// Route to lobby handler
-					handleLobbyMessage(msg as LobbyMessage);
+					handleLobbyMessage(msg as RoomServerMessage);
 				}
 			} catch (err) {
 				console.error("[Room] Failed to handle message:", err);
@@ -111,12 +132,12 @@ export function useRoomWebSocket({
 		// Error handler
 		const unsubError = client.onError((err) => {
 			console.error("[Room] WebSocket error:", err);
-			setError("Connection error");
+			lobbyActions.setError("Connection error");
 		});
 
 		// Close handler
 		const unsubClose = client.onClose(() => {
-			setConnected(false);
+			lobbyActions.setConnected(false);
 		});
 
 		// Cleanup
@@ -125,7 +146,7 @@ export function useRoomWebSocket({
 			unsubError();
 			unsubClose();
 			client.disconnect();
-			reset();
+			lobbyActions.reset();
 			setGamePlugin(undefined);
 			setGameState(null);
 		};
@@ -133,71 +154,91 @@ export function useRoomWebSocket({
 	}, [lobbyPath]);
 
 	// Handle lobby-level messages
-	const handleLobbyMessage = (message: Record<string, unknown>) => {
-		console.log("[Room] Handling lobby message:", message);
+	const handleLobbyMessage = (message: RoomServerMessage) => {
+		if (message.type !== "pong")
+			console.log("[Room] Handling lobby message:", message);
 
 		switch (message.type) {
 			case "lobbyBootstrap": {
-				const lobby = message.lobby as LobbyExtended;
-				const players = (message.players || []) as PlayerState[];
-				const joinRequests = (message.join_requests ||
-					[]) as JoinRequest[];
-				const chatHistory = (message.chat_history ||
-					[]) as ChatMessage[];
-
-				setLobby(lobby);
-				setPlayers(players);
-				setJoinRequests(joinRequests);
-				setChatHistory(chatHistory);
+				lobbyActions.setBootstrap(message);
 
 				// Load game plugin based on lobby's gamePath
-				if (lobby.gamePath) {
-					const plugin = getGamePlugin(lobby.gamePath);
+				if (message.lobbyInfo.lobby.gamePath) {
+					const plugin = getGamePlugin(
+						message.lobbyInfo.lobby.gamePath
+					);
 					if (plugin) {
 						setGamePlugin(plugin);
 						setGameState(plugin.createInitialState());
 						console.log("[Room] Loaded game plugin:", plugin.id);
 					} else {
 						console.warn(
-							`[Room] No plugin found for game: ${lobby.gamePath}`
+							`[Room] No plugin found for game: ${message.lobbyInfo.lobby.gamePath}`
 						);
 					}
 				}
 				break;
 			}
 
-			case "lobbyStateChanged":
-				updateLobbyStatus(message.state as LobbyStatus);
+			case "lobbyStatusChanged":
+				lobbyActions.updateLobbyStatus(message.status);
+				break;
+
+			case "startCountdown":
+				lobbyActions.setCountdown(message.secondsRemaining);
 				break;
 
 			case "playerJoined":
-				addPlayer(message.player_id as string);
+				lobbyActions.addPlayer(message.playerId);
 				break;
 
 			case "playerLeft":
+				lobbyActions.removePlayer(message.playerId);
+				break;
+
 			case "playerKicked":
-				removePlayer(message.player_id as string);
+				lobbyActions.removePlayer(message.playerId);
 				break;
 
 			case "joinRequestsUpdated":
-				setJoinRequests((message.join_requests || []) as JoinRequest[]);
+				lobbyActions.setJoinRequests(message.joinRequests);
+				break;
+
+			case "joinRequestStatus":
+				console.log(`join request status changed: ${message.accepted}`);
 				break;
 
 			case "messageReceived":
-				addChatMessage(message.message as ChatMessage);
+				lobbyActions.addChatMessage(message.message);
+				break;
+
+			case "reactionAdded":
+				lobbyActions.addReaction(
+					message.messageId,
+					message.userId,
+					message.emoji
+				);
+				break;
+
+			case "reactionRemoved":
+				lobbyActions.removeReaction(
+					message.messageId,
+					message.userId,
+					message.emoji
+				);
 				break;
 
 			case "playerUpdated":
-				// Handle full player list update
-				if (message.players) {
-					setPlayers(message.players as PlayerState[]);
-				}
+				lobbyActions.setPlayers(message.players);
 				break;
 
 			case "error":
-				setError((message.message as string) || "An error occurred");
+				lobbyActions.setError(message.message || "An error occurred");
 				break;
 
+			case "pong":
+				console.log(`pong: ${message.elapsedMs}`);
+				break;
 			default:
 				console.warn("[Room] Unhandled lobby message:", message);
 		}
@@ -211,7 +252,7 @@ export function useRoomWebSocket({
 			);
 			return;
 		}
-		clientRef.current.sendGameMessage(gamePlugin.id, type, payload);
+		clientRef.current.sendGameMessage(gamePlugin.path, type, payload);
 	};
 
 	// Send a lobby-level message
@@ -231,6 +272,8 @@ export function useRoomWebSocket({
 
 		// Lobby state
 		lobby,
+		game,
+		creator,
 		players,
 		joinRequests,
 		chatHistory,

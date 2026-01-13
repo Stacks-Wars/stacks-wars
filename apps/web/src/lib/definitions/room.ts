@@ -5,12 +5,7 @@
  * Each game implements a plugin that handles its own state and messages.
  */
 
-import type {
-	ChatMessage,
-	JoinRequest,
-	LobbyExtended,
-	PlayerState,
-} from "@/lib/definitions";
+import type { Game, LobbyExtended, PlayerState, User } from "@/lib/definitions";
 
 // ============================================================================
 // Message Wrapper - All WS messages use this structure
@@ -26,33 +21,14 @@ export interface GameMessage<T = unknown> {
 }
 
 // ============================================================================
-// Lobby-level messages (not game-specific)
-// ============================================================================
-
-export type LobbyMessage =
-	| { type: "lobbyBootstrap"; payload: LobbyBootstrapPayload }
-	| { type: "lobbyStateChanged"; payload: { state: string } }
-	| { type: "playerJoined"; payload: { playerId: string } }
-	| { type: "playerLeft"; payload: { playerId: string } }
-	| { type: "playerKicked"; payload: { playerId: string } }
-	| { type: "joinRequestsUpdated"; payload: { joinRequests: JoinRequest[] } }
-	| { type: "messageReceived"; payload: { message: ChatMessage } }
-	| { type: "error"; payload: { error: string; message: string } };
-
-export interface LobbyBootstrapPayload {
-	lobby: LobbyExtended;
-	players: PlayerState[];
-	joinRequests: JoinRequest[];
-	chatHistory: ChatMessage[];
-}
-
-// ============================================================================
 // Game Plugin Interface
 // ============================================================================
 
 export interface GamePlugin<TState = unknown, TMessage = unknown> {
 	/** Unique game identifier */
 	id: string;
+	/** Game path (used for routing and matching) */
+	path: string;
 	/** Display name */
 	name: string;
 	/** Game description */
@@ -78,6 +54,10 @@ export interface GamePluginProps<TState = unknown> {
 	sendMessage: (type: string, payload: unknown) => void;
 	/** Lobby information */
 	lobby: LobbyExtended;
+	/** Game information */
+	game: Game;
+	/** Creator information */
+	creator: User;
 	/** Current players */
 	players: PlayerState[];
 }

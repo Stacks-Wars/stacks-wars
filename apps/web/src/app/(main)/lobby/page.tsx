@@ -11,7 +11,7 @@ export default function LobbyPage() {
 	const lobbyFilter = useLobbyFilter();
 	const { setLobbyFilter } = useUserActions();
 
-	const { lobbies, total, isConnected, isConnecting, error, subscribe } =
+	const { lobbyInfo, total, isConnected, isConnecting, error, subscribe } =
 		useLobbyListWebSocket({
 			statusFilter: lobbyFilter,
 			limit: 12,
@@ -47,13 +47,13 @@ export default function LobbyPage() {
 				</div>
 			)}
 
-			{lobbies === null ? (
+			{lobbyInfo === null ? (
 				<div className="grid gap-5 sm:grid-cols-2 justify-items-center max-w-305 mx-auto">
 					{Array.from({ length: 6 }).map((_, i) => (
 						<LobbyCardSkeleton key={i} />
 					))}
 				</div>
-			) : lobbies.length === 0 ? (
+			) : lobbyInfo.length === 0 ? (
 				<div className="text-center py-12">
 					<p className="text-xl text-muted-foreground">
 						No lobbies found matching your filters
@@ -64,15 +64,15 @@ export default function LobbyPage() {
 				</div>
 			) : (
 				<div className="grid gap-5 sm:grid-cols-2 justify-items-center max-w-305 mx-auto">
-					{lobbies.map((lobby) => (
-						<LobbyCard key={lobby.id} lobby={lobby} />
+					{lobbyInfo.map((info) => (
+						<LobbyCard key={info.lobby.id} lobbyInfo={info} />
 					))}
 				</div>
 			)}
 
-			{total > (lobbies?.length || 0) && (
+			{total > (lobbyInfo?.length || 0) && (
 				<div className="text-center py-4 text-sm text-muted-foreground">
-					Showing {lobbies?.length || 0} of {total} lobbies
+					Showing {lobbyInfo?.length || 0} of {total} lobbies
 				</div>
 			)}
 		</div>

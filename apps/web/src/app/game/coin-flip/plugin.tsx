@@ -32,6 +32,7 @@ const createInitialState = (): CoinFlipState => ({
 
 export const CoinFlipPlugin: GamePlugin<CoinFlipState, CoinFlipMessage> = {
 	id: "coin-flip",
+	path: "coin-flip",
 	name: "Coin Flip",
 	description: "Simple coin flip betting game",
 	createInitialState,

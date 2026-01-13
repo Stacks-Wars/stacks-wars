@@ -1,4 +1,4 @@
-import type { LobbyExtended } from "@/lib/definitions";
+import type { LobbyInfo } from "@/lib/definitions";
 import { Button } from "../ui/button";
 import Image from "next/image";
 import { Badge } from "../ui/badge";
@@ -8,7 +8,9 @@ import Link from "next/link";
 import { formatAddress } from "@/lib/utils";
 import { Skeleton } from "../ui/skeleton";
 
-export default function LobbyCard({ lobby }: { lobby: LobbyExtended }) {
+export default function LobbyCard({ lobbyInfo }: { lobbyInfo: LobbyInfo }) {
+	const { lobby, game, creator } = lobbyInfo;
+	
 	return (
 		<div className="bg-card p-6 lg:p-12 rounded-4xl border max-w-150 w-full space-y-4 lg:space-y-8">
 			<div className="space-y-4 lg:space-y-6.5">
@@ -18,15 +20,15 @@ export default function LobbyCard({ lobby }: { lobby: LobbyExtended }) {
 							{lobby.name}
 						</p>
 						<Link
-							href={`/u/${lobby.creatorUsername || lobby.creatorWalletAddress}`}
+							href={`/u/${creator.username || creator.walletAddress}`}
 							className="truncate text-xs lg:text-lg text-foreground/50"
 						>
 							Creator -{" "}
 							<span className="text-foreground">
 								@
-								{lobby.creatorDisplayName ||
-									lobby.creatorUsername ||
-									formatAddress(lobby.creatorWalletAddress)}
+								{creator.displayName ||
+									creator.username ||
+									formatAddress(creator.walletAddress)}
 							</span>
 						</Link>
 					</div>
@@ -68,7 +70,7 @@ export default function LobbyCard({ lobby }: { lobby: LobbyExtended }) {
 					)}
 				</div>
 				<Image
-					src={lobby.gameImageUrl}
+					src={game.imageUrl}
 					alt="game-cover"
 					width={516}
 					height={185}

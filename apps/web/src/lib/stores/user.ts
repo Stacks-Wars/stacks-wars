@@ -9,7 +9,7 @@ interface UserActions {
 	setLobbyFilter: (filter: LobbyStatus[]) => void;
 }
 
-interface UserState {
+interface UserStore {
 	user: User | null;
 	isAuthenticated: boolean;
 	lobbyFilter: LobbyStatus[];
@@ -17,7 +17,7 @@ interface UserState {
 	actions: UserActions;
 }
 
-const useUserStore = create<UserState>()(
+const useUserStore = create<UserStore>()(
 	persist(
 		(set) => ({
 			user: null,

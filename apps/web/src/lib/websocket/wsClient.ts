@@ -37,7 +37,6 @@ export class WebSocketClient {
 				this.ws.onmessage = (event) => {
 					try {
 						const message = JSON.parse(event.data);
-						console.log("[WS] Message received:", message);
 
 						// Notify all handlers
 						this.messageHandlers.forEach((handler) => {

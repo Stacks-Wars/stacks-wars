@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub enum JoinRequestState {
     Pending,
     Accepted,

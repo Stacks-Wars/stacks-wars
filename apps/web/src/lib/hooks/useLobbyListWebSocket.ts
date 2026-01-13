@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { WebSocketClient } from "@/lib/websocket/wsClient";
-import type { LobbyExtended, LobbyStatus } from "@/lib/definitions";
+import type { LobbyInfo, LobbyStatus } from "@/lib/definitions";
 
 const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
 
 interface LobbyListMessage {
 	type: string;
-	lobbies?: LobbyExtended[];
+	lobbyInfo?: LobbyInfo[];
 	total?: number;
-	lobby?: LobbyExtended;
+	lobby?: LobbyInfo;
 	lobbyId?: string;
 	error?: {
 		code: string;
@@ -25,7 +25,7 @@ export function useLobbyListWebSocket(
 	options: UseLobbyListWebSocketOptions = {}
 ) {
 	const { statusFilter = ["waiting", "inProgress"], limit = 12 } = options;
-	const [lobbies, setLobbies] = useState<LobbyExtended[] | null>(null);
+	const [lobbyInfo, setLobbyInfo] = useState<LobbyInfo[] | null>(null);
 	const [total, setTotal] = useState(0);
 	const [isConnected, setIsConnected] = useState(false);
 	const [isConnecting, setIsConnecting] = useState(false);
@@ -71,25 +71,25 @@ export function useLobbyListWebSocket(
 
 			switch (msg.type) {
 				case "lobbyList":
-					if (msg.lobbies && msg.total !== undefined) {
-						setLobbies(msg.lobbies);
+					if (msg.lobbyInfo && msg.total !== undefined) {
+						setLobbyInfo(msg.lobbyInfo);
 						setTotal(msg.total);
 					}
 					break;
 
 				case "lobbyCreated":
 					if (msg.lobby) {
-						setLobbies((prev) => [msg.lobby!, ...(prev || [])]);
+						setLobbyInfo((prev) => [msg.lobby!, ...(prev || [])]);
 						setTotal((prev) => prev + 1);
 					}
 					break;
 
 				case "lobbyUpdated":
 					if (msg.lobby) {
-						setLobbies(
+						setLobbyInfo(
 							(prev) =>
 								prev?.map((l) =>
-									l.id === msg.lobby!.id ? msg.lobby! : l
+									l.lobby.id === msg.lobby!.lobby.id ? msg.lobby! : l
 								) || prev
 						);
 					}
@@ -97,9 +97,9 @@ export function useLobbyListWebSocket(
 
 				case "lobbyRemoved":
 					if (msg.lobbyId) {
-						setLobbies(
+						setLobbyInfo(
 							(prev) =>
-								prev?.filter((l) => l.id !== msg.lobbyId) ||
+								prev?.filter((l) => l.lobby.id !== msg.lobbyId) ||
 								prev
 						);
 						setTotal((prev) => prev - 1);
@@ -155,7 +155,7 @@ export function useLobbyListWebSocket(
 
 	return {
 		isConnecting,
-		lobbies,
+		lobbyInfo,
 		total,
 		isConnected,
 		error,
