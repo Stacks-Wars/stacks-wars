@@ -66,10 +66,10 @@ pub enum CoinFlipEvent {
     },
 
     /// Player submitted their guess (not revealed yet)
-    GuessReceived { player_id: Uuid },
+    GuessReceived { user_id: Uuid },
 
     /// Player was eliminated due to timeout
-    PlayerTimedOut { player_id: Uuid },
+    PlayerTimedOut { user_id: Uuid },
 
     /// Round completed - reveal results
     RoundComplete {
@@ -90,7 +90,7 @@ impl GameEvent for CoinFlipEvent {}
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RoundPlayerResult {
-    pub player_id: Uuid,
+    pub user_id: Uuid,
     pub guess: Option<CoinSide>,
     pub correct: bool,
     pub eliminated: bool,
@@ -125,14 +125,14 @@ impl CoinFlipEngine {
     }
 
     fn start_new_round(&mut self) -> Option<CoinFlipEvent> {
-        if let Some(player_id) = self.turn_rotation.current_player() {
+        if let Some(user_id) = self.turn_rotation.current_player() {
             self.current_round += 1;
             self.current_round_guesses.clear();
             self.turn_started_at = Some(chrono::Utc::now().timestamp());
 
             Some(CoinFlipEvent::RoundStarted {
                 round: self.current_round,
-                current_player: player_id,
+                current_player: user_id,
                 timeout_secs: TURN_TIMEOUT_SECS,
             })
         } else {
@@ -160,19 +160,19 @@ impl CoinFlipEngine {
         let mut players_to_eliminate = Vec::new();
 
         // Evaluate each player's guess
-        for player_id in &active_players {
-            let guess = self.current_round_guesses.get(player_id);
+        for user_id in &active_players {
+            let guess = self.current_round_guesses.get(user_id);
             let correct = guess.map(|g| *g == coin_result).unwrap_or(false);
 
             results.push(RoundPlayerResult {
-                player_id: *player_id,
+                user_id: *user_id,
                 guess: guess.copied(),
                 correct,
                 eliminated: !correct,
             });
 
             if !correct {
-                players_to_eliminate.push(*player_id);
+                players_to_eliminate.push(*user_id);
             }
         }
 
@@ -190,9 +190,9 @@ impl CoinFlipEngine {
         }
 
         // Eliminate players
-        for player_id in &players_to_eliminate {
-            self.turn_rotation.eliminate_player(*player_id);
-            if let Some(player_state) = self.players.get_mut(player_id) {
+        for user_id in &players_to_eliminate {
+            self.turn_rotation.eliminate_player(*user_id);
+            if let Some(player_state) = self.players.get_mut(user_id) {
                 player_state.eliminate();
             }
         }
@@ -255,7 +255,7 @@ impl CoinFlipEngine {
         self.current_round_guesses.insert(user_id, guess);
 
         // Send received confirmation
-        events.push(CoinFlipEvent::GuessReceived { player_id: user_id });
+        events.push(CoinFlipEvent::GuessReceived { user_id });
 
         // Check if round is complete
         if self.is_round_complete() {
@@ -364,7 +364,7 @@ impl GameEngine for CoinFlipEngine {
                         );
 
                         let mut events = vec![CoinFlipEvent::PlayerTimedOut {
-                            player_id: current_player,
+                            user_id: current_player,
                         }];
 
                         // Mark player as having no guess (will be counted as wrong in process_round)

@@ -17,28 +17,34 @@ pub enum RoomClientMessage {
     /// Request to join a private lobby
     JoinRequest,
     /// Creator accepts a join request
+    #[serde(rename_all = "camelCase")]
     ApproveJoin {
-        player_id: Uuid,
+        user_id: Uuid,
     },
     /// Creator rejects a join request
+    #[serde(rename_all = "camelCase")]
     RejectJoin {
-        player_id: Uuid,
+        user_id: Uuid,
     },
     /// Creator kicks a participant
+    #[serde(rename_all = "camelCase")]
     Kick {
-        player_id: Uuid,
+        user_id: Uuid,
     },
     /// Send a chat message
+    #[serde(rename_all = "camelCase")]
     SendMessage {
         content: String,
         reply_to: Option<Uuid>,
     },
     /// Add a reaction to a message
+    #[serde(rename_all = "camelCase")]
     AddReaction {
         message_id: Uuid,
         emoji: String,
     },
     /// Remove a reaction from a message
+    #[serde(rename_all = "camelCase")]
     RemoveReaction {
         message_id: Uuid,
         emoji: String,
@@ -77,17 +83,17 @@ pub enum RoomServerMessage {
 
     #[serde(rename_all = "camelCase")]
     PlayerJoined {
-        player_id: Uuid,
+        user_id: Uuid,
     },
 
     #[serde(rename_all = "camelCase")]
     PlayerLeft {
-        player_id: Uuid,
+        user_id: Uuid,
     },
 
     #[serde(rename_all = "camelCase")]
     PlayerKicked {
-        player_id: Uuid,
+        user_id: Uuid,
     },
 
     /// Broadcasted list of join requests (visible to lobby); only creator may accept/reject
@@ -99,7 +105,7 @@ pub enum RoomServerMessage {
     /// Personal status for a join request
     #[serde(rename_all = "camelCase")]
     JoinRequestStatus {
-        player_id: Uuid,
+        user_id: Uuid,
         accepted: bool,
     },
 

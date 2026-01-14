@@ -137,7 +137,7 @@ pub async fn handle_room_message(
                 let _ = broadcast::broadcast_room(
                     state,
                     lobby_id,
-                    &RoomServerMessage::PlayerJoined { player_id: user_id },
+                    &RoomServerMessage::PlayerJoined { user_id },
                 )
                 .await;
 
@@ -204,7 +204,7 @@ pub async fn handle_room_message(
             let _ = broadcast::broadcast_room(
                 state,
                 lobby_id,
-                &RoomServerMessage::PlayerLeft { player_id: user_id },
+                &RoomServerMessage::PlayerLeft { user_id },
             )
             .await;
             if let Ok(players) = player_repo.get_all_in_lobby(lobby_id).await {
@@ -432,7 +432,7 @@ pub async fn handle_room_message(
             }
         }
 
-        RoomClientMessage::ApproveJoin { player_id } => {
+        RoomClientMessage::ApproveJoin { user_id: approved_user_id } => {
             if lobby_status == LobbyStatus::InProgress {
                 let err =
                     RoomError::JoinFailed("Cannot approve joins during active game".to_string());
@@ -461,13 +461,13 @@ pub async fn handle_room_message(
 
             let jr_repo = JoinRequestRepository::new(state.redis.clone());
             let _ = jr_repo
-                .set_state(lobby_id, player_id, JoinRequestState::Accepted)
+                .set_state(lobby_id, approved_user_id, JoinRequestState::Accepted)
                 .await;
             let _ = broadcast::broadcast_user(
                 state,
-                player_id,
+                approved_user_id,
                 &RoomServerMessage::JoinRequestStatus {
-                    player_id,
+                    user_id: approved_user_id,
                     accepted: true,
                 },
             )
@@ -484,7 +484,7 @@ pub async fn handle_room_message(
             }
         }
 
-        RoomClientMessage::RejectJoin { player_id } => {
+        RoomClientMessage::RejectJoin { user_id: rejected_user_id } => {
             if lobby_status == LobbyStatus::InProgress {
                 let err =
                     RoomError::JoinFailed("Cannot reject joins during active game".to_string());
@@ -513,13 +513,13 @@ pub async fn handle_room_message(
 
             let jr_repo = JoinRequestRepository::new(state.redis.clone());
             let _ = jr_repo
-                .set_state(lobby_id, player_id, JoinRequestState::Rejected)
+                .set_state(lobby_id, rejected_user_id, JoinRequestState::Rejected)
                 .await;
             let _ = broadcast::broadcast_user(
                 state,
-                player_id,
+                rejected_user_id,
                 &RoomServerMessage::JoinRequestStatus {
-                    player_id,
+                    user_id: rejected_user_id,
                     accepted: false,
                 },
             )
@@ -536,7 +536,7 @@ pub async fn handle_room_message(
             }
         }
 
-        RoomClientMessage::Kick { player_id } => {
+        RoomClientMessage::Kick { user_id: kicked_user_id } => {
             if lobby_status == LobbyStatus::InProgress {
                 let err =
                     RoomError::JoinFailed("Cannot kick players during active game".to_string());
@@ -565,13 +565,13 @@ pub async fn handle_room_message(
 
             // remove player state
             let _ = player_repo
-                .remove_from_lobby(lobby_id, player_id)
+                .remove_from_lobby(lobby_id, kicked_user_id)
                 .await
                 .ok();
             let _ = broadcast::broadcast_room(
                 state,
                 lobby_id,
-                &RoomServerMessage::PlayerKicked { player_id },
+                &RoomServerMessage::PlayerKicked { user_id: kicked_user_id },
             )
             .await;
             if let Ok(players) = player_repo.get_all_in_lobby(lobby_id).await {
@@ -584,8 +584,8 @@ pub async fn handle_room_message(
             }
             let _ = broadcast::broadcast_user(
                 state,
-                player_id,
-                &RoomServerMessage::PlayerKicked { player_id },
+                kicked_user_id,
+                &RoomServerMessage::PlayerKicked { user_id: kicked_user_id },
             )
             .await;
         }
