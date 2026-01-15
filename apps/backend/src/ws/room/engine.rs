@@ -607,14 +607,14 @@ pub async fn handle_room_message(
             }
 
             // Create message
-            match crate::db::lobby_chat::create_chat_message(
-                &state.redis,
-                lobby_id,
-                user_id,
-                &content,
-                reply_to,
-            )
-            .await
+            match crate::db::lobby_chat::LobbyChatRepository::new(state.redis.clone())
+                .create_message(
+                    lobby_id,
+                    user_id,
+                    &content,
+                    reply_to,
+                )
+                .await
             {
                 Ok(message) => {
                     let _ = broadcast::broadcast_room(
@@ -648,14 +648,14 @@ pub async fn handle_room_message(
                 return;
             }
 
-            match crate::db::lobby_chat::add_reaction(
-                &state.redis,
-                lobby_id,
-                message_id,
-                user_id,
-                &emoji,
-            )
-            .await
+            match crate::db::lobby_chat::LobbyChatRepository::new(state.redis.clone())
+                .add_reaction(
+                    lobby_id,
+                    message_id,
+                    user_id,
+                    &emoji,
+                )
+                .await
             {
                 Ok(_) => {
                     let _ = broadcast::broadcast_room(
@@ -693,14 +693,14 @@ pub async fn handle_room_message(
                 return;
             }
 
-            match crate::db::lobby_chat::remove_reaction(
-                &state.redis,
-                lobby_id,
-                message_id,
-                user_id,
-                &emoji,
-            )
-            .await
+            match crate::db::lobby_chat::LobbyChatRepository::new(state.redis.clone())
+                .remove_reaction(
+                    lobby_id,
+                    message_id,
+                    user_id,
+                    &emoji,
+                )
+                .await
             {
                 Ok(_) => {
                     let _ = broadcast::broadcast_room(

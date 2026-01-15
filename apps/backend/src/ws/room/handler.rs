@@ -19,7 +19,7 @@ use uuid::Uuid;
 
 use crate::ws::core::manager;
 use crate::ws::room::{RoomError, engine::handle_room_message, messages::RoomServerMessage};
-use crate::{auth::extractors::WsAuth, db::lobby_chat::get_chat_history};
+use crate::{auth::extractors::WsAuth, db::lobby_chat::LobbyChatRepository};
 use crate::{db::lobby::LobbyRepository, models::LobbyInfo};
 use crate::{
     db::{game::GameRepository, user::UserRepository},
@@ -108,6 +108,8 @@ async fn handle_socket(
     let player_repo = PlayerStateRepository::new(state.redis.clone());
     let jr_repo = JoinRequestRepository::new(state.redis.clone());
 
+    let chat_repo = LobbyChatRepository::new(state.redis.clone());
+
     let (
         game,
         creator,
@@ -121,7 +123,7 @@ async fn handle_socket(
         lobby_state_repo.get_state(lobby_id),
         player_repo.get_all_in_lobby(lobby_id),
         jr_repo.list(lobby_id),
-        get_chat_history(&state.redis, lobby_id, Some(50))
+        chat_repo.get_history(lobby_id, Some(50))
     );
 
     // Validate we have the minimum required data
