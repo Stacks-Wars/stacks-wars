@@ -21,7 +21,7 @@ export default async function GamesPage() {
 					<GameCard
 						key={game.id}
 						game={game}
-						open="createLobbyPage"
+						action="createLobbyPage"
 					/>
 				))}
 			</div>

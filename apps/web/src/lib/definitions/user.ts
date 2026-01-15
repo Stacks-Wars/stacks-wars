@@ -41,7 +41,7 @@ export interface PlayerState {
 }
 
 export interface JoinRequest {
-	playerId: string;
+	userId: string;
 	walletAddress: string;
 	username?: string;
 	displayName?: string;

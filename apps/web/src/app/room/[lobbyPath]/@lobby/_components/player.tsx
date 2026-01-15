@@ -9,9 +9,18 @@ import { IoStar } from "react-icons/io5";
 interface PlayerProps {
 	player: PlayerState | JoinRequest;
 	isCreator: boolean;
+	onApprove?: (userId: string) => void;
+	onReject?: (userId: string) => void;
+	onKick?: (userId: string) => void;
 }
 
-export default function Player({ player, isCreator }: PlayerProps) {
+export default function Player({
+	player,
+	isCreator,
+	onApprove,
+	onReject,
+	onKick,
+}: PlayerProps) {
 	return (
 		<div className="bg-card px-3 sm:px-4 lg:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl flex justify-between items-center gap-3">
 			<Link
@@ -61,16 +70,20 @@ export default function Player({ player, isCreator }: PlayerProps) {
 				</p>
 			</div>
 
-			{isCreator && (
+			{isCreator && !player.isCreator && (
 				<div className="shrink-0">
 					{player.state === "pending" && (
 						<div className="flex gap-2 sm:gap-3 lg:gap-4">
-							<Button className="rounded-full text-xs sm:text-sm lg:text-base font-medium px-3 sm:px-4 h-8 sm:h-9 lg:h-10">
+							<Button
+								className="rounded-full text-xs sm:text-sm lg:text-base font-medium px-3 sm:px-4 h-8 sm:h-9 lg:h-10"
+								onClick={() => onApprove?.(player.userId)}
+							>
 								Accept
 							</Button>
 							<Button
 								variant={"outline"}
 								className="rounded-full text-xs sm:text-sm lg:text-base font-medium px-3 sm:px-4 h-8 sm:h-9 lg:h-10"
+								onClick={() => onReject?.(player.userId)}
 							>
 								Decline
 							</Button>
@@ -80,6 +93,7 @@ export default function Player({ player, isCreator }: PlayerProps) {
 						<Button
 							variant={"outline"}
 							className="rounded-full text-xs sm:text-sm lg:text-base font-medium px-3 sm:px-4 h-8 sm:h-9 lg:h-10"
+							onClick={() => onKick?.(player.userId)}
 						>
 							Remove
 						</Button>

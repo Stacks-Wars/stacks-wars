@@ -6,10 +6,20 @@ import { IoStar } from "react-icons/io5";
 
 export default function GameCard({
 	game,
-	open,
+	action,
+	onAction,
+	isInLobby,
+	isPrivate,
+	isJoinRequestPending,
+	isAuthenticated,
 }: {
 	game: Game;
-	open?: "gamePage" | "createLobbyPage";
+	action?: "gamePage" | "createLobbyPage" | "joinLobby";
+	onAction?: () => void;
+	isInLobby?: boolean;
+	isPrivate?: boolean;
+	isJoinRequestPending?: boolean;
+	isAuthenticated?: boolean;
 }) {
 	return (
 		<div className="flex flex-col items-center w-full">
@@ -53,18 +63,43 @@ export default function GameCard({
 					className="max-w-40 md:max-w-89.5 w-full self-center"
 				/>
 			</div>
-			{open && (
+			{action && (
 				<Button
 					className="-translate-y-1/2 w-full max-w-28 lg:max-w-80 rounded-full text-xs lg:text-xl sm:font-medium -mb-6 lg:-mb-7.5"
-					asChild
+					variant={isInLobby ? "destructive" : "default"}
+					asChild={action !== "joinLobby" || !isAuthenticated}
+					onClick={
+						action === "joinLobby" && isAuthenticated
+							? onAction
+							: undefined
+					}
+					disabled={
+						action === "joinLobby" &&
+						isAuthenticated &&
+						isJoinRequestPending
+					}
 				>
-					{open === "createLobbyPage" ? (
+					{action === "createLobbyPage" ? (
 						<Link href={`/games/${game.path}`}>Play Now</Link>
-					) : (
+					) : action === "gamePage" ? (
 						<Link href={{ pathname: `/game/${game.path}` }}>
 							View Game
 						</Link>
-					)}
+					) : action === "joinLobby" ? (
+						!isAuthenticated ? (
+							<Link href="/login">Login to Join Lobby</Link>
+						) : isInLobby ? (
+							<span>Leave Lobby</span>
+						) : isPrivate ? (
+							<span>
+								{isJoinRequestPending
+									? "Request Pending"
+									: "Request to Join Lobby"}
+							</span>
+						) : (
+							<span>Join Lobby</span>
+						)
+					) : null}
 				</Button>
 			)}
 		</div>

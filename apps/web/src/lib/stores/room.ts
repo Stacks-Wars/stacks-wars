@@ -28,8 +28,8 @@ interface LobbyActions {
 	addChatMessage: (message: ChatMessage) => void;
 	addReaction: (messageId: string, userId: string, emoji: string) => void;
 	removeReaction: (messageId: string, userId: string, emoji: string) => void;
-	addPlayer: (playerId: string) => void;
-	removePlayer: (playerId: string) => void;
+	addPlayer: (userId: string) => void;
+	removePlayer: (userId: string) => void;
 	updateLobbyStatus: (status: LobbyStatus) => void;
 	setCountdown: (seconds: number | null) => void;
 	setConnected: (connected: boolean) => void;
@@ -73,13 +73,6 @@ export const useLobbyStore = create<LobbyStore>((set) => ({
 
 	actions: {
 		setBootstrap: (data) => {
-			console.log("[Lobby Store] 🚀 setBootstrap", {
-				lobby: data.lobbyInfo.lobby.name,
-				game: data.lobbyInfo.game.name,
-				playersCount: data.players.length,
-				joinRequestsCount: data.joinRequests.length,
-				chatHistoryCount: data.chatHistory.length,
-			});
 			set({
 				lobby: data.lobbyInfo.lobby,
 				game: data.lobbyInfo.game,
@@ -91,64 +84,48 @@ export const useLobbyStore = create<LobbyStore>((set) => ({
 		},
 
 		setLobby: (lobby) => {
-			console.log("[Lobby Store] 🏠 setLobby", lobby.name);
 			set({ lobby });
 		},
 
 		setGame: (game) => {
-			console.log("[Lobby Store] 🎮 setGame", game.name);
 			set({ game });
 		},
 
 		setCreator: (creator) => {
-			console.log("[Lobby Store] 👤 setCreator", creator.username);
 			set({ creator });
 		},
 
 		setPlayers: (players) => {
-			console.log("[Lobby Store] 👥 setPlayers", players.length);
 			set({ players });
 		},
 
 		setJoinRequests: (requests) => {
-			console.log("[Lobby Store] 📋 setJoinRequests", requests.length);
 			set({ joinRequests: requests });
 		},
 
 		setChatHistory: (history) => {
-			console.log("[Lobby Store] 💬 setChatHistory", history.length);
 			set({ chatHistory: history });
 		},
 
 		addChatMessage: (message) => {
-			console.log("[Lobby Store] ➕💬 addChatMessage", {
-				user: message.senderId,
-				content: message.content.substring(0, 50),
-			});
 			set((state) => ({
 				chatHistory: [...state.chatHistory, message],
 			}));
 		},
 
 		addReaction: (messageId, userId, emoji) => {
-			console.log("[Lobby Store] ➕😀 addReaction", {
-				messageId,
-				userId,
-				emoji,
-			});
 			set((state) => ({
 				chatHistory: state.chatHistory.map((msg) => {
-					if (msg.id === messageId) {
-						const reactions = msg.reactions || {};
-						const userIds = reactions[emoji] || [];
-						// Add user if not already present
-						if (!userIds.includes(userId)) {
+					if (msg.messageId === messageId) {
+						const reactions = msg.reactions || [];
+						// Add reaction if not already present
+						const alreadyReacted = reactions.some(
+							(r) => r.userId === userId && r.emoji === emoji
+						);
+						if (!alreadyReacted) {
 							return {
 								...msg,
-								reactions: {
-									...reactions,
-									[emoji]: [...userIds, userId],
-								},
+								reactions: [...reactions, { userId, emoji }],
 							};
 						}
 					}
@@ -158,36 +135,15 @@ export const useLobbyStore = create<LobbyStore>((set) => ({
 		},
 
 		removeReaction: (messageId, userId, emoji) => {
-			console.log("[Lobby Store] ➖😀 removeReaction", {
-				messageId,
-				userId,
-				emoji,
-			});
 			set((state) => ({
 				chatHistory: state.chatHistory.map((msg) => {
-					if (msg.id === messageId) {
-						const reactions = msg.reactions || {};
-						const userIds = reactions[emoji] || [];
-						const newUserIds = userIds.filter(
-							(id) => id !== userId
-						);
-
-						// Remove emoji key if no users left
-						if (newUserIds.length === 0) {
-							const { [emoji]: _, ...remainingReactions } =
-								reactions;
-							return {
-								...msg,
-								reactions: remainingReactions,
-							};
-						}
-
+					if (msg.messageId === messageId) {
 						return {
 							...msg,
-							reactions: {
-								...reactions,
-								[emoji]: newUserIds,
-							},
+							reactions: msg.reactions.filter(
+								(r) =>
+									!(r.userId === userId && r.emoji === emoji)
+							),
 						};
 					}
 					return msg;
@@ -195,19 +151,15 @@ export const useLobbyStore = create<LobbyStore>((set) => ({
 			}));
 		},
 
-		addPlayer: (playerId) => {
-			console.log("[Lobby Store] ➕👤 addPlayer", playerId);
+		addPlayer: (userId) => {
 			set((state) => {
 				// Check if player already exists
-				if (state.players.some((p) => p.userId === playerId)) {
-					console.log(
-						"[Lobby Store] ⚠️ Player already exists, skipping"
-					);
+				if (state.players.some((p) => p.userId === userId)) {
 					return state;
 				}
 				// Create a basic player state (lobbyId will be set by server)
 				const newPlayer: PlayerState = {
-					userId: playerId,
+					userId,
 					lobbyId: state.lobby?.id || "",
 					state: "accepted",
 					isCreator: false,
@@ -222,42 +174,35 @@ export const useLobbyStore = create<LobbyStore>((set) => ({
 			});
 		},
 
-		removePlayer: (playerId) => {
-			console.log("[Lobby Store] ➖👤 removePlayer", playerId);
+		removePlayer: (userId) => {
 			set((state) => ({
-				players: state.players.filter((p) => p.userId !== playerId),
+				players: state.players.filter((p) => p.userId !== userId),
 			}));
 		},
 
 		updateLobbyStatus: (status) => {
-			console.log("[Lobby Store] 🔄 updateLobbyStatus", status);
 			set((state) => ({
 				lobby: state.lobby ? { ...state.lobby, status } : null,
 			}));
 		},
 
 		setCountdown: (seconds) => {
-			console.log("[Lobby Store] ⏱️ setCountdown", seconds);
 			set({ countdown: seconds });
 		},
 
 		setConnected: (connected) => {
-			console.log("[Lobby Store] 🔌 setConnected", connected);
 			set({ isConnected: connected });
 		},
 
 		setConnecting: (connecting) => {
-			console.log("[Lobby Store] 🔄 setConnecting", connecting);
 			set({ isConnecting: connecting });
 		},
 
 		setError: (error) => {
-			console.log("[Lobby Store] ❌ setError", error);
 			set({ error });
 		},
 
 		reset: () => {
-			console.log("[Lobby Store] 🔄 reset");
 			set(initialState);
 		},
 	},

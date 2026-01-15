@@ -9,7 +9,6 @@ import GameCard from "@/components/main/game-card";
 import Participants from "./_components/participants";
 import LobbyDetails from "./_components/lobby-details";
 import { cn } from "@/lib/utils";
-import { useUser } from "@/lib/stores/user";
 import Loading from "@/app/loading";
 import { useRoomView } from "@/lib/contexts/room-view-context";
 
@@ -20,25 +19,80 @@ export default function LobbySlot() {
 		creator,
 		players,
 		joinRequests,
+		chatHistory,
 		isConnecting,
 		isConnected,
+		user,
+		isAuthenticated,
 		sendLobbyMessage,
 	} = useRoom();
 	const { setView } = useRoomView();
-	const user = useUser();
 
 	if (isConnecting || !lobby || !game || !creator) {
 		return <Loading />;
 	}
 
 	const isCreator = user?.id === lobby.creatorId;
-	//const canStartGame =
-	//	isCreator &&
-	//	lobby.status === "waiting" &&
-	//	players.length >= game.minPlayers;
-	const canStartGame = true;
+	const isInLobby = players.some((p) => p.userId === user?.id);
+	const currentPlayerRequest = joinRequests.find(
+		(jr) => jr.userId === user?.id
+	);
+	const isJoinRequestPending = currentPlayerRequest?.state === "pending";
 
-	console.log("players:", players);
+	const handleJoinOrLeave = () => {
+		if (isInLobby) {
+			console.log("leave called");
+			sendLobbyMessage({ type: "leave" });
+		} else if (lobby.isPrivate && !isJoinRequestPending) {
+			console.log("join request called");
+			sendLobbyMessage({ type: "joinRequest" });
+		} else {
+			console.log("join called");
+			sendLobbyMessage({ type: "join" });
+		}
+	};
+
+	const handleApproveJoin = (userId: string) => {
+		console.log("approveJoin called");
+		sendLobbyMessage({ type: "approveJoin", userId });
+	};
+
+	const handleRejectJoin = (userId: string) => {
+		console.log("rejectJoin called");
+		sendLobbyMessage({ type: "rejectJoin", userId });
+	};
+
+	const handleKick = (userId: string) => {
+		console.log("kick called");
+		sendLobbyMessage({ type: "kick", userId });
+	};
+
+	const handleSendMessage = (content: string) => {
+		console.log("sendMessage called");
+		sendLobbyMessage({ type: "sendMessage", content });
+	};
+
+	const handleAddReaction = (messageId: string, emoji: string) => {
+		console.log("addReaction called");
+		sendLobbyMessage({ type: "addReaction", messageId, emoji });
+	};
+
+	const handleRemoveReaction = (messageId: string, emoji: string) => {
+		console.log("removeReaction called");
+		sendLobbyMessage({ type: "removeReaction", messageId, emoji });
+	};
+
+	const handleStartGame = () => {
+		console.log("updateLobbyStatus called");
+		sendLobbyMessage({ type: "updateLobbyStatus", status: "starting" });
+	};
+
+	const canStartGame =
+		isCreator &&
+		lobby.status === "waiting" &&
+		players.length >= game.minPlayers;
+	//const canStartGame = true;
+
 	const acceptedPlayers = players.filter((p) => p.state === "accepted");
 	const pendingPlayers = joinRequests.filter((jr) => jr.state === "pending");
 
@@ -78,12 +132,32 @@ export default function LobbySlot() {
 						<ShareButton lobbyPath={lobby.path} />
 					</div>
 				</div>
-				<GameCard game={game} />
-				<LobbyDetails lobby={lobby} game={game} />
+				<GameCard
+					game={game}
+					action="joinLobby"
+					onAction={handleJoinOrLeave}
+					isInLobby={isInLobby}
+					isPrivate={lobby.isPrivate}
+					isJoinRequestPending={isJoinRequestPending}
+					isAuthenticated={isAuthenticated}
+				/>
+				<LobbyDetails
+					lobby={lobby}
+					game={game}
+					players={players}
+					chatHistory={chatHistory}
+					currentUserId={user?.id}
+					onSendMessage={handleSendMessage}
+					onAddReaction={handleAddReaction}
+					onRemoveReaction={handleRemoveReaction}
+				/>
 				<Participants
 					players={acceptedPlayers}
 					pendingPlayers={pendingPlayers}
 					isCreator={isCreator}
+					onApprove={handleApproveJoin}
+					onReject={handleRejectJoin}
+					onKick={handleKick}
 				/>
 			</div>
 			{canStartGame && (
@@ -92,9 +166,7 @@ export default function LobbySlot() {
 						<Button
 							size="lg"
 							className="w-full sm:max-w-md mx-auto flex rounded-full text-sm sm:text-base lg:text-xl font-semibold h-11 sm:h-12 lg:h-14"
-							onClick={() => {
-								sendLobbyMessage("startGame");
-							}}
+							onClick={handleStartGame}
 							disabled={!isConnected}
 						>
 							Start Game

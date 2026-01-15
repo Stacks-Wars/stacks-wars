@@ -18,6 +18,7 @@ import type {
 	JoinRequest,
 	LobbyExtended,
 	PlayerState,
+	RoomClientMessage,
 	RoomServerMessage,
 	User,
 } from "@/lib/definitions";
@@ -33,6 +34,7 @@ import {
 	useRoomConnecting,
 	useLobbyActions,
 } from "../stores/room";
+import { useUser } from "../stores/user";
 import { WebSocketClient } from "../websocket/wsClient";
 
 interface UseRoomOptions {
@@ -45,6 +47,9 @@ export interface UseRoomWebSocketReturn {
 	isConnected: boolean;
 	isConnecting: boolean;
 	error: string | null;
+	// Auth state
+	user: User | null;
+	isAuthenticated: boolean;
 	// Lobby state
 	lobby: LobbyExtended | null;
 	game: Game | null;
@@ -57,7 +62,7 @@ export interface UseRoomWebSocketReturn {
 	gamePlugin: GamePlugin | undefined;
 	// Actions
 	sendGameMessage: (type: string, payload: unknown) => void;
-	sendLobbyMessage: (type: string, payload?: unknown) => void;
+	sendLobbyMessage: (message: RoomClientMessage) => void;
 }
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
@@ -69,6 +74,8 @@ export function useRoomWebSocket({
 	const clientRef = useRef<WebSocketClient | null>(null);
 	const [gamePlugin, setGamePlugin] = useState<GamePlugin | undefined>();
 	const [gameState, setGameState] = useState<unknown>(null);
+	const [authenticatedUserId, setAuthenticatedUserId] = useState<string | null>(null);
+	const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
 	const lobby = useLobby();
 	const game = useGame();
@@ -80,6 +87,27 @@ export function useRoomWebSocket({
 	const isConnecting = useRoomConnecting();
 	const error = useRoomError();
 	const lobbyActions = useLobbyActions();
+	const user = useUser();
+
+	const isAuthenticated = !isCheckingAuth && !!authenticatedUserId && !!user;
+
+	// Check authentication status
+	useEffect(() => {
+		async function checkAuth() {
+			try {
+				const response = await fetch("/api/auth/me");
+				const data = await response.json();
+				setAuthenticatedUserId(data.userId);
+			} catch (error) {
+				console.error("Failed to check authentication:", error);
+				setAuthenticatedUserId(null);
+			} finally {
+				setIsCheckingAuth(false);
+			}
+		}
+
+		checkAuth();
+	}, []);
 
 	useEffect(() => {
 		// Initialize WebSocket connection
@@ -189,15 +217,15 @@ export function useRoomWebSocket({
 				break;
 
 			case "playerJoined":
-				lobbyActions.addPlayer(message.playerId);
+				lobbyActions.addPlayer(message.userId);
 				break;
 
 			case "playerLeft":
-				lobbyActions.removePlayer(message.playerId);
+				lobbyActions.removePlayer(message.userId);
 				break;
 
 			case "playerKicked":
-				lobbyActions.removePlayer(message.playerId);
+				lobbyActions.removePlayer(message.userId);
 				break;
 
 			case "joinRequestsUpdated":
@@ -256,11 +284,12 @@ export function useRoomWebSocket({
 	};
 
 	// Send a lobby-level message
-	const sendLobbyMessage = (type: string, payload?: unknown) => {
+	const sendLobbyMessage = (message: RoomClientMessage) => {
 		if (!clientRef.current) {
 			console.warn("[Room] Cannot send lobby message: not connected");
 			return;
 		}
+		const { type, ...payload } = message;
 		clientRef.current.sendLobbyMessage(type, payload);
 	};
 
@@ -269,6 +298,10 @@ export function useRoomWebSocket({
 		isConnected,
 		isConnecting,
 		error,
+
+		// Auth state
+		user,
+		isAuthenticated,
 
 		// Lobby state
 		lobby,

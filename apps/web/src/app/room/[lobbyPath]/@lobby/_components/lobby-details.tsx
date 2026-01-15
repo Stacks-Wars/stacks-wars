@@ -1,6 +1,11 @@
 "use client";
 
-import type { Game, LobbyExtended } from "@/lib/definitions";
+import type {
+	ChatMessage,
+	Game,
+	LobbyExtended,
+	PlayerState,
+} from "@/lib/definitions";
 import { Button } from "@/components/ui/button";
 import { MessageCircleMore } from "lucide-react";
 import {
@@ -12,8 +17,29 @@ import {
 	DialogTrigger,
 } from "@/components/ui/dialog";
 import { useState } from "react";
+import Chat from "./chat";
 
-export default function LobbyDetails({ lobby, game }: { lobby: LobbyExtended; game: Game }) {
+interface LobbyDetailsProps {
+	lobby: LobbyExtended;
+	game: Game;
+	players: PlayerState[];
+	chatHistory: ChatMessage[];
+	currentUserId?: string;
+	onSendMessage: (content: string) => void;
+	onAddReaction: (messageId: string, emoji: string) => void;
+	onRemoveReaction: (messageId: string, emoji: string) => void;
+}
+
+export default function LobbyDetails({
+	lobby,
+	game,
+	players,
+	chatHistory,
+	currentUserId,
+	onSendMessage,
+	onAddReaction,
+	onRemoveReaction,
+}: LobbyDetailsProps) {
 	const [chatOpen, setChatOpen] = useState(false);
 
 	return (
@@ -94,12 +120,14 @@ export default function LobbyDetails({ lobby, game }: { lobby: LobbyExtended; ga
 							Chat with other players in this lobby
 						</DialogDescription>
 					</DialogHeader>
-					<div className="min-h-96">
-						{/* Chat content will go here */}
-						<p className="text-center text-muted-foreground py-20">
-							Send a message to other players in this lobby.
-						</p>
-					</div>
+					<Chat
+						messages={chatHistory}
+						players={players}
+						onSendMessage={onSendMessage}
+						onAddReaction={onAddReaction}
+						onRemoveReaction={onRemoveReaction}
+						currentUserId={currentUserId}
+					/>
 				</DialogContent>
 			</Dialog>
 		</div>
