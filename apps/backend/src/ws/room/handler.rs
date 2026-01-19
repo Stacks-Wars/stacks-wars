@@ -220,7 +220,7 @@ async fn handle_socket(
                 }
 
                 // Unknown message type - log and ignore
-                tracing::debug!(
+                tracing::warn!(
                     "Unknown message type received: {:?}",
                     parsed_msg.get("type")
                 );
@@ -229,7 +229,7 @@ async fn handle_socket(
             Ok(Message::Binary(_)) => {}
             Ok(Message::Close(_)) | Ok(Message::Pong(_)) | Ok(Message::Ping(_)) => {}
             Err(e) => {
-                tracing::debug!("ws recv err: {}", e);
+                tracing::warn!("ws recv err: {}", e);
                 break;
             }
         }
