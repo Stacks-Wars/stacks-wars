@@ -33,6 +33,7 @@ export default function Participants({
 							player={player}
 							isCreator={isCreator}
 							onKick={onKick}
+							kickActionKey={`kick-${player.userId}`}
 						/>
 					))}
 				</div>
@@ -51,6 +52,8 @@ export default function Participants({
 								isCreator={isCreator}
 								onApprove={onApprove}
 								onReject={onReject}
+								approveActionKey={`approve-${pendingPlayer.userId}`}
+								rejectActionKey={`reject-${pendingPlayer.userId}`}
 							/>
 						))}
 					</div>

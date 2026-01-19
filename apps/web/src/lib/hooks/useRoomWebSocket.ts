@@ -40,6 +40,11 @@ import { WebSocketClient } from "../websocket/wsClient";
 interface UseRoomOptions {
 	lobbyPath: string;
 	wsUrl?: string;
+	onActionSuccess?: (action: string, message?: string) => void;
+	onActionError?: (
+		action: string,
+		error: { code: string; message: string }
+	) => void;
 }
 
 export interface UseRoomWebSocketReturn {
@@ -70,12 +75,17 @@ const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
 export function useRoomWebSocket({
 	lobbyPath,
 	wsUrl = `${WS_URL}/ws/room`,
+	onActionSuccess,
+	onActionError,
 }: UseRoomOptions): UseRoomWebSocketReturn {
 	const clientRef = useRef<WebSocketClient | null>(null);
 	const [gamePlugin, setGamePlugin] = useState<GamePlugin | undefined>();
 	const [gameState, setGameState] = useState<unknown>(null);
-	const [authenticatedUserId, setAuthenticatedUserId] = useState<string | null>(null);
+	const [authenticatedUserId, setAuthenticatedUserId] = useState<
+		string | null
+	>(null);
 	const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+	const pendingActionsRef = useRef<Set<string>>(new Set());
 
 	const lobby = useLobby();
 	const game = useGame();
@@ -210,6 +220,14 @@ export function useRoomWebSocket({
 
 			case "lobbyStatusChanged":
 				lobbyActions.updateLobbyStatus(message.status);
+				if (pendingActionsRef.current.has("updateLobbyStatus")) {
+					pendingActionsRef.current.delete("updateLobbyStatus");
+					lobbyActions.clearActionLoading("updateLobbyStatus");
+					onActionSuccess?.(
+						"updateLobbyStatus",
+						`Lobby status updated to ${message.status}`
+					);
+				}
 				break;
 
 			case "startCountdown":
@@ -217,19 +235,55 @@ export function useRoomWebSocket({
 				break;
 
 			case "playerJoined":
-				lobbyActions.addPlayer(message.userId);
+				if (pendingActionsRef.current.has("join")) {
+					pendingActionsRef.current.delete("join");
+					lobbyActions.clearActionLoading("join");
+					onActionSuccess?.("join", "Successfully joined lobby");
+				}
 				break;
 
 			case "playerLeft":
 				lobbyActions.removePlayer(message.userId);
+				if (pendingActionsRef.current.has("leave")) {
+					pendingActionsRef.current.delete("leave");
+					lobbyActions.clearActionLoading("leave");
+					onActionSuccess?.("leave", "Left lobby");
+				}
 				break;
 
 			case "playerKicked":
 				lobbyActions.removePlayer(message.userId);
+				if (pendingActionsRef.current.has(`kick-${message.userId}`)) {
+					pendingActionsRef.current.delete(`kick-${message.userId}`);
+					lobbyActions.clearActionLoading(`kick-${message.userId}`);
+					onActionSuccess?.("kick", "Player kicked");
+				}
 				break;
 
 			case "joinRequestsUpdated":
 				lobbyActions.setJoinRequests(message.joinRequests);
+				// Check for pending actions
+				if (pendingActionsRef.current.has("joinRequest")) {
+					const userInList = message.joinRequests.some(
+						(jr) => jr.userId === user?.id
+					);
+					if (userInList) {
+						pendingActionsRef.current.delete("joinRequest");
+						lobbyActions.clearActionLoading("joinRequest");
+						onActionSuccess?.("joinRequest", "Join request sent");
+					}
+				}
+				pendingActionsRef.current.forEach((action) => {
+					if (action.startsWith("approve-")) {
+						pendingActionsRef.current.delete(action);
+						lobbyActions.clearActionLoading(action);
+						onActionSuccess?.("approve", "Join request approved");
+					} else if (action.startsWith("reject-")) {
+						pendingActionsRef.current.delete(action);
+						lobbyActions.clearActionLoading(action);
+						onActionSuccess?.("reject", "Join request rejected");
+					}
+				});
 				break;
 
 			case "joinRequestStatus":
@@ -238,6 +292,10 @@ export function useRoomWebSocket({
 
 			case "messageReceived":
 				lobbyActions.addChatMessage(message.message);
+				if (pendingActionsRef.current.has("sendMessage")) {
+					pendingActionsRef.current.delete("sendMessage");
+					lobbyActions.clearActionLoading("sendMessage");
+				}
 				break;
 
 			case "reactionAdded":
@@ -262,6 +320,34 @@ export function useRoomWebSocket({
 
 			case "error":
 				lobbyActions.setError(message.message || "An error occurred");
+				// Map error codes to actions
+				const errorCodeToAction: Record<string, string> = {
+					JOIN_FAILED: "join",
+					LEAVE_FAILED: "leave",
+					LOBBY_STATUS_FAILED: "updateLobbyStatus",
+					APPROVE_FAILED: "approve",
+					REJECT_FAILED: "reject",
+					KICK_FAILED: "kick",
+					SEND_MESSAGE_FAILED: "sendMessage",
+					REACTION_FAILED: "reaction",
+				};
+				const action = errorCodeToAction[message.code];
+				if (action) {
+					// Clear any pending actions related to this error
+					pendingActionsRef.current.forEach((pendingAction) => {
+						if (
+							pendingAction.startsWith(action) ||
+							pendingAction === action
+						) {
+							pendingActionsRef.current.delete(pendingAction);
+							lobbyActions.clearActionLoading(pendingAction);
+						}
+					});
+					onActionError?.(action, {
+						code: message.code,
+						message: message.message,
+					});
+				}
 				break;
 
 			case "pong":
@@ -289,8 +375,67 @@ export function useRoomWebSocket({
 			console.warn("[Room] Cannot send lobby message: not connected");
 			return;
 		}
-		const { type, ...payload } = message;
-		clientRef.current.sendLobbyMessage(type, payload);
+
+		// Track pending actions
+		switch (message.type) {
+			case "join":
+				pendingActionsRef.current.add("join");
+				lobbyActions.setActionLoading("join", true);
+				break;
+			case "leave":
+				console.log(`Sending leave: `);
+				pendingActionsRef.current.add("leave");
+				lobbyActions.setActionLoading("leave", true);
+				break;
+			case "updateLobbyStatus":
+				pendingActionsRef.current.add("updateLobbyStatus");
+				lobbyActions.setActionLoading("updateLobbyStatus", true);
+				break;
+			case "joinRequest":
+				pendingActionsRef.current.add("joinRequest");
+				lobbyActions.setActionLoading("joinRequest", true);
+				break;
+			case "approveJoin":
+				pendingActionsRef.current.add(`approve-${message.userId}`);
+				lobbyActions.setActionLoading(
+					`approve-${message.userId}`,
+					true
+				);
+				break;
+			case "rejectJoin":
+				pendingActionsRef.current.add(`reject-${message.userId}`);
+				lobbyActions.setActionLoading(`reject-${message.userId}`, true);
+				break;
+			case "kick":
+				pendingActionsRef.current.add(`kick-${message.userId}`);
+				lobbyActions.setActionLoading(`kick-${message.userId}`, true);
+				break;
+			case "sendMessage":
+				console.log(`Sending message: ${message.content}`);
+				pendingActionsRef.current.add("sendMessage");
+				lobbyActions.setActionLoading("sendMessage", true);
+				break;
+			case "addReaction":
+				pendingActionsRef.current.add(
+					`addReaction-${message.messageId}`
+				);
+				lobbyActions.setActionLoading(
+					`addReaction-${message.messageId}`,
+					true
+				);
+				break;
+			case "removeReaction":
+				pendingActionsRef.current.add(
+					`removeReaction-${message.messageId}`
+				);
+				lobbyActions.setActionLoading(
+					`removeReaction-${message.messageId}`,
+					true
+				);
+				break;
+		}
+
+		clientRef.current.sendLobbyMessage(message);
 	};
 
 	return {

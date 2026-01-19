@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ChatMessage, PlayerState } from "@/lib/definitions";
+import { useIsActionLoading } from "@/lib/stores/room";
 import { formatAddress } from "@/lib/utils";
 import { Send } from "lucide-react";
 import { useState, useMemo } from "react";
@@ -26,6 +27,7 @@ export default function Chat({
 	currentUserId,
 }: ChatProps) {
 	const [newMessage, setNewMessage] = useState("");
+	const isSending = useIsActionLoading("sendMessage");
 
 	// Create a lookup map for player info
 	const playerMap = useMemo(() => {
@@ -148,7 +150,7 @@ export default function Chat({
 				<Button
 					onClick={handleSend}
 					size="icon"
-					disabled={!newMessage.trim()}
+					disabled={!newMessage.trim() || isSending}
 				>
 					<Send className="size-4" />
 				</Button>

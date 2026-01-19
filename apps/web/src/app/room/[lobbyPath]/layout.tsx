@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { RoomProvider, useRoom } from "@/lib/contexts/room-context";
 import { RoomViewProvider } from "@/lib/contexts/room-view-context";
+import { toast } from "sonner";
 
 function RoomContent({
 	lobby,
@@ -49,8 +50,22 @@ export default async function RoomLayout({
 }) {
 	const lobbyPath = (await params).lobbyPath;
 
+	const handleActionSuccess = (action: string, message?: string) => {
+		if (message) {
+			toast.success(message);
+		}
+	};
+
+	const handleActionError = (action: string, error: { code: string; message: string }) => {
+		toast.error(error.message || `Action failed: ${action}`);
+	};
+
 	return (
-		<RoomProvider lobbyPath={lobbyPath}>
+		<RoomProvider 
+			lobbyPath={lobbyPath}
+			onActionSuccess={handleActionSuccess}
+			onActionError={handleActionError}
+		>
 			<RoomContent lobby={lobby} game={game} />
 			{children}
 		</RoomProvider>

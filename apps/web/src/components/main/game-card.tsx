@@ -12,6 +12,7 @@ export default function GameCard({
 	isPrivate,
 	isJoinRequestPending,
 	isAuthenticated,
+	isLoading = false,
 }: {
 	game: Game;
 	action?: "gamePage" | "createLobbyPage" | "joinLobby";
@@ -20,6 +21,7 @@ export default function GameCard({
 	isPrivate?: boolean;
 	isJoinRequestPending?: boolean;
 	isAuthenticated?: boolean;
+	isLoading?: boolean;
 }) {
 	return (
 		<div className="flex flex-col items-center w-full">
@@ -76,7 +78,7 @@ export default function GameCard({
 					disabled={
 						action === "joinLobby" &&
 						isAuthenticated &&
-						isJoinRequestPending
+						(isJoinRequestPending || isLoading)
 					}
 				>
 					{action === "createLobbyPage" ? (
@@ -88,6 +90,8 @@ export default function GameCard({
 					) : action === "joinLobby" ? (
 						!isAuthenticated ? (
 							<Link href="/login">Login to Join Lobby</Link>
+						) : isLoading ? (
+							<span>Loading...</span>
 						) : isInLobby ? (
 							<span>Leave Lobby</span>
 						) : isPrivate ? (

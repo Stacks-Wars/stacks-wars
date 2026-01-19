@@ -28,13 +28,15 @@ interface LobbyActions {
 	addChatMessage: (message: ChatMessage) => void;
 	addReaction: (messageId: string, userId: string, emoji: string) => void;
 	removeReaction: (messageId: string, userId: string, emoji: string) => void;
-	addPlayer: (userId: string) => void;
 	removePlayer: (userId: string) => void;
 	updateLobbyStatus: (status: LobbyStatus) => void;
 	setCountdown: (seconds: number | null) => void;
 	setConnected: (connected: boolean) => void;
 	setConnecting: (connecting: boolean) => void;
 	setError: (error: string | null) => void;
+	setActionLoading: (action: string, loading: boolean) => void;
+	clearActionLoading: (action: string) => void;
+	clearAllLoadingActions: () => void;
 	reset: () => void;
 }
 
@@ -50,6 +52,7 @@ interface LobbyStore {
 	isConnected: boolean;
 	isConnecting: boolean;
 	error: string | null;
+	loadingActions: Set<string>;
 
 	// Actions
 	actions: LobbyActions;
@@ -66,6 +69,7 @@ const initialState = {
 	isConnected: false,
 	isConnecting: false,
 	error: null,
+	loadingActions: new Set<string>(),
 };
 
 export const useLobbyStore = create<LobbyStore>((set) => ({
@@ -151,29 +155,6 @@ export const useLobbyStore = create<LobbyStore>((set) => ({
 			}));
 		},
 
-		addPlayer: (userId) => {
-			set((state) => {
-				// Check if player already exists
-				if (state.players.some((p) => p.userId === userId)) {
-					return state;
-				}
-				// Create a basic player state (lobbyId will be set by server)
-				const newPlayer: PlayerState = {
-					userId,
-					lobbyId: state.lobby?.id || "",
-					state: "accepted",
-					isCreator: false,
-					joinedAt: Date.now(),
-					status: "joined",
-					updatedAt: Date.now(),
-					// These can be updated later
-					walletAddress: "",
-					trustRating: 0,
-				};
-				return { players: [...state.players, newPlayer] };
-			});
-		},
-
 		removePlayer: (userId) => {
 			set((state) => ({
 				players: state.players.filter((p) => p.userId !== userId),
@@ -202,6 +183,30 @@ export const useLobbyStore = create<LobbyStore>((set) => ({
 			set({ error });
 		},
 
+		setActionLoading: (action, loading) => {
+			set((state) => {
+				const newLoadingActions = new Set(state.loadingActions);
+				if (loading) {
+					newLoadingActions.add(action);
+				} else {
+					newLoadingActions.delete(action);
+				}
+				return { loadingActions: newLoadingActions };
+			});
+		},
+
+		clearActionLoading: (action) => {
+			set((state) => {
+				const newLoadingActions = new Set(state.loadingActions);
+				newLoadingActions.delete(action);
+				return { loadingActions: newLoadingActions };
+			});
+		},
+
+		clearAllLoadingActions: () => {
+			set({ loadingActions: new Set<string>() });
+		},
+
 		reset: () => {
 			set(initialState);
 		},
@@ -223,3 +228,8 @@ export const useRoomConnecting = () =>
 	useLobbyStore((state) => state.isConnecting);
 export const useRoomError = () => useLobbyStore((state) => state.error);
 export const useLobbyActions = () => useLobbyStore((state) => state.actions);
+
+// Loading state selectors
+export const useLoadingActions = () => useLobbyStore((state) => state.loadingActions);
+export const useIsActionLoading = (action: string) => 
+	useLobbyStore((state) => state.loadingActions.has(action));

@@ -92,11 +92,7 @@ export class WebSocketClient {
 	/**
 	 * Send a lobby-level message (no game wrapper)
 	 */
-	sendLobbyMessage(type: string, payload?: unknown): void {
-		const message: Record<string, unknown> = { type };
-		if (payload !== undefined) {
-			message.payload = payload;
-		}
+	sendLobbyMessage(message: unknown): void {
 		this.send(message);
 	}
 

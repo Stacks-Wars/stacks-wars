@@ -5,6 +5,7 @@ import type { JoinRequest, PlayerState } from "@/lib/definitions";
 import { formatAddress } from "@/lib/utils";
 import Link from "next/link";
 import { IoStar } from "react-icons/io5";
+import { useIsActionLoading } from "@/lib/stores/room";
 
 interface PlayerProps {
 	player: PlayerState | JoinRequest;
@@ -12,6 +13,9 @@ interface PlayerProps {
 	onApprove?: (userId: string) => void;
 	onReject?: (userId: string) => void;
 	onKick?: (userId: string) => void;
+	kickActionKey?: string;
+	approveActionKey?: string;
+	rejectActionKey?: string;
 }
 
 export default function Player({
@@ -20,7 +24,20 @@ export default function Player({
 	onApprove,
 	onReject,
 	onKick,
+	kickActionKey,
+	approveActionKey,
+	rejectActionKey,
 }: PlayerProps) {
+	// Get loading states from store if action keys are provided
+	const isKickLoading = kickActionKey
+		? useIsActionLoading(kickActionKey)
+		: false;
+	const isApproving = approveActionKey
+		? useIsActionLoading(approveActionKey)
+		: false;
+	const isRejecting = rejectActionKey
+		? useIsActionLoading(rejectActionKey)
+		: false;
 	return (
 		<div className="bg-card px-3 sm:px-4 lg:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl flex justify-between items-center gap-3">
 			<Link
@@ -77,15 +94,17 @@ export default function Player({
 							<Button
 								className="rounded-full text-xs sm:text-sm lg:text-base font-medium px-3 sm:px-4 h-8 sm:h-9 lg:h-10"
 								onClick={() => onApprove?.(player.userId)}
+								disabled={isApproving || isRejecting}
 							>
-								Accept
+								{isApproving ? "Accepting..." : "Accept"}
 							</Button>
 							<Button
 								variant={"outline"}
 								className="rounded-full text-xs sm:text-sm lg:text-base font-medium px-3 sm:px-4 h-8 sm:h-9 lg:h-10"
 								onClick={() => onReject?.(player.userId)}
+								disabled={isApproving || isRejecting}
 							>
-								Decline
+								{isRejecting ? "Declining..." : "Decline"}
 							</Button>
 						</div>
 					)}
@@ -94,8 +113,9 @@ export default function Player({
 							variant={"outline"}
 							className="rounded-full text-xs sm:text-sm lg:text-base font-medium px-3 sm:px-4 h-8 sm:h-9 lg:h-10"
 							onClick={() => onKick?.(player.userId)}
+							disabled={isKickLoading}
 						>
-							Remove
+							{isKickLoading ? "Removing..." : "Remove"}
 						</Button>
 					)}
 				</div>

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRoom } from "@/lib/contexts/room-context";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Gamepad2 } from "lucide-react";
 import Link from "next/link";
@@ -11,6 +10,8 @@ import LobbyDetails from "./_components/lobby-details";
 import { cn } from "@/lib/utils";
 import Loading from "@/app/loading";
 import { useRoomView } from "@/lib/contexts/room-view-context";
+import { useRoom } from "@/lib/contexts/room-context";
+import { useIsActionLoading } from "@/lib/stores/room";
 
 export default function LobbySlot() {
 	const {
@@ -28,6 +29,12 @@ export default function LobbySlot() {
 	} = useRoom();
 	const { setView } = useRoomView();
 
+	// Get loading states from store
+	const isJoinLoading = useIsActionLoading("join");
+	const isLeaveLoading = useIsActionLoading("leave");
+	const isStartGameLoading = useIsActionLoading("updateLobbyStatus");
+	const isJoinRequestLoading = useIsActionLoading("joinRequest");
+
 	if (isConnecting || !lobby || !game || !creator) {
 		return <Loading />;
 	}
@@ -41,34 +48,27 @@ export default function LobbySlot() {
 
 	const handleJoinOrLeave = () => {
 		if (isInLobby) {
-			console.log("leave called");
 			sendLobbyMessage({ type: "leave" });
 		} else if (lobby.isPrivate && !isJoinRequestPending) {
-			console.log("join request called");
 			sendLobbyMessage({ type: "joinRequest" });
 		} else {
-			console.log("join called");
 			sendLobbyMessage({ type: "join" });
 		}
 	};
 
 	const handleApproveJoin = (userId: string) => {
-		console.log("approveJoin called");
 		sendLobbyMessage({ type: "approveJoin", userId });
 	};
 
 	const handleRejectJoin = (userId: string) => {
-		console.log("rejectJoin called");
 		sendLobbyMessage({ type: "rejectJoin", userId });
 	};
 
 	const handleKick = (userId: string) => {
-		console.log("kick called");
 		sendLobbyMessage({ type: "kick", userId });
 	};
 
 	const handleSendMessage = (content: string) => {
-		console.log("sendMessage called");
 		sendLobbyMessage({ type: "sendMessage", content });
 	};
 
@@ -83,7 +83,6 @@ export default function LobbySlot() {
 	};
 
 	const handleStartGame = () => {
-		console.log("updateLobbyStatus called");
 		sendLobbyMessage({ type: "updateLobbyStatus", status: "starting" });
 	};
 
@@ -140,6 +139,9 @@ export default function LobbySlot() {
 					isPrivate={lobby.isPrivate}
 					isJoinRequestPending={isJoinRequestPending}
 					isAuthenticated={isAuthenticated}
+					isLoading={
+						isJoinLoading || isLeaveLoading || isJoinRequestLoading
+					}
 				/>
 				<LobbyDetails
 					lobby={lobby}
@@ -167,9 +169,9 @@ export default function LobbySlot() {
 							size="lg"
 							className="w-full sm:max-w-md mx-auto flex rounded-full text-sm sm:text-base lg:text-xl font-semibold h-11 sm:h-12 lg:h-14"
 							onClick={handleStartGame}
-							disabled={!isConnected}
+							disabled={!isConnected || isStartGameLoading}
 						>
-							Start Game
+							{isStartGameLoading ? "Starting..." : "Start Game"}
 						</Button>
 					</div>
 				</div>
