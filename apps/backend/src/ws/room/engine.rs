@@ -53,12 +53,6 @@ pub async fn handle_room_message(
             let now_ms = Utc::now().timestamp_millis() as u64;
             let elapsed = now_ms.saturating_sub(ts);
 
-            if let Some(user_id) = auth_user_id {
-                if player_repo.exists(lobby_id, user_id).await.unwrap_or(false) {
-                    let _ = player_repo.update_ping(lobby_id, user_id).await;
-                }
-            }
-
             let _ = manager::send_to_connection(
                 conn,
                 &RoomServerMessage::Pong {
@@ -66,6 +60,12 @@ pub async fn handle_room_message(
                 },
             )
             .await;
+
+            if let Some(user_id) = auth_user_id {
+                if player_repo.exists(lobby_id, user_id).await.unwrap_or(false) {
+                    let _ = player_repo.update_ping(lobby_id, user_id).await;
+                }
+            }
         }
 
         // LOBBY-ONLY: Block if game is in progress
@@ -133,6 +133,11 @@ pub async fn handle_room_message(
                 );
                 let _ = player_repo.upsert_state(pstate).await;
 
+                let participant_count = lobby_state_repo
+                    .increment_participants(lobby_id)
+                    .await
+                    .unwrap_or(0);
+
                 // broadcast joined and updated player list
                 let _ = broadcast::broadcast_user(
                     state,
@@ -151,8 +156,25 @@ pub async fn handle_room_message(
                 }
 
                 let lobby_repo = LobbyRepository::new(state.postgres.clone());
-                if let Ok(db_lobby) = lobby_repo.find_by_id(lobby_id).await {
-                    if db_lobby.is_private {
+                let db_lobby = lobby_repo.find_by_id(lobby_id).await.ok();
+
+                let current_amount = db_lobby.as_ref().and_then(|l| l.current_amount);
+
+                // Broadcast lobby status change with updated participant count and current amount
+                let _ = broadcast::broadcast_room(
+                    state,
+                    lobby_id,
+                    &RoomServerMessage::LobbyStatusChanged {
+                        status: lobby_status,
+                        participant_count,
+                        current_amount,
+                    },
+                )
+                .await;
+
+                // Handle private lobby join request cleanup
+                if let Some(lobby) = db_lobby {
+                    if lobby.is_private {
                         let _ = jr_repo.remove(lobby_id, user_id).await.ok();
                         if let Ok(list) = jr_repo.list(lobby_id).await {
                             let _ = broadcast::broadcast_room(
@@ -201,6 +223,11 @@ pub async fn handle_room_message(
             // remove player state
             let _ = player_repo.remove_from_lobby(lobby_id, user_id).await.ok();
 
+            let participant_count = lobby_state_repo
+                .decrement_participants(lobby_id)
+                .await
+                .unwrap_or(0);
+
             let _ = broadcast::broadcast_room(
                 state,
                 lobby_id,
@@ -215,6 +242,25 @@ pub async fn handle_room_message(
                 )
                 .await;
             }
+
+            // Broadcast lobby status change with updated participant count and current amount
+            let lobby_repo = LobbyRepository::new(state.postgres.clone());
+            let current_amount = lobby_repo
+                .find_by_id(lobby_id)
+                .await
+                .ok()
+                .and_then(|l| l.current_amount);
+
+            let _ = broadcast::broadcast_room(
+                state,
+                lobby_id,
+                &RoomServerMessage::LobbyStatusChanged {
+                    status: lobby_status,
+                    participant_count,
+                    current_amount,
+                },
+            )
+            .await;
         }
 
         RoomClientMessage::UpdateLobbyStatus { status } => {
@@ -289,11 +335,28 @@ pub async fn handle_room_message(
                     // Clear countdown and mark started
                     let _ = spawn_repo.clear_countdown(spawn_lobby).await.ok();
                     let _ = spawn_repo.mark_started(spawn_lobby).await.ok();
+
+                    // Get participant count and current amount for broadcast
+                    let participant_count = spawn_repo
+                        .get_state(spawn_lobby)
+                        .await
+                        .map(|s| s.participant_count)
+                        .unwrap_or(0);
+
+                    let lobby_repo_spawn = LobbyRepository::new(spawn_state.postgres.clone());
+                    let current_amount = lobby_repo_spawn
+                        .find_by_id(spawn_lobby)
+                        .await
+                        .ok()
+                        .and_then(|l| l.current_amount);
+
                     let _ = broadcast::broadcast_room(
                         &spawn_state,
                         spawn_lobby,
                         &RoomServerMessage::LobbyStatusChanged {
                             status: LobbyStatus::InProgress,
+                            participant_count,
+                            current_amount,
                         },
                     )
                     .await;
@@ -378,10 +441,28 @@ pub async fn handle_room_message(
                 });
             }
 
+            // Get current state and lobby info for broadcast
+            let participant_count = lobby_state_repo
+                .get_state(lobby_id)
+                .await
+                .map(|s| s.participant_count)
+                .unwrap_or(0);
+
+            let lobby_repo = LobbyRepository::new(state.postgres.clone());
+            let current_amount = lobby_repo
+                .find_by_id(lobby_id)
+                .await
+                .ok()
+                .and_then(|l| l.current_amount);
+
             let _ = broadcast::broadcast_room(
                 state,
                 lobby_id,
-                &RoomServerMessage::LobbyStatusChanged { status: status },
+                &RoomServerMessage::LobbyStatusChanged {
+                    status: status,
+                    participant_count,
+                    current_amount,
+                },
             )
             .await;
         }
@@ -579,6 +660,12 @@ pub async fn handle_room_message(
                 .remove_from_lobby(lobby_id, kicked_user_id)
                 .await
                 .ok();
+
+            let participant_count = lobby_state_repo
+                .decrement_participants(lobby_id)
+                .await
+                .unwrap_or(0);
+
             let _ = broadcast::broadcast_room(
                 state,
                 lobby_id,
@@ -600,6 +687,24 @@ pub async fn handle_room_message(
                 kicked_user_id,
                 &RoomServerMessage::PlayerKicked {
                     user_id: kicked_user_id,
+                },
+            )
+            .await;
+
+            let lobby_repo = LobbyRepository::new(state.postgres.clone());
+            let current_amount = lobby_repo
+                .find_by_id(lobby_id)
+                .await
+                .ok()
+                .and_then(|l| l.current_amount);
+
+            let _ = broadcast::broadcast_room(
+                state,
+                lobby_id,
+                &RoomServerMessage::LobbyStatusChanged {
+                    status: lobby_status,
+                    participant_count,
+                    current_amount,
                 },
             )
             .await;

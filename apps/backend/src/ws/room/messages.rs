@@ -71,8 +71,11 @@ pub enum RoomServerMessage {
     },
 
     /// Generic lobby state change
+    #[serde(rename_all = "camelCase")]
     LobbyStatusChanged {
         status: LobbyStatus,
+        participant_count: usize,
+        current_amount: Option<f64>,
     },
 
     /// Countdown updates
