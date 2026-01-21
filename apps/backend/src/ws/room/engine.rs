@@ -68,7 +68,7 @@ pub async fn handle_room_message(
             }
         }
 
-        // LOBBY-ONLY: Block if game is in progress
+        // LOBBY-ONLY: Block if game is in progress (i guess ...)
         RoomClientMessage::Join => {
             if lobby_status == LobbyStatus::InProgress {
                 let err = RoomError::JoinFailed("Cannot join during active game".to_string());
@@ -305,15 +305,6 @@ pub async fn handle_room_message(
 
                     // Countdown from 5 down to 0
                     for sec in (0..=5).rev() {
-                        let _ = broadcast::broadcast_room(
-                            &spawn_state,
-                            spawn_lobby,
-                            &RoomServerMessage::StartCountdown {
-                                seconds_remaining: sec as u8,
-                            },
-                        )
-                        .await;
-
                         let _ = spawn_repo.set_countdown(spawn_lobby, sec as u8).await.ok();
 
                         if sec == 0 {
@@ -330,6 +321,15 @@ pub async fn handle_room_message(
                         } else {
                             return;
                         }
+
+                        let _ = broadcast::broadcast_room(
+                            &spawn_state,
+                            spawn_lobby,
+                            &RoomServerMessage::StartCountdown {
+                                seconds_remaining: sec as u8,
+                            },
+                        )
+                        .await;
                     }
 
                     // Clear countdown and mark started

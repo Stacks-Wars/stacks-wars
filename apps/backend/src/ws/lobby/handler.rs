@@ -23,7 +23,7 @@ use crate::{
     state::{AppState, ConnectionContext, ConnectionInfo},
     ws::{
         core::manager,
-        lobby::{LobbyClientMessage, LobbyServerMessage},
+        lobby::{LobbyClientMessage, LobbyError, LobbyServerMessage},
     },
 };
 
@@ -181,15 +181,8 @@ async fn send_lobby_list(
             )
             .await;
         }
-        Err(e) => {
-            let _ = manager::send_to_connection(
-                conn,
-                &LobbyServerMessage::Error {
-                    code: "FETCH_FAILED".to_string(),
-                    message: e,
-                },
-            )
-            .await;
+        Err(err) => {
+            let _ = manager::send_to_connection(conn, &LobbyServerMessage::from(err)).await;
         }
     }
 }
@@ -201,18 +194,18 @@ async fn fetch_lobbies(
     status_filter: &Option<Vec<LobbyStatus>>,
     offset: usize,
     limit: usize,
-) -> Result<(Vec<LobbyInfo>, usize), String> {
+) -> Result<(Vec<LobbyInfo>, usize), LobbyError> {
     // Fetch lobbies with total count using optimized query
     let (lobbies, total) = if let Some(statuses) = status_filter {
         lobby_repo
             .find_by_statuses(statuses, offset, limit)
             .await
-            .map_err(|e| format!("Failed to fetch lobbies: {}", e))?
+            .map_err(|e| LobbyError::FetchFailed(e.to_string()))?
     } else {
         lobby_repo
             .find_all(offset, limit)
             .await
-            .map_err(|e| format!("Failed to fetch lobbies: {}", e))?
+            .map_err(|e| LobbyError::FetchFailed(e.to_string()))?
     };
 
     tracing::debug!(
@@ -227,7 +220,7 @@ async fn fetch_lobbies(
     let states_batch = lobby_state_repo
         .get_states_batch(&lobby_ids)
         .await
-        .map_err(|e| format!("Failed to fetch lobby states: {}", e))?;
+        .map_err(|e| LobbyError::FetchFailed(e.to_string()))?;
 
     // Get unique game and user IDs
     let game_ids: HashSet<Uuid> = lobbies.iter().map(|l| l.game_id).collect();
@@ -265,10 +258,10 @@ async fn fetch_lobbies(
         // Get game and creator
         let game = games
             .get(&lobby.game_id)
-            .ok_or_else(|| format!("Game {} not found", lobby.game_id))?;
-        let creator = users
-            .get(&lobby.creator_id)
-            .ok_or_else(|| format!("User {} not found", lobby.creator_id))?;
+            .ok_or_else(|| LobbyError::FetchFailed(format!("Game {} not found", lobby.game_id)))?;
+        let creator = users.get(&lobby.creator_id).ok_or_else(|| {
+            LobbyError::FetchFailed(format!("User {} not found", lobby.creator_id))
+        })?;
 
         let lobby_info = LobbyInfo {
             lobby: extended,

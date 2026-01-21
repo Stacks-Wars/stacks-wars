@@ -1,5 +1,6 @@
 // Lobby list message types (client -> server, server -> client)
 use crate::models::{LobbyInfo, LobbyStatus};
+use crate::ws::lobby::error::LobbyError;
 use serde::{Deserialize, Serialize};
 
 /// Messages sent from clients to the lobby list websocket
@@ -53,4 +54,13 @@ pub enum LobbyServerMessage {
         code: String,
         message: String,
     },
+}
+
+impl From<LobbyError> for LobbyServerMessage {
+    fn from(err: LobbyError) -> Self {
+        LobbyServerMessage::Error {
+            code: err.code().to_string(),
+            message: err.to_string(),
+        }
+    }
 }

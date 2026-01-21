@@ -7,12 +7,14 @@ interface UserActions {
 	clearUser: () => void;
 	updateUser: (user: Partial<User>) => void;
 	setLobbyFilter: (filter: LobbyStatus[]) => void;
+	setLobbyOffset: (offset: number) => void;
 }
 
 interface UserStore {
 	user: User | null;
 	isAuthenticated: boolean;
 	lobbyFilter: LobbyStatus[];
+	lobbyOffset: number;
 
 	actions: UserActions;
 }
@@ -23,6 +25,7 @@ const useUserStore = create<UserStore>()(
 			user: null,
 			isAuthenticated: false,
 			lobbyFilter: ["waiting", "inProgress"],
+			lobbyOffset: 0,
 
 			actions: {
 				setUser: (user) => {
@@ -45,6 +48,7 @@ const useUserStore = create<UserStore>()(
 					})),
 
 				setLobbyFilter: (filter) => set({ lobbyFilter: filter }),
+				setLobbyOffset: (offset) => set({ lobbyOffset: offset }),
 			},
 		}),
 		{
@@ -53,6 +57,7 @@ const useUserStore = create<UserStore>()(
 				user: state.user,
 				isAuthenticated: state.isAuthenticated,
 				lobbyFilter: state.lobbyFilter,
+				lobbyOffset: state.lobbyOffset,
 			}),
 		}
 	)
@@ -62,4 +67,5 @@ export const useUser = () => useUserStore((state) => state.user);
 export const useIsAuthenticated = () =>
 	useUserStore((state) => state.isAuthenticated);
 export const useLobbyFilter = () => useUserStore((state) => state.lobbyFilter);
+export const useLobbyOffset = () => useUserStore((state) => state.lobbyOffset);
 export const useUserActions = () => useUserStore((state) => state.actions);
