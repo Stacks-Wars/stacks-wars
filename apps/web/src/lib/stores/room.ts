@@ -10,6 +10,7 @@ import type {
 	ChatMessage,
 	Game,
 	JoinRequest,
+	joinState,
 	LobbyBootstrapMessage,
 	LobbyExtended,
 	LobbyStatus,
@@ -24,16 +25,22 @@ interface LobbyActions {
 	setCreator: (creator: User) => void;
 	setPlayers: (players: PlayerState[]) => void;
 	setJoinRequests: (requests: JoinRequest[]) => void;
+	updateJoinRequestState: (userId: string, state: joinState) => void;
 	setChatHistory: (history: ChatMessage[]) => void;
 	addChatMessage: (message: ChatMessage) => void;
 	addReaction: (messageId: string, userId: string, emoji: string) => void;
 	removeReaction: (messageId: string, userId: string, emoji: string) => void;
 	removePlayer: (userId: string) => void;
-	updateLobbyStatus: (status: LobbyStatus) => void;
+	updateLobbyStatus: (
+		status: LobbyStatus,
+		participantCount?: number,
+		currentAmount?: number
+	) => void;
 	setCountdown: (seconds: number | null) => void;
 	setConnected: (connected: boolean) => void;
 	setConnecting: (connecting: boolean) => void;
 	setError: (error: string | null) => void;
+	setLatency: (latency: number | null) => void;
 	setActionLoading: (action: string, loading: boolean) => void;
 	clearActionLoading: (action: string) => void;
 	clearAllLoadingActions: () => void;
@@ -53,6 +60,7 @@ interface LobbyStore {
 	isConnecting: boolean;
 	error: string | null;
 	loadingActions: Set<string>;
+	latency: number | null;
 
 	// Actions
 	actions: LobbyActions;
@@ -70,6 +78,7 @@ const initialState = {
 	isConnecting: false,
 	error: null,
 	loadingActions: new Set<string>(),
+	latency: null,
 };
 
 export const useLobbyStore = create<LobbyStore>((set) => ({
@@ -105,6 +114,14 @@ export const useLobbyStore = create<LobbyStore>((set) => ({
 
 		setJoinRequests: (requests) => {
 			set({ joinRequests: requests });
+		},
+
+		updateJoinRequestState: (userId, state) => {
+			set((prev) => ({
+				joinRequests: prev.joinRequests.map((jr) =>
+					jr.userId === userId ? { ...jr, state } : jr
+				),
+			}));
 		},
 
 		setChatHistory: (history) => {
@@ -161,10 +178,20 @@ export const useLobbyStore = create<LobbyStore>((set) => ({
 			}));
 		},
 
-		updateLobbyStatus: (status) => {
-			set((state) => ({
-				lobby: state.lobby ? { ...state.lobby, status } : null,
-			}));
+		updateLobbyStatus: (status, participantCount, currentAmount) => {
+			set((state) => {
+				if (!state.lobby) return {};
+				const updates: Partial<LobbyExtended> = { status };
+				if (participantCount !== undefined) {
+					updates.participantCount = participantCount;
+				}
+				if (currentAmount !== undefined) {
+					updates.currentAmount = currentAmount;
+				}
+				return {
+					lobby: { ...state.lobby, ...updates },
+				};
+			});
 		},
 
 		setCountdown: (seconds) => {
@@ -181,6 +208,10 @@ export const useLobbyStore = create<LobbyStore>((set) => ({
 
 		setError: (error) => {
 			set({ error });
+		},
+
+		setLatency: (latency) => {
+			set({ latency });
 		},
 
 		setActionLoading: (action, loading) => {
@@ -227,9 +258,11 @@ export const useRoomConnected = () =>
 export const useRoomConnecting = () =>
 	useLobbyStore((state) => state.isConnecting);
 export const useRoomError = () => useLobbyStore((state) => state.error);
+export const useRoomLatency = () => useLobbyStore((state) => state.latency);
 export const useLobbyActions = () => useLobbyStore((state) => state.actions);
 
 // Loading state selectors
-export const useLoadingActions = () => useLobbyStore((state) => state.loadingActions);
-export const useIsActionLoading = (action: string) => 
+export const useLoadingActions = () =>
+	useLobbyStore((state) => state.loadingActions);
+export const useIsActionLoading = (action: string) =>
 	useLobbyStore((state) => state.loadingActions.has(action));

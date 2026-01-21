@@ -43,6 +43,8 @@ export interface LobbyBootstrapMessage {
 export interface LobbyStatusChangedMessage {
 	type: "lobbyStatusChanged";
 	status: LobbyStatus;
+	participantCount: number;
+	currentAmount?: number;
 }
 
 export interface StartCountdownMessage {

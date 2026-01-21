@@ -29,9 +29,11 @@ import {
 	usePlayers,
 	useJoinRequests,
 	useChatHistory,
+	useCountdown,
 	useRoomConnected,
 	useRoomError,
 	useRoomConnecting,
+	useRoomLatency,
 	useLobbyActions,
 } from "../stores/room";
 import { useUser } from "../stores/user";
@@ -52,6 +54,7 @@ export interface UseRoomWebSocketReturn {
 	isConnected: boolean;
 	isConnecting: boolean;
 	error: string | null;
+	latency: number | null;
 	// Auth state
 	user: User | null;
 	isAuthenticated: boolean;
@@ -62,6 +65,7 @@ export interface UseRoomWebSocketReturn {
 	players: PlayerState[];
 	joinRequests: JoinRequest[];
 	chatHistory: ChatMessage[];
+	countdown: number | null;
 	// Game state
 	gameState: unknown;
 	gamePlugin: GamePlugin | undefined;
@@ -93,9 +97,11 @@ export function useRoomWebSocket({
 	const players = usePlayers();
 	const joinRequests = useJoinRequests();
 	const chatHistory = useChatHistory();
+	const countdown = useCountdown();
 	const isConnected = useRoomConnected();
 	const isConnecting = useRoomConnecting();
 	const error = useRoomError();
+	const latency = useRoomLatency();
 	const lobbyActions = useLobbyActions();
 	const user = useUser();
 
@@ -219,7 +225,11 @@ export function useRoomWebSocket({
 			}
 
 			case "lobbyStatusChanged":
-				lobbyActions.updateLobbyStatus(message.status);
+				lobbyActions.updateLobbyStatus(
+					message.status,
+					message.participantCount,
+					message.currentAmount
+				);
 				if (pendingActionsRef.current.has("updateLobbyStatus")) {
 					pendingActionsRef.current.delete("updateLobbyStatus");
 					lobbyActions.clearActionLoading("updateLobbyStatus");
@@ -274,20 +284,34 @@ export function useRoomWebSocket({
 					}
 				}
 				pendingActionsRef.current.forEach((action) => {
-					if (action.startsWith("approve-")) {
+					if (
+						action.startsWith("approve-") ||
+						action.startsWith("reject-")
+					) {
 						pendingActionsRef.current.delete(action);
 						lobbyActions.clearActionLoading(action);
-						onActionSuccess?.("approve", "Join request approved");
-					} else if (action.startsWith("reject-")) {
-						pendingActionsRef.current.delete(action);
-						lobbyActions.clearActionLoading(action);
-						onActionSuccess?.("reject", "Join request rejected");
 					}
 				});
 				break;
 
 			case "joinRequestStatus":
-				console.log(`join request status changed: ${message.accepted}`);
+				lobbyActions.updateJoinRequestState(
+					message.userId,
+					message.accepted ? "accepted" : "rejected"
+				);
+				if (message.userId === user?.id) {
+					if (message.accepted) {
+						onActionSuccess?.(
+							"joinRequestAccepted",
+							"Your join request was approved! You can now join the lobby."
+						);
+					} else {
+						onActionError?.("joinRequestRejected", {
+							code: "JOIN_REQUEST_REJECTED",
+							message: "Your join request was declined",
+						});
+					}
+				}
 				break;
 
 			case "messageReceived":
@@ -351,7 +375,7 @@ export function useRoomWebSocket({
 				break;
 
 			case "pong":
-				console.log(`pong: ${message.elapsedMs}`);
+				lobbyActions.setLatency(message.elapsedMs);
 				break;
 			default:
 				console.warn("[Room] Unhandled lobby message:", message);
@@ -443,6 +467,7 @@ export function useRoomWebSocket({
 		isConnected,
 		isConnecting,
 		error,
+		latency,
 
 		// Auth state
 		user,
@@ -455,6 +480,7 @@ export function useRoomWebSocket({
 		players,
 		joinRequests,
 		chatHistory,
+		countdown,
 
 		// Game state
 		gameState,

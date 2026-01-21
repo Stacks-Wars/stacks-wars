@@ -152,7 +152,7 @@ export class WebSocketClient {
 			if (this.isConnected()) {
 				this.send({ type: "ping", ts: Date.now() });
 			}
-		}, 30000); // Ping every 30 seconds
+		}, 5000); // Ping every 5 seconds
 	}
 
 	private stopPingInterval(): void {

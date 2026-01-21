@@ -57,28 +57,25 @@ export default function LobbyDetails({
 				</div>
 
 				<div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-					{lobby.entryAmount !== undefined && (
-						<div className="space-y-0.5 sm:space-y-1">
-							<p className="text-xs sm:text-sm text-muted-foreground">
-								Entry Amount
-							</p>
-							<p className="text-base sm:text-lg lg:text-xl font-medium truncate">
-								{lobby.entryAmount} {lobby.tokenSymbol || "STX"}
-							</p>
-						</div>
-					)}
+					<div className="space-y-0.5 sm:space-y-1">
+						<p className="text-xs sm:text-sm text-muted-foreground">
+							Entry Amount
+						</p>
+						<p className="text-base sm:text-lg lg:text-xl font-medium truncate">
+							{lobby.entryAmount ? lobby.entryAmount : 0}{" "}
+							{lobby.tokenSymbol || "STX"}
+						</p>
+					</div>
 
-					{lobby.currentAmount !== undefined && (
-						<div className="space-y-0.5 sm:space-y-1">
-							<p className="text-xs sm:text-sm text-muted-foreground">
-								Prize Pool
-							</p>
-							<p className="text-base sm:text-lg lg:text-xl font-medium truncate">
-								{lobby.currentAmount}{" "}
-								{lobby.tokenSymbol || "STX"}
-							</p>
-						</div>
-					)}
+					<div className="space-y-0.5 sm:space-y-1">
+						<p className="text-xs sm:text-sm text-muted-foreground">
+							Prize Pool
+						</p>
+						<p className="text-base sm:text-lg lg:text-xl font-medium truncate">
+							{lobby.currentAmount ? lobby.currentAmount : 0}{" "}
+							{lobby.tokenSymbol || "STX"}
+						</p>
+					</div>
 
 					<div className="space-y-0.5 sm:space-y-1">
 						<p className="text-xs sm:text-sm text-muted-foreground">

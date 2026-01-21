@@ -9,14 +9,15 @@ export default function ShareButton({ lobbyPath }: { lobbyPath: string }) {
 	const [copiedtext, copy] = useCopyToClipboard();
 	return (
 		<Button
-			className="rounded-full has-[>svg]:px-5 px-5 py-2.5"
+			size="sm"
+			className="rounded-full has-[>svg]:px-5 px-5 py-2.5 gap-2 shrink-0"
 			onClick={() => {
 				copy(`/room/${lobbyPath}`);
 				toast.info(`Room link copied to clipboard!`);
 			}}
 		>
-			<Share />
-			Share
+			<Share className="size-4" />
+			<span>Share</span>
 		</Button>
 	);
 }

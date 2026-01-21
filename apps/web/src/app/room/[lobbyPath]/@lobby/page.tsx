@@ -1,9 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Gamepad2 } from "lucide-react";
-import Link from "next/link";
-import ShareButton from "./_components/share-button";
 import GameCard from "@/components/main/game-card";
 import Participants from "./_components/participants";
 import LobbyDetails from "./_components/lobby-details";
@@ -12,6 +9,7 @@ import Loading from "@/app/loading";
 import { useRoomView } from "@/lib/contexts/room-view-context";
 import { useRoom } from "@/lib/contexts/room-context";
 import { useIsActionLoading } from "@/lib/stores/room";
+import RoomHeader from "./_components/header";
 
 export default function LobbySlot() {
 	const {
@@ -26,14 +24,11 @@ export default function LobbySlot() {
 		user,
 		isAuthenticated,
 		sendLobbyMessage,
+		latency,
 	} = useRoom();
-	const { setView } = useRoomView();
 
 	// Get loading states from store
-	const isJoinLoading = useIsActionLoading("join");
-	const isLeaveLoading = useIsActionLoading("leave");
 	const isStartGameLoading = useIsActionLoading("updateLobbyStatus");
-	const isJoinRequestLoading = useIsActionLoading("joinRequest");
 
 	if (isConnecting || !lobby || !game || !creator) {
 		return <Loading />;
@@ -45,11 +40,12 @@ export default function LobbySlot() {
 		(jr) => jr.userId === user?.id
 	);
 	const isJoinRequestPending = currentPlayerRequest?.state === "pending";
+	const isJoinRequestAccepted = currentPlayerRequest?.state === "accepted";
 
 	const handleJoinOrLeave = () => {
 		if (isInLobby) {
 			sendLobbyMessage({ type: "leave" });
-		} else if (lobby.isPrivate && !isJoinRequestPending) {
+		} else if (lobby.isPrivate && !isJoinRequestAccepted) {
 			sendLobbyMessage({ type: "joinRequest" });
 		} else {
 			sendLobbyMessage({ type: "join" });
@@ -96,41 +92,19 @@ export default function LobbySlot() {
 	const pendingPlayers = joinRequests.filter((jr) => jr.state === "pending");
 
 	return (
-		<div className="container mx-auto px-4">
+		<div className="container mx-auto p-4">
 			<div
 				className={cn(
 					"space-y-4 sm:space-y-8",
 					canStartGame && "mb-20 sm:mb-24"
 				)}
 			>
-				<div className="flex items-center justify-between">
-					<Button
-						asChild
-						variant={"link"}
-						className="has-[>svg]:px-0 px-0 py-2.5"
-					>
-						<Link href={"/lobby"}>
-							<ChevronLeft />
-							Back to Lobby
-						</Link>
-					</Button>
-					<div className="flex items-center gap-2 sm:gap-4">
-						{(lobby.status === "inProgress" ||
-							lobby.status === "finished") && (
-							<Button
-								variant="outline"
-								size="sm"
-								className="gap-2 shrink-0"
-								onClick={() => setView("game")}
-							>
-								<Gamepad2 className="size-4" />
-								<span className="hidden sm:inline">View </span>
-								Game
-							</Button>
-						)}
-						<ShareButton lobbyPath={lobby.path} />
-					</div>
-				</div>
+				<RoomHeader
+					lobby={lobby}
+					isConnected={isConnected}
+					isConnecting={isConnecting}
+					latency={latency}
+				/>
 				<GameCard
 					game={game}
 					action="joinLobby"
@@ -138,10 +112,8 @@ export default function LobbySlot() {
 					isInLobby={isInLobby}
 					isPrivate={lobby.isPrivate}
 					isJoinRequestPending={isJoinRequestPending}
+					isJoinRequestAccepted={isJoinRequestAccepted}
 					isAuthenticated={isAuthenticated}
-					isLoading={
-						isJoinLoading || isLeaveLoading || isJoinRequestLoading
-					}
 				/>
 				<LobbyDetails
 					lobby={lobby}
@@ -163,7 +135,7 @@ export default function LobbySlot() {
 				/>
 			</div>
 			{canStartGame && (
-				<div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 bg-linear-to-t from-background via-background to-transparent pointer-events-none">
+				<div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 ">
 					<div className="container mx-auto pointer-events-auto">
 						<Button
 							size="lg"

@@ -21,10 +21,12 @@ export interface UpdateUserRequest {
 	profileImage?: string;
 }
 
+export type joinState = "pending" | "accepted" | "rejected";
+
 export interface PlayerState {
 	userId: string;
 	lobbyId: string;
-	state: "pending" | "accepted" | "rejected";
+	state: joinState;
 	status: "not_joined" | "joined";
 	walletAddress: string;
 	username?: string;
@@ -46,6 +48,6 @@ export interface JoinRequest {
 	username?: string;
 	displayName?: string;
 	trustRating: number;
-	state: "pending" | "accepted" | "rejected";
+	state: joinState;
 	isCreator: boolean;
 }
