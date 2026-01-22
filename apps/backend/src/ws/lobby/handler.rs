@@ -31,6 +31,7 @@ use crate::{
 pub struct LobbyQueryParams {
     #[serde(default)]
     pub status: Option<String>, // Comma-separated: "waiting,starting"
+    pub limit: Option<usize>,
 }
 
 /// WebSocket handler for lobby list connections
@@ -74,7 +75,7 @@ async fn handle_socket(socket: WebSocket, params: LobbyQueryParams, state: AppSt
         &lobby_state_repo,
         &status_filter_opt,
         0,
-        12,
+        params.limit.unwrap_or(6),
     )
     .await;
 
@@ -141,7 +142,7 @@ async fn handle_message(
                 send_lobby_list(conn, lobby_repo, lobby_state_repo, &None, 0, limit).await;
             }
         }
-        LobbyClientMessage::LoadMore { offset } => {
+        LobbyClientMessage::LoadMore { offset, limit } => {
             // Get current filter from connection context
             let status_filter_vec = match &conn.context {
                 ConnectionContext::Lobby(opt_strings) => parse_status_enum(opt_strings),
@@ -158,7 +159,7 @@ async fn handle_message(
                 lobby_state_repo,
                 &status_filter_opt,
                 offset,
-                12,
+                limit,
             )
             .await;
         }

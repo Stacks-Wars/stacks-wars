@@ -15,6 +15,7 @@ interface UserStore {
 	isAuthenticated: boolean;
 	lobbyFilter: LobbyStatus[];
 	lobbyOffset: number;
+	hasHydrated: boolean;
 
 	actions: UserActions;
 }
@@ -26,6 +27,7 @@ const useUserStore = create<UserStore>()(
 			isAuthenticated: false,
 			lobbyFilter: ["waiting", "inProgress"],
 			lobbyOffset: 0,
+			hasHydrated: false,
 
 			actions: {
 				setUser: (user) => {
@@ -59,6 +61,11 @@ const useUserStore = create<UserStore>()(
 				lobbyFilter: state.lobbyFilter,
 				lobbyOffset: state.lobbyOffset,
 			}),
+			onRehydrateStorage: () => (state) => {
+				if (state) {
+					state.hasHydrated = true;
+				}
+			},
 		}
 	)
 );
@@ -68,4 +75,5 @@ export const useIsAuthenticated = () =>
 	useUserStore((state) => state.isAuthenticated);
 export const useLobbyFilter = () => useUserStore((state) => state.lobbyFilter);
 export const useLobbyOffset = () => useUserStore((state) => state.lobbyOffset);
+export const useHasHydrated = () => useUserStore((state) => state.hasHydrated);
 export const useUserActions = () => useUserStore((state) => state.actions);

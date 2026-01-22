@@ -284,7 +284,7 @@ async fn test_lobby_list_load_more() {
             .await
             .expect("Failed to connect to lobby list");
 
-    // Receive initial list (default limit is 12)
+    // Receive initial list (default limit is 6)
     let initial_list = lobby_list_ws
         .recv_json_timeout(Duration::from_secs(2))
         .await

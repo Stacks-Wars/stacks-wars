@@ -15,11 +15,11 @@ pub enum LobbyClientMessage {
         limit: usize,
     },
     /// Request next page of lobbies
-    LoadMore { offset: usize },
+    LoadMore { offset: usize, limit: usize },
 }
 
 fn default_limit() -> usize {
-    12
+    6
 }
 
 /// Messages broadcast by the lobby list server to connected clients

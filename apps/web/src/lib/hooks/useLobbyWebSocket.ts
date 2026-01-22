@@ -1,34 +1,32 @@
 import { useEffect, useRef, useCallback } from "react";
 import { WebSocketClient } from "@/lib/websocket/wsClient";
 import type { LobbyInfo, LobbyStatus } from "@/lib/definitions";
+import type {
+	LobbyClientMessage,
+	LobbyServerMessage,
+} from "@/lib/definitions/lobby-message";
 import { useLobbyActions } from "@/lib/stores/lobby";
+import { toast } from "sonner";
 
 const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
-
-interface LobbyMessage {
-	type: string;
-	lobbyInfo?: LobbyInfo[];
-	total?: number;
-	lobby?: LobbyInfo;
-	lobbyId?: string;
-	error?: {
-		code: string;
-		message: string;
-	};
-}
 
 interface UseLobbyWebSocketOptions {
 	statusFilter: LobbyStatus[];
 	limit: number;
-	onActionSuccess?: (action: string, data?: unknown) => void;
-	onActionError?: (action: string, error: string) => void;
+	enabled: boolean;
+	onActionSuccess?: (action: string, data?: string | LobbyInfo) => void;
+	onActionError?: (
+		action: string,
+		error: { code: string; message: string }
+	) => void;
 }
 
 export function useLobbyWebSocket(options: UseLobbyWebSocketOptions) {
-	const { statusFilter, limit, onActionSuccess, onActionError } = options;
+	const { statusFilter, limit, enabled, onActionSuccess, onActionError } =
+		options;
 
 	const actions = useLobbyActions();
-	const wsRef = useRef<WebSocketClient | null>(null);
+	const clientRef = useRef<WebSocketClient | null>(null);
 	const pendingActionsRef = useRef<Map<string, string>>(new Map());
 
 	const buildWebSocketUrl = useCallback((statuses: LobbyStatus[]) => {
@@ -36,51 +34,62 @@ export function useLobbyWebSocket(options: UseLobbyWebSocketOptions) {
 		return `${WS_BASE_URL}/ws/lobbies?status=${statusParam}`;
 	}, []);
 
-	const sendLobbyMessage = useCallback(
-		(type: string, payload: Record<string, unknown> = {}) => {
-			if (wsRef.current?.isConnected()) {
-				wsRef.current.send({ type, ...payload });
+	const sendLobbyMessage = (message: LobbyClientMessage) => {
+		if (!clientRef.current) {
+			toast.warning("Failed to send request", {
+				description: "Not connected to lobby",
+			});
+			console.warn("[Lobby] Cannot send lobby message: not connected");
+			return;
+		}
 
-				// Track pending actions that need loading states
-				if (type === "loadMore") {
-					const actionKey = "loadMore";
-					pendingActionsRef.current.set(type, actionKey);
-					actions.setActionLoading(actionKey, true);
-				}
+		// Mark 'loadMore' as pending so UI can show loading
+		if (message.type === "loadMore") {
+			const actionKey = "loadMore";
+			pendingActionsRef.current.set(message.type, actionKey);
+			actions.setActionLoading(actionKey, true);
+		}
+
+		try {
+			clientRef.current.send(message);
+		} catch (err) {
+			console.error("[Lobby] Failed to send message:", err);
+			// clear any loadMore loading state if send failed
+			const pending = pendingActionsRef.current.get("loadMore");
+			if (pending) {
+				actions.clearActionLoading(pending);
+				pendingActionsRef.current.delete("loadMore");
 			}
-		},
-		[actions]
-	);
+			toast.error("Failed to send WS message");
+		}
+	};
 
 	const subscribe = useCallback(
 		(statuses: LobbyStatus[]) => {
-			sendLobbyMessage("subscribe", { status: statuses, limit });
+			sendLobbyMessage({ type: "subscribe", status: statuses, limit });
 		},
-		[limit, sendLobbyMessage]
+		[limit]
 	);
 
-	const loadMore = useCallback(
-		(offset: number) => {
-			sendLobbyMessage("loadMore", { offset });
-		},
-		[sendLobbyMessage]
-	);
+	const loadMore = useCallback((offset: number) => {
+		sendLobbyMessage({ type: "loadMore", offset, limit });
+	}, []);
 
 	useEffect(() => {
-		const ws = new WebSocketClient();
-		wsRef.current = ws;
+		if (!enabled) {
+			return;
+		}
+
+		const client = new WebSocketClient();
+		clientRef.current = client;
 
 		const wsUrl = buildWebSocketUrl(statusFilter);
 
 		// Handle messages
-		const handleMessage = (message: unknown) => {
-			const msg = message as LobbyMessage;
-
-			switch (msg.type) {
-				case "lobbyList":
-					if (msg.lobbyInfo && msg.total !== undefined) {
-						actions.setLobby(msg.lobbyInfo, msg.total);
-					}
+		const handleMessage = (message: LobbyServerMessage) => {
+			switch (message.type) {
+				case "lobbyList": {
+					actions.setLobby(message.lobbyInfo, message.total);
 
 					// Clear loading state for loadMore
 					const actionKey = pendingActionsRef.current.get("loadMore");
@@ -89,40 +98,55 @@ export function useLobbyWebSocket(options: UseLobbyWebSocketOptions) {
 						pendingActionsRef.current.delete("loadMore");
 					}
 					break;
+				}
 
 				case "lobbyCreated":
-					if (msg.lobby) {
-						actions.addLobby(msg.lobby);
-						onActionSuccess?.("lobbyCreated", msg.lobby);
-					}
+					actions.addLobby(message.lobbyInfo);
+					onActionSuccess?.("lobbyCreated", message.lobbyInfo);
 					break;
 
 				case "lobbyUpdated":
-					if (msg.lobby) {
-						actions.updateLobby(msg.lobby);
-					}
+					actions.updateLobby(message.lobby);
 					break;
 
 				case "lobbyRemoved":
-					if (msg.lobbyId) {
-						actions.removeLobby(msg.lobbyId);
-					}
+					actions.removeLobby(message.lobbyId);
 					break;
 
-				case "error":
-					if (msg.error) {
-						actions.setError(msg.error.message);
+				case "error": {
+					actions.setError(message.message);
 
-						// Clear any pending action and notify error handler
-						const actionKey =
-							pendingActionsRef.current.get("loadMore");
-						if (actionKey) {
-							actions.clearActionLoading(actionKey);
-							pendingActionsRef.current.delete("loadMore");
-							onActionError?.("loadMore", msg.error.message);
-						}
+					// Map error codes to logical actions so callers can handle them
+					const errorCodeToAction: Record<string, string> = {
+						FETCH_FAILED: "fetch",
+					};
+
+					const action = errorCodeToAction[message.code];
+					if (action) {
+						// Clear any pending actions related to this error
+						pendingActionsRef.current.forEach((pendingAction) => {
+							if (
+								pendingAction === action ||
+								pendingAction.startsWith(action)
+							) {
+								pendingActionsRef.current.delete(pendingAction);
+								actions.clearActionLoading(pendingAction);
+							}
+						});
+
+						onActionError?.(action, {
+							code: message.code,
+							message: message.message,
+						});
+					} else {
+						// Fallback notify
+						onActionError?.("unknown", {
+							code: message.code,
+							message: message.message,
+						});
 					}
 					break;
+				}
 			}
 		};
 
@@ -137,12 +161,13 @@ export function useLobbyWebSocket(options: UseLobbyWebSocketOptions) {
 			actions.setConnected(false);
 		};
 
-		const unsubMessage = ws.onMessage(handleMessage);
-		const unsubError = ws.onError(handleError);
-		const unsubClose = ws.onClose(handleClose);
+		const unsubMessage = client.onMessage(handleMessage);
+		const unsubError = client.onError(handleError);
+		const unsubClose = client.onClose(handleClose);
 
 		actions.setConnecting(true);
-		ws.connect(wsUrl)
+		client
+			.connect(wsUrl)
 			.then(() => {
 				actions.setConnected(true);
 				actions.setConnecting(false);
@@ -159,10 +184,11 @@ export function useLobbyWebSocket(options: UseLobbyWebSocketOptions) {
 			unsubMessage();
 			unsubError();
 			unsubClose();
-			ws.disconnect();
-			wsRef.current = null;
+			client.disconnect();
+			clientRef.current = null;
 		};
 	}, [
+		enabled,
 		statusFilter,
 		limit,
 		buildWebSocketUrl,

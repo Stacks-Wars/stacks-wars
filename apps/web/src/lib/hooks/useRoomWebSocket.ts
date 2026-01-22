@@ -38,6 +38,7 @@ import {
 } from "../stores/room";
 import { useUser } from "../stores/user";
 import { WebSocketClient } from "../websocket/wsClient";
+import { toast } from "sonner";
 
 interface UseRoomOptions {
 	lobbyPath: string;
@@ -396,6 +397,9 @@ export function useRoomWebSocket({
 	// Send a lobby-level message
 	const sendLobbyMessage = (message: RoomClientMessage) => {
 		if (!clientRef.current) {
+			toast.warning("Failed to send request", {
+				description: "Not connected to lobby",
+			});
 			console.warn("[Room] Cannot send lobby message: not connected");
 			return;
 		}

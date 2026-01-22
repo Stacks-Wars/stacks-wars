@@ -3,12 +3,16 @@
 import { useCallback } from "react";
 import LobbyCard, { LobbyCardSkeleton } from "@/components/main/lobby-card";
 import { LobbyFilter } from "@/app/(main)/lobby/_components/lobby-filter";
-import { useLobbyFilter, useLobbyOffset, useUserActions } from "@/lib/stores/user";
+import {
+	useLobbyFilter,
+	useLobbyOffset,
+	useUserActions,
+	useHasHydrated,
+} from "@/lib/stores/user";
 import {
 	useLobby,
 	useLobbyTotal,
 	useLobbyConnecting,
-	useLobbyError,
 	useIsLobbyActionLoading,
 } from "@/lib/stores/lobby";
 import Loading from "@/app/loading";
@@ -18,11 +22,13 @@ import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useLobbyWebSocket } from "@/lib/hooks/useLobbyWebSocket";
+import { formatAddress } from "@/lib/utils";
 
-const ITEMS_PER_PAGE = 12;
+const ITEMS_PER_PAGE = 6;
 
 export default function LobbyPage() {
 	const router = useRouter();
+	const hasHydrated = useHasHydrated();
 	const lobbyFilter = useLobbyFilter();
 	const currentOffset = useLobbyOffset();
 	const { setLobbyFilter, setLobbyOffset } = useUserActions();
@@ -30,18 +36,18 @@ export default function LobbyPage() {
 	const lobbyInfo = useLobby();
 	const total = useLobbyTotal();
 	const isConnecting = useLobbyConnecting();
-	const error = useLobbyError();
 	const isLoadingMore = useIsLobbyActionLoading("loadMore");
 
 	const handleActionSuccess = useCallback(
-		(action: string, data?: unknown) => {
+		(action: string, data?: string | LobbyInfo) => {
 			if (action === "lobbyCreated") {
-				const lobby = data as LobbyInfo;
-				toast.success("New lobby created!", {
+				const lobbyInfo = data as LobbyInfo;
+				toast.success(`New ${lobbyInfo.game.name} lobby created!`, {
+					description: `${lobbyInfo.lobby.name} by ${lobbyInfo.creator.username || formatAddress(lobbyInfo.creator.walletAddress)}`,
 					action: {
 						label: "Open",
 						onClick: () => {
-							router.push(`/room/${lobby.lobby.path}`);
+							router.push(`/room/${lobbyInfo.lobby.path}`);
 						},
 					},
 				});
@@ -51,9 +57,9 @@ export default function LobbyPage() {
 	);
 
 	const handleActionError = useCallback(
-		(action: string, errorMsg: string) => {
+		(action: string, error: { code: string; message: string }) => {
 			if (action === "loadMore") {
-				toast.error(`Failed to load more lobbies: ${errorMsg}`);
+				toast.error(`Failed to load more lobbies: ${error.message}`);
 			}
 		},
 		[]
@@ -62,6 +68,7 @@ export default function LobbyPage() {
 	const { subscribe, loadMore } = useLobbyWebSocket({
 		statusFilter: lobbyFilter,
 		limit: ITEMS_PER_PAGE,
+		enabled: hasHydrated,
 		onActionSuccess: handleActionSuccess,
 		onActionError: handleActionError,
 	});
@@ -93,6 +100,7 @@ export default function LobbyPage() {
 	const hasPrevious = currentOffset > 0;
 	const hasNext = currentOffset + ITEMS_PER_PAGE < total;
 
+	// Wait for store hydration before rendering (prevents double WS connection)
 	if (isConnecting) {
 		return <Loading />;
 	}
@@ -108,12 +116,6 @@ export default function LobbyPage() {
 					onChange={handleFilterChange}
 				/>
 			</div>
-
-			{error && (
-				<div className="mb-4 p-4 bg-destructive/10 text-destructive rounded-lg text-sm">
-					{error}
-				</div>
-			)}
 
 			{isLoadingMore || lobbyInfo === null ? (
 				<div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
