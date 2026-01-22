@@ -119,23 +119,40 @@ pub async fn broadcast_room_participants<M: BroadcastMessage>(
     }
 }
 
-/// Broadcast to all lobby list connections
+/// Broadcast to all lobby list connections (including those with status filters)
 pub async fn broadcast_lobby_list<M: BroadcastMessage>(state: &AppState, msg: &M) {
     if let Ok(json) = msg.to_json() {
         let indices = state.indices.lock().await;
+        let conns = state.connections.lock().await;
 
+        // Collect all unique connection IDs from lobby-related context keys
+        let mut sent_to: std::collections::HashSet<Uuid> = std::collections::HashSet::new();
+
+        // Include connections without status filter ("lobby" key)
         if let Some(conn_ids) = indices.get_context_connections("lobby") {
-            let conns = state.connections.lock().await;
-
             for conn_id in conn_ids.iter() {
-                if let Some(conn) = conns.get(conn_id) {
-                    let sender = conn.sender.clone();
-                    let json_clone = json.clone();
-                    tokio::spawn(async move {
-                        let mut s = sender.lock().await;
-                        let _ = s.send(Message::Text(json_clone.into())).await;
-                    });
+                sent_to.insert(*conn_id);
+            }
+        }
+
+        // Include connections with status filters ("lobby:*" keys)
+        for (context_key, conn_ids) in indices.by_context.iter() {
+            if context_key.starts_with("lobby:") {
+                for conn_id in conn_ids.iter() {
+                    sent_to.insert(*conn_id);
                 }
+            }
+        }
+
+        // Send to all unique connections
+        for conn_id in sent_to {
+            if let Some(conn) = conns.get(&conn_id) {
+                let sender = conn.sender.clone();
+                let json_clone = json.clone();
+                tokio::spawn(async move {
+                    let mut s = sender.lock().await;
+                    let _ = s.send(Message::Text(json_clone.into())).await;
+                });
             }
         }
     }
@@ -170,7 +187,7 @@ pub async fn broadcast_lobby_by_status<M: BroadcastMessage>(
 }
 
 /// Broadcast a game-specific message to all connections in a lobby room.
-/// 
+///
 /// This wraps the message with game identifier for frontend router.
 pub async fn broadcast_game_message(
     state: &AppState,
@@ -180,13 +197,13 @@ pub async fn broadcast_game_message(
     payload: serde_json::Value,
 ) {
     use crate::ws::room::messages::GameMessage;
-    
+
     let game_msg = GameMessage::new(
         game_path.to_string(),
         msg_type.to_string(),
         payload,
     );
-    
+
     if let Ok(json) = serde_json::to_string(&game_msg) {
         let indices = state.indices.lock().await;
 
