@@ -4,7 +4,7 @@ use uuid::Uuid;
 use crate::{
     errors::AppError,
     models::{Lobby, LobbyState, LobbyStatus, PlayerState, WalletAddress},
-    state::RedisClient,
+    state::{AppState, RedisClient},
 };
 
 use super::LobbyRepository;
@@ -29,6 +29,7 @@ impl LobbyRepository {
         is_private: bool,
         is_sponsored: bool,
         redis: RedisClient,
+        state: AppState,
     ) -> Result<Lobby, AppError> {
         // Validate amounts based on sponsor status
         let (entry_amount, current_amount) =
@@ -87,7 +88,7 @@ impl LobbyRepository {
         })?;
 
         let creator = creator_result.map_err(|e| {
-            let _ = self.delete_lobby(lobby.id());
+            let _ = self.delete_lobby(lobby.id(), None);
             AppError::DatabaseError(format!("Failed to fetch creator user: {}", e))
         })?;
 
@@ -96,7 +97,7 @@ impl LobbyRepository {
 
         let lstate = LobbyState::new(lobby.id());
         if let Err(e) = lobby_state_repo.create_state(lstate).await {
-            let _ = self.delete_lobby(lobby.id()).await;
+            let _ = self.delete_lobby(lobby.id(), None).await;
             return Err(AppError::RedisError(format!(
                 "Failed to create lobby state in Redis for {}: {}",
                 lobby.id(),
@@ -114,8 +115,8 @@ impl LobbyRepository {
             None,
             true,
         );
-        if let Err(e) = player_repo.create_state(creator_pstate).await {
-            let _ = self.delete_lobby(lobby.id()).await;
+        if let Err(e) = player_repo.create_state(creator_pstate, None).await {
+            let _ = self.delete_lobby(lobby.id(), None).await;
             return Err(AppError::RedisError(format!(
                 "Failed to create creator player state in Redis for {}: {}",
                 lobby.id(),
@@ -124,6 +125,11 @@ impl LobbyRepository {
         }
 
         tracing::info!("Created lobby: {} (path: {})", lobby.name, lobby.path);
+
+        // Broadcast lobby creation to lobby list subscribers
+        crate::ws::broadcast::broadcast_lobby_creation(state, lobby.id(), game_id, creator_id)
+            .await;
+
         Ok(lobby)
     }
 }

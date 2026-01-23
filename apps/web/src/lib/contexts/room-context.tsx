@@ -11,19 +11,28 @@ const RoomContext = createContext<UseRoomWebSocketReturn | null>(null);
 interface RoomProviderProps {
 	children: React.ReactNode;
 	lobbyPath: string;
-	onActionSuccess?: (action: string, message?: string) => void;
-	onActionError?: (action: string, error: { code: string; message: string }) => void;
+	onActionSuccess?: (
+		action: string,
+		message?: string,
+		disconnect?: () => void
+	) => void;
+	onActionError?: (
+		action: string,
+		error: { code: string; message: string }
+	) => void;
 }
 
-export function RoomProvider({ 
-	children, 
+export function RoomProvider({
+	children,
 	lobbyPath,
 	onActionSuccess,
 	onActionError,
 }: RoomProviderProps) {
-	const engineState = useRoomWebSocket({ 
+	const engineState = useRoomWebSocket({
 		lobbyPath,
-		onActionSuccess,
+		onActionSuccess: (action, message) => {
+			onActionSuccess?.(action, message, engineState.disconnect);
+		},
 		onActionError,
 	});
 

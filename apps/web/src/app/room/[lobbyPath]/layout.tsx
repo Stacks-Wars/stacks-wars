@@ -1,41 +1,4 @@
-"use client";
-
-import { useState } from "react";
-import { RoomProvider, useRoom } from "@/lib/contexts/room-context";
-import { RoomViewProvider } from "@/lib/contexts/room-view-context";
-import { toast } from "sonner";
-
-function RoomContent({
-	lobby,
-	game,
-}: {
-	lobby: React.ReactNode;
-	game: React.ReactNode;
-}) {
-	const { lobby: lobbyData } = useRoom();
-	const [manualView, setManualView] = useState<"lobby" | "game" | null>(null);
-
-	// Determine automatic view based on lobby status
-	const autoView =
-		!lobbyData ||
-		lobbyData.status === "waiting" ||
-		lobbyData.status === "starting"
-			? "lobby"
-			: "game";
-
-	// Use manual view if set, otherwise use automatic view
-	const currentView = manualView || autoView;
-
-	// Reset manual view when status changes to ensure proper flow
-	// (e.g., when game starts, show game even if user was viewing lobby)
-	const showLobby = currentView === "lobby";
-
-	return (
-		<RoomViewProvider value={{ currentView, setView: setManualView }}>
-			<div>{showLobby ? lobby : game}</div>
-		</RoomViewProvider>
-	);
-}
+import RoomContent from "../room-content";
 
 export default async function RoomLayout({
 	children,
@@ -50,24 +13,9 @@ export default async function RoomLayout({
 }) {
 	const lobbyPath = (await params).lobbyPath;
 
-	const handleActionSuccess = (action: string, message?: string) => {
-		if (message) {
-			toast.success(message);
-		}
-	};
-
-	const handleActionError = (action: string, error: { code: string; message: string }) => {
-		toast.error(error.message || `Action failed: ${action}`);
-	};
-
 	return (
-		<RoomProvider 
-			lobbyPath={lobbyPath}
-			onActionSuccess={handleActionSuccess}
-			onActionError={handleActionError}
-		>
-			<RoomContent lobby={lobby} game={game} />
+		<RoomContent lobby={lobby} game={game} lobbyPath={lobbyPath}>
 			{children}
-		</RoomProvider>
+		</RoomContent>
 	);
 }

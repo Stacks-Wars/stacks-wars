@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Gamepad2, Wifi, WifiOff } from "lucide-react";
 import { useRoomView } from "@/lib/contexts/room-view-context";
+import { useRoom } from "@/lib/contexts/room-context";
 import ShareButton from "./share-button";
 import type { LobbyExtended } from "@/lib/definitions";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,12 @@ export default function RoomHeader({
 	latency,
 }: RoomHeaderProps) {
 	const { setView } = useRoomView();
+	const { disconnect } = useRoom();
+
+	const handleBackClick = () => {
+		// Disconnect WebSocket before navigating away
+		disconnect();
+	};
 
 	return (
 		<div className="flex items-center justify-between gap-2">
@@ -41,6 +48,7 @@ export default function RoomHeader({
 				asChild
 				variant={"link"}
 				className="has-[>svg]:px-0 px-0 py-2.5"
+				onClick={handleBackClick}
 			>
 				<Link href={"/lobby"}>
 					<ChevronLeft />

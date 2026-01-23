@@ -51,7 +51,9 @@ export default function LobbyCard({ lobbyInfo }: { lobbyInfo: LobbyInfo }) {
 					)}
 					<p className="flex items-center gap-1.5">
 						<Users className="size-4 lg:size-5" />
-						<span>{lobby.participantCount}</span>
+						<span>
+							{lobby.participantCount}/{game.maxPlayers}
+						</span>
 					</p>
 					{lobby.currentAmount && (
 						<p className="flex items-center gap-1.5">

@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::db::join_request::{JoinRequestRepository, JoinRequestState};
 use crate::db::lobby::LobbyRepository;
+use crate::db::lobby_chat::LobbyChatRepository;
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::db::player_state::PlayerStateRepository;
 use crate::db::user::UserRepository;
@@ -80,7 +81,16 @@ pub async fn handle_room_message(
             let jr_repo = JoinRequestRepository::new(state.redis.clone());
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
-                Err(_) => return,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::JoinFailed(
+                            "not authenticated".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
             };
 
             // Check join request (for private lobbies) or allow direct join (public lobbies)
@@ -131,7 +141,7 @@ pub async fn handle_room_message(
                     None,
                     false,
                 );
-                let _ = player_repo.upsert_state(pstate).await;
+                let _ = player_repo.upsert_state(pstate, Some(state.clone())).await;
 
                 let participant_count = lobby_state_repo
                     .increment_participants(lobby_id)
@@ -204,33 +214,71 @@ pub async fn handle_room_message(
 
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
-                Err(_) => return,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::LeaveFailed(
+                            "not authenticated".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
             };
 
-            // Prevent the creator from leaving the lobby
+            // Check if user is the creator
             let is_creator = player_repo
                 .is_creator(lobby_id, user_id)
                 .await
                 .unwrap_or(false);
 
             if is_creator {
-                //let err = RoomError::NotCreator;
-                //let msg = RoomServerMessage::from(err);
-                //let _ = manager::send_to_connection(conn, &msg).await;
-                return;
+                // Creator can only leave if they are the only participant
+                let participant_count = player_repo.count_players(lobby_id).await.unwrap_or(0);
+
+                if participant_count == 1 {
+                    // Delete the entire lobby
+                    let lobby_repo = LobbyRepository::new(state.postgres.clone());
+                    let lobby_chat_repo = LobbyChatRepository::new(state.redis.clone());
+
+                    // Delete all resources
+                    let _ = player_repo.cleanup_lobby(lobby_id).await;
+                    let _ = lobby_state_repo.delete_state_soft(lobby_id).await;
+                    let _ = lobby_chat_repo.cleanup_lobby(lobby_id).await;
+                    let _ = lobby_repo.delete_lobby(lobby_id, Some(state.clone())).await;
+
+                    let _ = broadcast::broadcast_room(
+                        state,
+                        lobby_id,
+                        &RoomServerMessage::PlayerLeft { user_id },
+                    )
+                    .await;
+                    return;
+                } else {
+                    // Creator cannot leave if there are other participants
+                    let err = RoomError::LeaveFailed(
+                        "Creator cannot leave while other players are in the lobby".to_string(),
+                    );
+                    let msg = RoomServerMessage::from(err);
+                    let _ = manager::send_to_connection(conn, &msg).await;
+                    return;
+                }
             }
 
             // remove player state
-            let _ = player_repo.remove_from_lobby(lobby_id, user_id).await.ok();
+            let _ = player_repo
+                .delete_state(lobby_id, user_id, Some(state.clone()))
+                .await
+                .ok();
 
             let participant_count = lobby_state_repo
                 .decrement_participants(lobby_id)
                 .await
                 .unwrap_or(0);
 
-            let _ = broadcast::broadcast_room(
+            let _ = broadcast::broadcast_user(
                 state,
-                lobby_id,
+                user_id,
                 &RoomServerMessage::PlayerLeft { user_id },
             )
             .await;
@@ -275,7 +323,16 @@ pub async fn handle_room_message(
 
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
-                Err(_) => return,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::LobbyStatusFailed(
+                            "not authenticated".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
             };
 
             // Only the lobby creator can change lobby status
@@ -478,7 +535,16 @@ pub async fn handle_room_message(
 
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
-                Err(_) => return,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::JoinFailed(
+                            "not authenticated".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
             };
 
             // Fetch user profile to include in join request
@@ -529,7 +595,16 @@ pub async fn handle_room_message(
 
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
-                Err(_) => return,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::ApproveFailed(
+                            "not authenticated".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
             };
 
             // Only creator can approve join requests
@@ -584,7 +659,16 @@ pub async fn handle_room_message(
 
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
-                Err(_) => return,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::RejectFailed(
+                            "not authenticated".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
             };
 
             // Only creator can reject join requests
@@ -639,7 +723,16 @@ pub async fn handle_room_message(
 
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
-                Err(_) => return,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::KickFailed(
+                            "not authenticated".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
             };
 
             // Only creator can kick players
@@ -655,9 +748,16 @@ pub async fn handle_room_message(
                 return;
             }
 
+            if user_id == kicked_user_id {
+                let err = RoomError::KickFailed("Creator cannot kick themselves".to_string());
+                let msg = RoomServerMessage::from(err);
+                let _ = manager::send_to_connection(conn, &msg).await;
+                return;
+            }
+
             // remove player state
             let _ = player_repo
-                .remove_from_lobby(lobby_id, kicked_user_id)
+                .delete_state(lobby_id, kicked_user_id, Some(state.clone()))
                 .await
                 .ok();
 
@@ -753,7 +853,16 @@ pub async fn handle_room_message(
         RoomClientMessage::AddReaction { message_id, emoji } => {
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
-                Err(_) => return,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::ReactionFailed(
+                            "not authenticated".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
             };
 
             // Only participants can react
@@ -793,7 +902,16 @@ pub async fn handle_room_message(
         RoomClientMessage::RemoveReaction { message_id, emoji } => {
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
-                Err(_) => return,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::ReactionFailed(
+                            "not authenticated".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
             };
 
             // Only participants can remove reactions

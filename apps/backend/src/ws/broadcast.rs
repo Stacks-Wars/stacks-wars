@@ -1,9 +1,86 @@
 // Consolidated WebSocket broadcasting functions
+use crate::db::{
+    game::GameRepository, lobby::LobbyRepository, lobby_state::LobbyStateRepository,
+    user::UserRepository,
+};
+use crate::models::{LobbyExtended, LobbyInfo};
 use crate::state::AppState;
 use crate::ws::core::message::BroadcastMessage;
+use crate::ws::lobby::LobbyServerMessage;
+use crate::ws::room::messages::GameMessage;
 use axum::extract::ws::Message;
 use futures::SinkExt;
 use uuid::Uuid;
+
+/// Broadcast lobby update to lobby list subscribers
+pub async fn broadcast_lobby_update(state: AppState, lobby_id: Uuid) {
+    tokio::spawn(async move {
+        let lobby_repo = LobbyRepository::new(state.postgres.clone());
+        let lobby_state_repo = LobbyStateRepository::new(state.redis.clone());
+
+        if let Ok(lobby) = lobby_repo.find_by_id(lobby_id).await {
+            let game_repo = GameRepository::new(state.postgres.clone());
+            let user_repo = UserRepository::new(state.postgres.clone());
+
+            let (game, creator, lobby_state) = tokio::join!(
+                game_repo.find_by_id(lobby.game_id),
+                user_repo.find_by_id(lobby.creator_id),
+                lobby_state_repo.get_state(lobby_id),
+            );
+
+            if let (Ok(game), Ok(creator), Ok(lobby_state)) = (game, creator, lobby_state) {
+                let lobby_extended = LobbyExtended::from_parts(lobby, lobby_state);
+                let lobby_info = LobbyInfo {
+                    lobby: lobby_extended,
+                    game,
+                    creator,
+                };
+
+                let _ = broadcast_lobby_list(
+                    &state,
+                    &LobbyServerMessage::LobbyUpdated { lobby: lobby_info },
+                )
+                .await;
+            }
+        }
+    });
+}
+
+/// Broadcast lobby creation to lobby list subscribers
+pub async fn broadcast_lobby_creation(
+    state: AppState,
+    lobby_id: Uuid,
+    game_id: Uuid,
+    creator_id: Uuid,
+) {
+    tokio::spawn(async move {
+        let lobby_repo = LobbyRepository::new(state.postgres.clone());
+        let game_repo = GameRepository::new(state.postgres.clone());
+        let user_repo = UserRepository::new(state.postgres.clone());
+        let lobby_state_repo = LobbyStateRepository::new(state.redis.clone());
+
+        let (lobby, game, creator, lobby_state) = tokio::join!(
+            lobby_repo.find_by_id(lobby_id),
+            game_repo.find_by_id(game_id),
+            user_repo.find_by_id(creator_id),
+            lobby_state_repo.get_state(lobby_id),
+        );
+
+        if let (Ok(lobby), Ok(lobby_state), Ok(game), Ok(creator)) =
+            (lobby, lobby_state, game, creator)
+        {
+            let lobby_extended = LobbyExtended::from_parts(lobby, lobby_state);
+            let lobby_info = LobbyInfo {
+                lobby: lobby_extended,
+                game,
+                creator,
+            };
+
+            let _ = broadcast_lobby_list(&state, &LobbyServerMessage::LobbyCreated { lobby_info })
+                .await;
+        }
+    });
+}
 
 /// Send a message to a single connection
 pub async fn send<M: BroadcastMessage>(state: &AppState, connection_id: Uuid, msg: &M) {
@@ -196,13 +273,7 @@ pub async fn broadcast_game_message(
     msg_type: &str,
     payload: serde_json::Value,
 ) {
-    use crate::ws::room::messages::GameMessage;
-
-    let game_msg = GameMessage::new(
-        game_path.to_string(),
-        msg_type.to_string(),
-        payload,
-    );
+    let game_msg = GameMessage::new(game_path.to_string(), msg_type.to_string(), payload);
 
     if let Ok(json) = serde_json::to_string(&game_msg) {
         let indices = state.indices.lock().await;

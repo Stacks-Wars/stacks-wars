@@ -2,7 +2,7 @@
 
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::errors::AppError;
-use crate::models::LobbyStatus;
+use crate::models::{LobbyStatus, RedisKey};
 use redis::AsyncCommands;
 use uuid::Uuid;
 
@@ -13,7 +13,7 @@ impl LobbyStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:state", lobby_id);
+        let key = RedisKey::lobby_state(lobby_id);
 
         let deleted: usize = conn.del(&key).await.map_err(AppError::RedisCommandError)?;
 
@@ -33,7 +33,7 @@ impl LobbyStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:state", lobby_id);
+        let key = RedisKey::lobby_state(lobby_id);
 
         let deleted: usize = conn.del(&key).await.map_err(AppError::RedisCommandError)?;
 

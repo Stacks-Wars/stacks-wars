@@ -128,7 +128,7 @@ pub async fn migrate_player_states(
                         user_id, lobby_id
                     );
                 } else {
-                    player_state_repo.upsert_state(player_state).await?;
+                    player_state_repo.upsert_state(player_state, None).await?;
                     migrated_count += 1;
 
                     if migrated_count % 10 == 0 {
@@ -183,7 +183,7 @@ pub async fn migrate_player_states(
             );
         } else {
             // Create new state
-            player_state_repo.upsert_state(player_state).await?;
+            player_state_repo.upsert_state(player_state, None).await?;
             migrated_count += 1;
 
             if migrated_count % 10 == 0 {

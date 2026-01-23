@@ -35,6 +35,7 @@ import {
 	useRoomConnecting,
 	useRoomLatency,
 	useLobbyActions,
+	useLobbyStore,
 } from "../stores/room";
 import { useUser } from "../stores/user";
 import { WebSocketClient } from "../websocket/wsClient";
@@ -73,6 +74,7 @@ export interface UseRoomWebSocketReturn {
 	// Actions
 	sendGameMessage: (type: string, payload: unknown) => void;
 	sendLobbyMessage: (message: RoomClientMessage) => void;
+	disconnect: () => void;
 }
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
@@ -258,7 +260,14 @@ export function useRoomWebSocket({
 				if (pendingActionsRef.current.has("leave")) {
 					pendingActionsRef.current.delete("leave");
 					lobbyActions.clearActionLoading("leave");
-					onActionSuccess?.("leave", "Left lobby");
+					onActionSuccess?.("leave", "You Left the Lobby");
+				}
+				const currentCreator = useLobbyStore.getState().creator;
+				if (message.userId === currentCreator?.id) {
+					onActionSuccess?.(
+						"lobbyDeleted",
+						"Lobby has been closed by the creator"
+					);
 				}
 				break;
 
@@ -411,7 +420,6 @@ export function useRoomWebSocket({
 				lobbyActions.setActionLoading("join", true);
 				break;
 			case "leave":
-				console.log(`Sending leave: `);
 				pendingActionsRef.current.add("leave");
 				lobbyActions.setActionLoading("leave", true);
 				break;
@@ -466,6 +474,13 @@ export function useRoomWebSocket({
 		clientRef.current.sendLobbyMessage(message);
 	};
 
+	const disconnect = () => {
+		if (clientRef.current) {
+			clientRef.current.disconnect();
+			clientRef.current = null;
+		}
+	};
+
 	return {
 		// Connection state
 		isConnected,
@@ -493,5 +508,6 @@ export function useRoomWebSocket({
 		// Actions
 		sendGameMessage,
 		sendLobbyMessage,
+		disconnect,
 	};
 }

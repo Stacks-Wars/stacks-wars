@@ -8,16 +8,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{
-    auth::AuthClaims,
-    db::{
-        game::GameRepository, lobby::LobbyRepository, lobby_state::LobbyStateRepository,
-        user::UserRepository,
-    },
-    models::{Lobby, LobbyExtended, LobbyInfo},
-    state::AppState,
-    ws::lobby::LobbyServerMessage,
-};
+use crate::{auth::AuthClaims, db::lobby::LobbyRepository, models::Lobby, state::AppState};
 
 // ============================================================================
 // Request/Response Types
@@ -94,48 +85,10 @@ pub async fn create_lobby(
             payload.is_private.unwrap_or(false),
             payload.is_sponsored,
             state.redis.clone(),
+            state.clone(),
         )
         .await
         .map_err(|e| e.to_response())?;
-
-    // Broadcast lobby creation to lobby list subscribers
-    tokio::spawn({
-        let state_clone = state.clone();
-        let lobby_id = lobby.id();
-        async move {
-            use crate::ws::broadcast;
-
-            // Fetch lobby with joins to construct LobbyExtended for broadcast
-            let lobby_repo = LobbyRepository::new(state_clone.postgres.clone());
-            let game_repo = GameRepository::new(state_clone.postgres.clone());
-            let user_repo = UserRepository::new(state_clone.postgres.clone());
-            let lobby_state_repo = LobbyStateRepository::new(state_clone.redis.clone());
-
-            let (lobby, game, creator, lobby_state) = tokio::join!(
-                lobby_repo.find_by_id(lobby_id),
-                game_repo.find_by_id(payload.game_id),
-                user_repo.find_by_id(user_id),
-                lobby_state_repo.get_state(lobby_id),
-            );
-            if let (Ok(lobby), Ok(lobby_state), Ok(game), Ok(creator)) =
-                (lobby, lobby_state, game, creator)
-            {
-                let lobby_extended = LobbyExtended::from_parts(lobby, lobby_state);
-
-                let lobby_info = LobbyInfo {
-                    lobby: lobby_extended,
-                    game,
-                    creator,
-                };
-
-                let _ = broadcast::broadcast_lobby_list(
-                    &state_clone,
-                    &LobbyServerMessage::LobbyCreated { lobby_info },
-                )
-                .await;
-            }
-        }
-    });
 
     Ok((StatusCode::CREATED, Json(lobby)))
 }
@@ -247,7 +200,7 @@ pub async fn delete_lobby(
     let user_id = Uuid::parse_str(&claims.sub)
         .map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid token".to_string()))?;
 
-    let repo = LobbyRepository::new(state.postgres);
+    let repo = LobbyRepository::new(state.postgres.clone());
 
     // Verify user is the creator
     let lobby = repo
@@ -262,7 +215,7 @@ pub async fn delete_lobby(
         ));
     }
 
-    repo.delete_lobby(lobby_id)
+    repo.delete_lobby(lobby_id, Some(state))
         .await
         .map_err(|e| e.to_response())?;
 
