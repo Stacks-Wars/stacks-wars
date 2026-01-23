@@ -1,3 +1,6 @@
+import type { Game } from "./game";
+import type { User } from "./user";
+
 export type LobbyStatus = "waiting" | "inProgress" | "starting" | "finished";
 
 export interface Lobby {
@@ -25,14 +28,12 @@ export interface LobbyExtended extends Lobby {
 	creatorLastPing?: number;
 	startedAt?: number;
 	finishedAt?: number;
+}
 
-	creatorWalletAddress: string;
-	creatorUsername?: string;
-	creatorDisplayName?: string;
-
-	gameImageUrl: string;
-	gameMinPlayers: number;
-	gameMaxPlayers: number;
+export interface LobbyInfo {
+	lobby: LobbyExtended;
+	game: Game;
+	creator: User;
 }
 
 export interface CreateLobbyRequest {

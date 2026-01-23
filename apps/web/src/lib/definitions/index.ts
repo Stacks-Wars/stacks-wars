@@ -5,3 +5,4 @@ export * from "./season";
 export * from "./platform-rating";
 export * from "./chat-message";
 export * from "./room";
+export * from "./room-message";

@@ -5,6 +5,8 @@ use uuid::Uuid;
 use crate::{
     errors::AppError,
     models::{Lobby, LobbyStatus, WalletAddress},
+    state::AppState,
+    ws::broadcast_lobby_update,
 };
 
 use super::LobbyRepository;
@@ -15,6 +17,7 @@ impl LobbyRepository {
         &self,
         lobby_id: Uuid,
         status: LobbyStatus,
+        state: AppState,
     ) -> Result<Lobby, AppError> {
         let lobby = sqlx::query_as::<_, Lobby>(
             r#"
@@ -32,11 +35,19 @@ impl LobbyRepository {
         .map_err(|e| AppError::DatabaseError(format!("Failed to update lobby status: {}", e)))?;
 
         tracing::info!("Updated lobby {} status to {:?}", lobby_id, lobby.status);
+
+        broadcast_lobby_update(state, lobby_id).await;
+
         Ok(lobby)
     }
 
     /// Update lobby name.
-    pub async fn update_name(&self, lobby_id: Uuid, name: &str) -> Result<Lobby, AppError> {
+    pub async fn update_name(
+        &self,
+        lobby_id: Uuid,
+        name: &str,
+        state: AppState,
+    ) -> Result<Lobby, AppError> {
         let lobby = sqlx::query_as::<_, Lobby>(
             r#"
             UPDATE lobbies
@@ -52,6 +63,8 @@ impl LobbyRepository {
         .await
         .map_err(|e| AppError::DatabaseError(format!("Failed to update lobby name: {}", e)))?;
 
+        broadcast_lobby_update(state, lobby_id).await;
+
         Ok(lobby)
     }
 
@@ -60,6 +73,7 @@ impl LobbyRepository {
         &self,
         lobby_id: Uuid,
         description: &str,
+        state: AppState,
     ) -> Result<Lobby, AppError> {
         let lobby = sqlx::query_as::<_, Lobby>(
             r#"
@@ -78,6 +92,8 @@ impl LobbyRepository {
             AppError::DatabaseError(format!("Failed to update lobby description: {}", e))
         })?;
 
+        broadcast_lobby_update(state, lobby_id).await;
+
         Ok(lobby)
     }
 
@@ -86,6 +102,7 @@ impl LobbyRepository {
         &self,
         lobby_id: Uuid,
         entry_amount: f64,
+        state: AppState,
     ) -> Result<Lobby, AppError> {
         let entry_amount = Lobby::validate_amount(Some(entry_amount))?;
 
@@ -106,6 +123,8 @@ impl LobbyRepository {
             AppError::DatabaseError(format!("Failed to update lobby entry amount: {}", e))
         })?;
 
+        broadcast_lobby_update(state, lobby_id).await;
+
         Ok(lobby)
     }
 
@@ -114,6 +133,7 @@ impl LobbyRepository {
         &self,
         lobby_id: Uuid,
         current_amount: f64,
+        state: AppState,
     ) -> Result<Lobby, AppError> {
         let current_amount = Lobby::validate_amount(Some(current_amount))?;
 
@@ -134,6 +154,8 @@ impl LobbyRepository {
             AppError::DatabaseError(format!("Failed to update lobby current amount: {}", e))
         })?;
 
+        broadcast_lobby_update(state, lobby_id).await;
+
         Ok(lobby)
     }
 
@@ -142,6 +164,7 @@ impl LobbyRepository {
         &self,
         lobby_id: Uuid,
         amount: f64,
+        state: AppState,
     ) -> Result<Lobby, AppError> {
         Lobby::validate_amount(Some(amount))?;
 
@@ -160,6 +183,8 @@ impl LobbyRepository {
         .await
         .map_err(|e| AppError::DatabaseError(format!("Failed to increment lobby amount: {}", e)))?;
 
+        broadcast_lobby_update(state, lobby_id).await;
+
         Ok(lobby)
     }
 
@@ -169,6 +194,7 @@ impl LobbyRepository {
         lobby_id: Uuid,
         token_symbol: Option<&str>,
         token_contract_id: Option<&str>,
+        state: AppState,
     ) -> Result<Lobby, AppError> {
         use crate::models::WalletAddress;
 
@@ -196,6 +222,8 @@ impl LobbyRepository {
         .map_err(|e| AppError::DatabaseError(format!("Failed to update lobby token info: {}", e)))?
         .ok_or_else(|| AppError::NotFound(format!("Lobby {} not found", lobby_id)))?;
 
+        broadcast_lobby_update(state, lobby_id).await;
+
         Ok(lobby)
     }
 
@@ -204,6 +232,7 @@ impl LobbyRepository {
         &self,
         lobby_id: Uuid,
         contract_address: &str,
+        state: AppState,
     ) -> Result<Lobby, AppError> {
         // Validate contract_address provided
         let contract_address = WalletAddress::new(contract_address)?;
@@ -225,11 +254,18 @@ impl LobbyRepository {
             AppError::DatabaseError(format!("Failed to update lobby contract address: {}", e))
         })?;
 
+        broadcast_lobby_update(state, lobby_id).await;
+
         Ok(lobby)
     }
 
     /// Toggle lobby privacy status.
-    pub async fn set_private(&self, lobby_id: Uuid, is_private: bool) -> Result<Lobby, AppError> {
+    pub async fn set_private(
+        &self,
+        lobby_id: Uuid,
+        is_private: bool,
+        state: AppState,
+    ) -> Result<Lobby, AppError> {
         let lobby = sqlx::query_as::<_, Lobby>(
             r#"
             UPDATE lobbies
@@ -245,6 +281,8 @@ impl LobbyRepository {
         .await
         .map_err(|e| AppError::DatabaseError(format!("Failed to update lobby privacy: {}", e)))?;
 
+        broadcast_lobby_update(state, lobby_id).await;
+
         Ok(lobby)
     }
 
@@ -253,6 +291,7 @@ impl LobbyRepository {
         &self,
         lobby_id: Uuid,
         is_sponsored: bool,
+        state: AppState,
     ) -> Result<Lobby, AppError> {
         let lobby = sqlx::query_as::<_, Lobby>(
             r#"
@@ -270,6 +309,8 @@ impl LobbyRepository {
         .map_err(|e| {
             AppError::DatabaseError(format!("Failed to update lobby sponsored status: {}", e))
         })?;
+
+        broadcast_lobby_update(state, lobby_id).await;
 
         Ok(lobby)
     }

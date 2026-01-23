@@ -1,7 +1,7 @@
 // Room message types (client -> server, server -> client)
 use crate::db::join_request::JoinRequest;
 use crate::models::lobby_state::LobbyStatus;
-use crate::models::{ChatMessage, LobbyExtended, PlayerState};
+use crate::models::{ChatMessage, LobbyInfo, PlayerState};
 use crate::ws::room::error::RoomError;
 use uuid::Uuid;
 
@@ -17,28 +17,34 @@ pub enum RoomClientMessage {
     /// Request to join a private lobby
     JoinRequest,
     /// Creator accepts a join request
+    #[serde(rename_all = "camelCase")]
     ApproveJoin {
-        player_id: Uuid,
+        user_id: Uuid,
     },
     /// Creator rejects a join request
+    #[serde(rename_all = "camelCase")]
     RejectJoin {
-        player_id: Uuid,
+        user_id: Uuid,
     },
     /// Creator kicks a participant
+    #[serde(rename_all = "camelCase")]
     Kick {
-        player_id: Uuid,
+        user_id: Uuid,
     },
     /// Send a chat message
+    #[serde(rename_all = "camelCase")]
     SendMessage {
         content: String,
         reply_to: Option<Uuid>,
     },
     /// Add a reaction to a message
+    #[serde(rename_all = "camelCase")]
     AddReaction {
         message_id: Uuid,
         emoji: String,
     },
     /// Remove a reaction from a message
+    #[serde(rename_all = "camelCase")]
     RemoveReaction {
         message_id: Uuid,
         emoji: String,
@@ -58,40 +64,51 @@ pub enum RoomClientMessage {
 pub enum RoomServerMessage {
     #[serde(rename_all = "camelCase")]
     LobbyBootstrap {
-        lobby: LobbyExtended,
+        lobby_info: LobbyInfo,
         players: Vec<PlayerState>,
         join_requests: Vec<JoinRequest>,
         chat_history: Vec<ChatMessage>,
     },
 
     /// Generic lobby state change
+    #[serde(rename_all = "camelCase")]
     LobbyStatusChanged {
         status: LobbyStatus,
+        participant_count: usize,
+        current_amount: Option<f64>,
     },
 
     /// Countdown updates
+    #[serde(rename_all = "camelCase")]
     StartCountdown {
         seconds_remaining: u8,
     },
 
+    #[serde(rename_all = "camelCase")]
     PlayerJoined {
-        player_id: Uuid,
+        user_id: Uuid,
     },
+
+    #[serde(rename_all = "camelCase")]
     PlayerLeft {
-        player_id: Uuid,
+        user_id: Uuid,
     },
+
+    #[serde(rename_all = "camelCase")]
     PlayerKicked {
-        player_id: Uuid,
+        user_id: Uuid,
     },
 
     /// Broadcasted list of join requests (visible to lobby); only creator may accept/reject
+    #[serde(rename_all = "camelCase")]
     JoinRequestsUpdated {
         join_requests: Vec<JoinRequest>,
     },
 
     /// Personal status for a join request
+    #[serde(rename_all = "camelCase")]
     JoinRequestStatus {
-        player_id: Uuid,
+        user_id: Uuid,
         accepted: bool,
     },
 
@@ -101,6 +118,7 @@ pub enum RoomServerMessage {
     },
 
     /// Reaction added to a message
+    #[serde(rename_all = "camelCase")]
     ReactionAdded {
         message_id: Uuid,
         user_id: Uuid,
@@ -108,6 +126,7 @@ pub enum RoomServerMessage {
     },
 
     /// Reaction removed from a message
+    #[serde(rename_all = "camelCase")]
     ReactionRemoved {
         message_id: Uuid,
         user_id: Uuid,
@@ -115,6 +134,7 @@ pub enum RoomServerMessage {
     },
 
     /// Personal pong response; elapsed_ms = now.saturating_sub(client_ts)
+    #[serde(rename_all = "camelCase")]
     Pong {
         elapsed_ms: u64,
     },

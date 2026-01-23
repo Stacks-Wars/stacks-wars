@@ -1,9 +1,21 @@
-pub mod create;
-pub mod delete;
-pub mod read;
-pub mod update;
+//  LobbyChatRepository: runtime Redis helpers for lobby chat messages
 
-pub use create::create_chat_message;
-pub use delete::delete_chat_message;
-pub use read::{get_chat_history, get_chat_message};
-pub use update::{add_reaction, remove_reaction};
+mod create;
+mod delete;
+mod read;
+mod update;
+
+use crate::state::RedisClient;
+
+/// LobbyChatRepository (wraps the Redis client).
+#[derive(Clone)]
+pub struct LobbyChatRepository {
+    pub(crate) redis: RedisClient,
+}
+
+impl LobbyChatRepository {
+    /// Create a new `LobbyChatRepository`.
+    pub fn new(redis: RedisClient) -> Self {
+        Self { redis }
+    }
+}

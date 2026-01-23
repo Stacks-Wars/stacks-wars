@@ -1,9 +1,86 @@
 // Consolidated WebSocket broadcasting functions
+use crate::db::{
+    game::GameRepository, lobby::LobbyRepository, lobby_state::LobbyStateRepository,
+    user::UserRepository,
+};
+use crate::models::{LobbyExtended, LobbyInfo};
 use crate::state::AppState;
 use crate::ws::core::message::BroadcastMessage;
+use crate::ws::lobby::LobbyServerMessage;
+use crate::ws::room::messages::GameMessage;
 use axum::extract::ws::Message;
 use futures::SinkExt;
 use uuid::Uuid;
+
+/// Broadcast lobby update to lobby list subscribers
+pub async fn broadcast_lobby_update(state: AppState, lobby_id: Uuid) {
+    tokio::spawn(async move {
+        let lobby_repo = LobbyRepository::new(state.postgres.clone());
+        let lobby_state_repo = LobbyStateRepository::new(state.redis.clone());
+
+        if let Ok(lobby) = lobby_repo.find_by_id(lobby_id).await {
+            let game_repo = GameRepository::new(state.postgres.clone());
+            let user_repo = UserRepository::new(state.postgres.clone());
+
+            let (game, creator, lobby_state) = tokio::join!(
+                game_repo.find_by_id(lobby.game_id),
+                user_repo.find_by_id(lobby.creator_id),
+                lobby_state_repo.get_state(lobby_id),
+            );
+
+            if let (Ok(game), Ok(creator), Ok(lobby_state)) = (game, creator, lobby_state) {
+                let lobby_extended = LobbyExtended::from_parts(lobby, lobby_state);
+                let lobby_info = LobbyInfo {
+                    lobby: lobby_extended,
+                    game,
+                    creator,
+                };
+
+                let _ = broadcast_lobby_list(
+                    &state,
+                    &LobbyServerMessage::LobbyUpdated { lobby: lobby_info },
+                )
+                .await;
+            }
+        }
+    });
+}
+
+/// Broadcast lobby creation to lobby list subscribers
+pub async fn broadcast_lobby_creation(
+    state: AppState,
+    lobby_id: Uuid,
+    game_id: Uuid,
+    creator_id: Uuid,
+) {
+    tokio::spawn(async move {
+        let lobby_repo = LobbyRepository::new(state.postgres.clone());
+        let game_repo = GameRepository::new(state.postgres.clone());
+        let user_repo = UserRepository::new(state.postgres.clone());
+        let lobby_state_repo = LobbyStateRepository::new(state.redis.clone());
+
+        let (lobby, game, creator, lobby_state) = tokio::join!(
+            lobby_repo.find_by_id(lobby_id),
+            game_repo.find_by_id(game_id),
+            user_repo.find_by_id(creator_id),
+            lobby_state_repo.get_state(lobby_id),
+        );
+
+        if let (Ok(lobby), Ok(lobby_state), Ok(game), Ok(creator)) =
+            (lobby, lobby_state, game, creator)
+        {
+            let lobby_extended = LobbyExtended::from_parts(lobby, lobby_state);
+            let lobby_info = LobbyInfo {
+                lobby: lobby_extended,
+                game,
+                creator,
+            };
+
+            let _ = broadcast_lobby_list(&state, &LobbyServerMessage::LobbyCreated { lobby_info })
+                .await;
+        }
+    });
+}
 
 /// Send a message to a single connection
 pub async fn send<M: BroadcastMessage>(state: &AppState, connection_id: Uuid, msg: &M) {
@@ -119,23 +196,40 @@ pub async fn broadcast_room_participants<M: BroadcastMessage>(
     }
 }
 
-/// Broadcast to all lobby list connections
+/// Broadcast to all lobby list connections (including those with status filters)
 pub async fn broadcast_lobby_list<M: BroadcastMessage>(state: &AppState, msg: &M) {
     if let Ok(json) = msg.to_json() {
         let indices = state.indices.lock().await;
+        let conns = state.connections.lock().await;
 
+        // Collect all unique connection IDs from lobby-related context keys
+        let mut sent_to: std::collections::HashSet<Uuid> = std::collections::HashSet::new();
+
+        // Include connections without status filter ("lobby" key)
         if let Some(conn_ids) = indices.get_context_connections("lobby") {
-            let conns = state.connections.lock().await;
-
             for conn_id in conn_ids.iter() {
-                if let Some(conn) = conns.get(conn_id) {
-                    let sender = conn.sender.clone();
-                    let json_clone = json.clone();
-                    tokio::spawn(async move {
-                        let mut s = sender.lock().await;
-                        let _ = s.send(Message::Text(json_clone.into())).await;
-                    });
+                sent_to.insert(*conn_id);
+            }
+        }
+
+        // Include connections with status filters ("lobby:*" keys)
+        for (context_key, conn_ids) in indices.by_context.iter() {
+            if context_key.starts_with("lobby:") {
+                for conn_id in conn_ids.iter() {
+                    sent_to.insert(*conn_id);
                 }
+            }
+        }
+
+        // Send to all unique connections
+        for conn_id in sent_to {
+            if let Some(conn) = conns.get(&conn_id) {
+                let sender = conn.sender.clone();
+                let json_clone = json.clone();
+                tokio::spawn(async move {
+                    let mut s = sender.lock().await;
+                    let _ = s.send(Message::Text(json_clone.into())).await;
+                });
             }
         }
     }
@@ -170,7 +264,7 @@ pub async fn broadcast_lobby_by_status<M: BroadcastMessage>(
 }
 
 /// Broadcast a game-specific message to all connections in a lobby room.
-/// 
+///
 /// This wraps the message with game identifier for frontend router.
 pub async fn broadcast_game_message(
     state: &AppState,
@@ -179,14 +273,8 @@ pub async fn broadcast_game_message(
     msg_type: &str,
     payload: serde_json::Value,
 ) {
-    use crate::ws::room::messages::GameMessage;
-    
-    let game_msg = GameMessage::new(
-        game_path.to_string(),
-        msg_type.to_string(),
-        payload,
-    );
-    
+    let game_msg = GameMessage::new(game_path.to_string(), msg_type.to_string(), payload);
+
     if let Ok(json) = serde_json::to_string(&game_msg) {
         let indices = state.indices.lock().await;
 

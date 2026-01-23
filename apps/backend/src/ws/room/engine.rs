@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::db::join_request::{JoinRequestRepository, JoinRequestState};
 use crate::db::lobby::LobbyRepository;
+use crate::db::lobby_chat::LobbyChatRepository;
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::db::player_state::PlayerStateRepository;
 use crate::db::user::UserRepository;
@@ -53,12 +54,6 @@ pub async fn handle_room_message(
             let now_ms = Utc::now().timestamp_millis() as u64;
             let elapsed = now_ms.saturating_sub(ts);
 
-            if let Some(user_id) = auth_user_id {
-                if player_repo.exists(lobby_id, user_id).await.unwrap_or(false) {
-                    let _ = player_repo.update_ping(lobby_id, user_id).await;
-                }
-            }
-
             let _ = manager::send_to_connection(
                 conn,
                 &RoomServerMessage::Pong {
@@ -66,9 +61,15 @@ pub async fn handle_room_message(
                 },
             )
             .await;
+
+            if let Some(user_id) = auth_user_id {
+                if player_repo.exists(lobby_id, user_id).await.unwrap_or(false) {
+                    let _ = player_repo.update_ping(lobby_id, user_id).await;
+                }
+            }
         }
 
-        // LOBBY-ONLY: Block if game is in progress
+        // LOBBY-ONLY: Block if game is in progress (i guess ...)
         RoomClientMessage::Join => {
             if lobby_status == LobbyStatus::InProgress {
                 let err = RoomError::JoinFailed("Cannot join during active game".to_string());
@@ -80,7 +81,16 @@ pub async fn handle_room_message(
             let jr_repo = JoinRequestRepository::new(state.redis.clone());
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
-                Err(_) => return,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::JoinFailed(
+                            "not authenticated".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
             };
 
             // Check join request (for private lobbies) or allow direct join (public lobbies)
@@ -106,7 +116,7 @@ pub async fn handle_room_message(
                             Ok(u) => u,
                             Err(e) => {
                                 let msg =
-                                    RoomServerMessage::from(RoomError::Internal(e.to_string()));
+                                    RoomServerMessage::from(RoomError::JoinFailed(e.to_string()));
                                 let _ = manager::send_to_connection(conn, &msg).await;
                                 return;
                             }
@@ -131,13 +141,18 @@ pub async fn handle_room_message(
                     None,
                     false,
                 );
-                let _ = player_repo.upsert_state(pstate).await;
+                let _ = player_repo.upsert_state(pstate, Some(state.clone())).await;
+
+                let participant_count = lobby_state_repo
+                    .increment_participants(lobby_id)
+                    .await
+                    .unwrap_or(0);
 
                 // broadcast joined and updated player list
-                let _ = broadcast::broadcast_room(
+                let _ = broadcast::broadcast_user(
                     state,
-                    lobby_id,
-                    &RoomServerMessage::PlayerJoined { player_id: user_id },
+                    user_id,
+                    &RoomServerMessage::PlayerJoined { user_id },
                 )
                 .await;
 
@@ -151,8 +166,25 @@ pub async fn handle_room_message(
                 }
 
                 let lobby_repo = LobbyRepository::new(state.postgres.clone());
-                if let Ok(db_lobby) = lobby_repo.find_by_id(lobby_id).await {
-                    if db_lobby.is_private {
+                let db_lobby = lobby_repo.find_by_id(lobby_id).await.ok();
+
+                let current_amount = db_lobby.as_ref().and_then(|l| l.current_amount);
+
+                // Broadcast lobby status change with updated participant count and current amount
+                let _ = broadcast::broadcast_room(
+                    state,
+                    lobby_id,
+                    &RoomServerMessage::LobbyStatusChanged {
+                        status: lobby_status,
+                        participant_count,
+                        current_amount,
+                    },
+                )
+                .await;
+
+                // Handle private lobby join request cleanup
+                if let Some(lobby) = db_lobby {
+                    if lobby.is_private {
                         let _ = jr_repo.remove(lobby_id, user_id).await.ok();
                         if let Ok(list) = jr_repo.list(lobby_id).await {
                             let _ = broadcast::broadcast_room(
@@ -174,7 +206,7 @@ pub async fn handle_room_message(
 
         RoomClientMessage::Leave => {
             if lobby_status == LobbyStatus::InProgress {
-                let err = RoomError::JoinFailed("Cannot leave during active game".to_string());
+                let err = RoomError::LeaveFailed("Cannot leave during active game".to_string());
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
                 return;
@@ -182,29 +214,72 @@ pub async fn handle_room_message(
 
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
-                Err(_) => return,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::LeaveFailed(
+                            "not authenticated".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
             };
 
-            // Prevent the creator from leaving the lobby
+            // Check if user is the creator
             let is_creator = player_repo
                 .is_creator(lobby_id, user_id)
                 .await
                 .unwrap_or(false);
 
             if is_creator {
-                let err = RoomError::NotCreator;
-                let msg = RoomServerMessage::from(err);
-                let _ = manager::send_to_connection(conn, &msg).await;
-                return;
+                // Creator can only leave if they are the only participant
+                let participant_count = player_repo.count_players(lobby_id).await.unwrap_or(0);
+
+                if participant_count == 1 {
+                    // Delete the entire lobby
+                    let lobby_repo = LobbyRepository::new(state.postgres.clone());
+                    let lobby_chat_repo = LobbyChatRepository::new(state.redis.clone());
+
+                    // Delete all resources
+                    let _ = player_repo.cleanup_lobby(lobby_id).await;
+                    let _ = lobby_state_repo.delete_state_soft(lobby_id).await;
+                    let _ = lobby_chat_repo.cleanup_lobby(lobby_id).await;
+                    let _ = lobby_repo.delete_lobby(lobby_id, Some(state.clone())).await;
+
+                    let _ = broadcast::broadcast_room(
+                        state,
+                        lobby_id,
+                        &RoomServerMessage::PlayerLeft { user_id },
+                    )
+                    .await;
+                    return;
+                } else {
+                    // Creator cannot leave if there are other participants
+                    let err = RoomError::LeaveFailed(
+                        "Creator cannot leave while other players are in the lobby".to_string(),
+                    );
+                    let msg = RoomServerMessage::from(err);
+                    let _ = manager::send_to_connection(conn, &msg).await;
+                    return;
+                }
             }
 
             // remove player state
-            let _ = player_repo.remove_from_lobby(lobby_id, user_id).await.ok();
+            let _ = player_repo
+                .delete_state(lobby_id, user_id, Some(state.clone()))
+                .await
+                .ok();
 
-            let _ = broadcast::broadcast_room(
+            let participant_count = lobby_state_repo
+                .decrement_participants(lobby_id)
+                .await
+                .unwrap_or(0);
+
+            let _ = broadcast::broadcast_user(
                 state,
-                lobby_id,
-                &RoomServerMessage::PlayerLeft { player_id: user_id },
+                user_id,
+                &RoomServerMessage::PlayerLeft { user_id },
             )
             .await;
             if let Ok(players) = player_repo.get_all_in_lobby(lobby_id).await {
@@ -215,12 +290,32 @@ pub async fn handle_room_message(
                 )
                 .await;
             }
+
+            // Broadcast lobby status change with updated participant count and current amount
+            let lobby_repo = LobbyRepository::new(state.postgres.clone());
+            let current_amount = lobby_repo
+                .find_by_id(lobby_id)
+                .await
+                .ok()
+                .and_then(|l| l.current_amount);
+
+            let _ = broadcast::broadcast_room(
+                state,
+                lobby_id,
+                &RoomServerMessage::LobbyStatusChanged {
+                    status: lobby_status,
+                    participant_count,
+                    current_amount,
+                },
+            )
+            .await;
         }
 
         RoomClientMessage::UpdateLobbyStatus { status } => {
             if lobby_status == LobbyStatus::InProgress {
-                let err =
-                    RoomError::JoinFailed("Cannot change status during active game".to_string());
+                let err = RoomError::LobbyStatusFailed(
+                    "Cannot change status during active game".to_string(),
+                );
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
                 return;
@@ -228,7 +323,16 @@ pub async fn handle_room_message(
 
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
-                Err(_) => return,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::LobbyStatusFailed(
+                            "not authenticated".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
             };
 
             // Only the lobby creator can change lobby status
@@ -238,7 +342,9 @@ pub async fn handle_room_message(
                 .unwrap_or(false);
 
             if !is_creator {
-                let err = RoomError::NotCreator;
+                let err = RoomError::LobbyStatusFailed(
+                    "Only creator can change lobby status".to_string(),
+                );
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
                 return;
@@ -256,15 +362,6 @@ pub async fn handle_room_message(
 
                     // Countdown from 5 down to 0
                     for sec in (0..=5).rev() {
-                        let _ = broadcast::broadcast_room(
-                            &spawn_state,
-                            spawn_lobby,
-                            &RoomServerMessage::StartCountdown {
-                                seconds_remaining: sec as u8,
-                            },
-                        )
-                        .await;
-
                         let _ = spawn_repo.set_countdown(spawn_lobby, sec as u8).await.ok();
 
                         if sec == 0 {
@@ -281,16 +378,42 @@ pub async fn handle_room_message(
                         } else {
                             return;
                         }
+
+                        let _ = broadcast::broadcast_room(
+                            &spawn_state,
+                            spawn_lobby,
+                            &RoomServerMessage::StartCountdown {
+                                seconds_remaining: sec as u8,
+                            },
+                        )
+                        .await;
                     }
 
                     // Clear countdown and mark started
                     let _ = spawn_repo.clear_countdown(spawn_lobby).await.ok();
                     let _ = spawn_repo.mark_started(spawn_lobby).await.ok();
+
+                    // Get participant count and current amount for broadcast
+                    let participant_count = spawn_repo
+                        .get_state(spawn_lobby)
+                        .await
+                        .map(|s| s.participant_count)
+                        .unwrap_or(0);
+
+                    let lobby_repo_spawn = LobbyRepository::new(spawn_state.postgres.clone());
+                    let current_amount = lobby_repo_spawn
+                        .find_by_id(spawn_lobby)
+                        .await
+                        .ok()
+                        .and_then(|l| l.current_amount);
+
                     let _ = broadcast::broadcast_room(
                         &spawn_state,
                         spawn_lobby,
                         &RoomServerMessage::LobbyStatusChanged {
                             status: LobbyStatus::InProgress,
+                            participant_count,
+                            current_amount,
                         },
                     )
                     .await;
@@ -375,10 +498,28 @@ pub async fn handle_room_message(
                 });
             }
 
+            // Get current state and lobby info for broadcast
+            let participant_count = lobby_state_repo
+                .get_state(lobby_id)
+                .await
+                .map(|s| s.participant_count)
+                .unwrap_or(0);
+
+            let lobby_repo = LobbyRepository::new(state.postgres.clone());
+            let current_amount = lobby_repo
+                .find_by_id(lobby_id)
+                .await
+                .ok()
+                .and_then(|l| l.current_amount);
+
             let _ = broadcast::broadcast_room(
                 state,
                 lobby_id,
-                &RoomServerMessage::LobbyStatusChanged { status: status },
+                &RoomServerMessage::LobbyStatusChanged {
+                    status: status,
+                    participant_count,
+                    current_amount,
+                },
             )
             .await;
         }
@@ -394,7 +535,16 @@ pub async fn handle_room_message(
 
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
-                Err(_) => return,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::JoinFailed(
+                            "not authenticated".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
             };
 
             // Fetch user profile to include in join request
@@ -402,7 +552,7 @@ pub async fn handle_room_message(
             let user = match user_repo.find_by_id(user_id).await {
                 Ok(u) => u,
                 Err(e) => {
-                    let msg = RoomServerMessage::from(RoomError::Internal(e.to_string()));
+                    let msg = RoomServerMessage::from(RoomError::JoinFailed(e.to_string()));
                     let _ = manager::send_to_connection(conn, &msg).await;
                     return;
                 }
@@ -432,10 +582,12 @@ pub async fn handle_room_message(
             }
         }
 
-        RoomClientMessage::ApproveJoin { player_id } => {
+        RoomClientMessage::ApproveJoin {
+            user_id: approved_user_id,
+        } => {
             if lobby_status == LobbyStatus::InProgress {
                 let err =
-                    RoomError::JoinFailed("Cannot approve joins during active game".to_string());
+                    RoomError::ApproveFailed("Cannot approve joins during active game".to_string());
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
                 return;
@@ -443,7 +595,16 @@ pub async fn handle_room_message(
 
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
-                Err(_) => return,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::ApproveFailed(
+                            "not authenticated".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
             };
 
             // Only creator can approve join requests
@@ -453,7 +614,8 @@ pub async fn handle_room_message(
                 .unwrap_or(false);
 
             if !is_creator {
-                let err = RoomError::NotCreator;
+                let err =
+                    RoomError::ApproveFailed("Only creator can approve join request".to_string());
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
                 return;
@@ -461,13 +623,13 @@ pub async fn handle_room_message(
 
             let jr_repo = JoinRequestRepository::new(state.redis.clone());
             let _ = jr_repo
-                .set_state(lobby_id, player_id, JoinRequestState::Accepted)
+                .set_state(lobby_id, approved_user_id, JoinRequestState::Accepted)
                 .await;
             let _ = broadcast::broadcast_user(
                 state,
-                player_id,
+                approved_user_id,
                 &RoomServerMessage::JoinRequestStatus {
-                    player_id,
+                    user_id: approved_user_id,
                     accepted: true,
                 },
             )
@@ -484,10 +646,12 @@ pub async fn handle_room_message(
             }
         }
 
-        RoomClientMessage::RejectJoin { player_id } => {
+        RoomClientMessage::RejectJoin {
+            user_id: rejected_user_id,
+        } => {
             if lobby_status == LobbyStatus::InProgress {
                 let err =
-                    RoomError::JoinFailed("Cannot reject joins during active game".to_string());
+                    RoomError::RejectFailed("Cannot reject joins during active game".to_string());
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
                 return;
@@ -495,7 +659,16 @@ pub async fn handle_room_message(
 
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
-                Err(_) => return,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::RejectFailed(
+                            "not authenticated".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
             };
 
             // Only creator can reject join requests
@@ -505,7 +678,8 @@ pub async fn handle_room_message(
                 .unwrap_or(false);
 
             if !is_creator {
-                let err = RoomError::NotCreator;
+                let err =
+                    RoomError::RejectFailed("Only creator can reject join request".to_string());
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
                 return;
@@ -513,13 +687,13 @@ pub async fn handle_room_message(
 
             let jr_repo = JoinRequestRepository::new(state.redis.clone());
             let _ = jr_repo
-                .set_state(lobby_id, player_id, JoinRequestState::Rejected)
+                .set_state(lobby_id, rejected_user_id, JoinRequestState::Rejected)
                 .await;
             let _ = broadcast::broadcast_user(
                 state,
-                player_id,
+                rejected_user_id,
                 &RoomServerMessage::JoinRequestStatus {
-                    player_id,
+                    user_id: rejected_user_id,
                     accepted: false,
                 },
             )
@@ -536,10 +710,12 @@ pub async fn handle_room_message(
             }
         }
 
-        RoomClientMessage::Kick { player_id } => {
+        RoomClientMessage::Kick {
+            user_id: kicked_user_id,
+        } => {
             if lobby_status == LobbyStatus::InProgress {
                 let err =
-                    RoomError::JoinFailed("Cannot kick players during active game".to_string());
+                    RoomError::KickFailed("Cannot kick players during active game".to_string());
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
                 return;
@@ -547,7 +723,16 @@ pub async fn handle_room_message(
 
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
-                Err(_) => return,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::KickFailed(
+                            "not authenticated".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
             };
 
             // Only creator can kick players
@@ -557,7 +742,14 @@ pub async fn handle_room_message(
                 .unwrap_or(false);
 
             if !is_creator {
-                let err = RoomError::NotCreator;
+                let err = RoomError::KickFailed("Only lobby creator can kick player".to_string());
+                let msg = RoomServerMessage::from(err);
+                let _ = manager::send_to_connection(conn, &msg).await;
+                return;
+            }
+
+            if user_id == kicked_user_id {
+                let err = RoomError::KickFailed("Creator cannot kick themselves".to_string());
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
                 return;
@@ -565,13 +757,21 @@ pub async fn handle_room_message(
 
             // remove player state
             let _ = player_repo
-                .remove_from_lobby(lobby_id, player_id)
+                .delete_state(lobby_id, kicked_user_id, Some(state.clone()))
                 .await
                 .ok();
+
+            let participant_count = lobby_state_repo
+                .decrement_participants(lobby_id)
+                .await
+                .unwrap_or(0);
+
             let _ = broadcast::broadcast_room(
                 state,
                 lobby_id,
-                &RoomServerMessage::PlayerKicked { player_id },
+                &RoomServerMessage::PlayerKicked {
+                    user_id: kicked_user_id,
+                },
             )
             .await;
             if let Ok(players) = player_repo.get_all_in_lobby(lobby_id).await {
@@ -584,8 +784,28 @@ pub async fn handle_room_message(
             }
             let _ = broadcast::broadcast_user(
                 state,
-                player_id,
-                &RoomServerMessage::PlayerKicked { player_id },
+                kicked_user_id,
+                &RoomServerMessage::PlayerKicked {
+                    user_id: kicked_user_id,
+                },
+            )
+            .await;
+
+            let lobby_repo = LobbyRepository::new(state.postgres.clone());
+            let current_amount = lobby_repo
+                .find_by_id(lobby_id)
+                .await
+                .ok()
+                .and_then(|l| l.current_amount);
+
+            let _ = broadcast::broadcast_room(
+                state,
+                lobby_id,
+                &RoomServerMessage::LobbyStatusChanged {
+                    status: lobby_status,
+                    participant_count,
+                    current_amount,
+                },
             )
             .await;
         }
@@ -600,21 +820,18 @@ pub async fn handle_room_message(
             let is_participant = player_repo.exists(lobby_id, user_id).await.unwrap_or(false);
 
             if !is_participant {
-                let err = RoomError::NotInLobby;
+                let err = RoomError::SendMessageFailed(
+                    "Only lobby participants can send message".to_string(),
+                );
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
                 return;
             }
 
             // Create message
-            match crate::db::lobby_chat::create_chat_message(
-                &state.redis,
-                lobby_id,
-                user_id,
-                &content,
-                reply_to,
-            )
-            .await
+            match crate::db::lobby_chat::LobbyChatRepository::new(state.redis.clone())
+                .create_message(lobby_id, user_id, &content, reply_to)
+                .await
             {
                 Ok(message) => {
                     let _ = broadcast::broadcast_room(
@@ -625,7 +842,8 @@ pub async fn handle_room_message(
                     .await;
                 }
                 Err(e) => {
-                    let err = RoomError::Internal(format!("Failed to create message: {}", e));
+                    let err =
+                        RoomError::SendMessageFailed(format!("Failed to create message: {}", e));
                     let msg = RoomServerMessage::from(err);
                     let _ = manager::send_to_connection(conn, &msg).await;
                 }
@@ -635,27 +853,31 @@ pub async fn handle_room_message(
         RoomClientMessage::AddReaction { message_id, emoji } => {
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
-                Err(_) => return,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::ReactionFailed(
+                            "not authenticated".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
             };
 
             // Only participants can react
             let is_participant = player_repo.exists(lobby_id, user_id).await.unwrap_or(false);
 
             if !is_participant {
-                let err = RoomError::NotInLobby;
+                let err = RoomError::ReactionFailed("Not in lobby".to_string());
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
                 return;
             }
 
-            match crate::db::lobby_chat::add_reaction(
-                &state.redis,
-                lobby_id,
-                message_id,
-                user_id,
-                &emoji,
-            )
-            .await
+            match crate::db::lobby_chat::LobbyChatRepository::new(state.redis.clone())
+                .add_reaction(lobby_id, message_id, user_id, &emoji)
+                .await
             {
                 Ok(_) => {
                     let _ = broadcast::broadcast_room(
@@ -670,7 +892,7 @@ pub async fn handle_room_message(
                     .await;
                 }
                 Err(e) => {
-                    let err = RoomError::Internal(format!("Failed to add reaction: {}", e));
+                    let err = RoomError::ReactionFailed(format!("Failed to add reaction: {}", e));
                     let msg = RoomServerMessage::from(err);
                     let _ = manager::send_to_connection(conn, &msg).await;
                 }
@@ -680,27 +902,31 @@ pub async fn handle_room_message(
         RoomClientMessage::RemoveReaction { message_id, emoji } => {
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
-                Err(_) => return,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::ReactionFailed(
+                            "not authenticated".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
             };
 
             // Only participants can remove reactions
             let is_participant = player_repo.exists(lobby_id, user_id).await.unwrap_or(false);
 
             if !is_participant {
-                let err = RoomError::NotInLobby;
+                let err = RoomError::ReactionFailed("Not in lobby".to_string());
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
                 return;
             }
 
-            match crate::db::lobby_chat::remove_reaction(
-                &state.redis,
-                lobby_id,
-                message_id,
-                user_id,
-                &emoji,
-            )
-            .await
+            match crate::db::lobby_chat::LobbyChatRepository::new(state.redis.clone())
+                .remove_reaction(lobby_id, message_id, user_id, &emoji)
+                .await
             {
                 Ok(_) => {
                     let _ = broadcast::broadcast_room(
@@ -715,7 +941,8 @@ pub async fn handle_room_message(
                     .await;
                 }
                 Err(e) => {
-                    let err = RoomError::Internal(format!("Failed to remove reaction: {}", e));
+                    let err =
+                        RoomError::ReactionFailed(format!("Failed to remove reaction: {}", e));
                     let msg = RoomServerMessage::from(err);
                     let _ = manager::send_to_connection(conn, &msg).await;
                 }

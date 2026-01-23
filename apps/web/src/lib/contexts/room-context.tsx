@@ -1,39 +1,40 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type {
-	ChatMessage,
-	GamePlugin,
-	JoinRequest,
-	LobbyExtended,
-	PlayerState,
-} from "@/lib/definitions";
-import { useRoomWebSocket } from "@/lib/hooks/useRoomWebSocket";
+import {
+	useRoomWebSocket,
+	type UseRoomWebSocketReturn,
+} from "@/lib/hooks/useRoomWebSocket";
 
-interface RoomContextValue {
-	isConnected: boolean;
-	isConnecting: boolean;
-	error: string | null;
-	lobby: LobbyExtended | null;
-	players: PlayerState[];
-	joinRequests: JoinRequest[];
-	chatHistory: ChatMessage[];
-	gameState: unknown;
-	gamePlugin: GamePlugin | undefined;
-	sendGameMessage: (type: string, payload: unknown) => void;
-	sendLobbyMessage: (type: string, payload?: unknown) => void;
+const RoomContext = createContext<UseRoomWebSocketReturn | null>(null);
+
+interface RoomProviderProps {
+	children: React.ReactNode;
+	lobbyPath: string;
+	onActionSuccess?: (
+		action: string,
+		message?: string,
+		disconnect?: () => void
+	) => void;
+	onActionError?: (
+		action: string,
+		error: { code: string; message: string }
+	) => void;
 }
-
-const RoomContext = createContext<RoomContextValue | null>(null);
 
 export function RoomProvider({
 	children,
 	lobbyPath,
-}: {
-	children: React.ReactNode;
-	lobbyPath: string;
-}) {
-	const engineState = useRoomWebSocket({ lobbyPath });
+	onActionSuccess,
+	onActionError,
+}: RoomProviderProps) {
+	const engineState = useRoomWebSocket({
+		lobbyPath,
+		onActionSuccess: (action, message) => {
+			onActionSuccess?.(action, message, engineState.disconnect);
+		},
+		onActionError,
+	});
 
 	return (
 		<RoomContext.Provider value={engineState}>

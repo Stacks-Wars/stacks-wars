@@ -5,16 +5,10 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{
-    auth::AuthClaims,
-    db::{lobby::LobbyRepository, lobby_state::LobbyStateRepository},
-    models::{Lobby, LobbyExtended},
-    state::AppState,
-    ws::lobby::LobbyServerMessage,
-};
+use crate::{auth::AuthClaims, db::lobby::LobbyRepository, models::Lobby, state::AppState};
 
 // ============================================================================
 // Request/Response Types
@@ -41,6 +35,15 @@ pub struct CreateLobbyRequest {
 pub struct LobbyQuery {
     pub limit: Option<i64>,
     pub offset: Option<i64>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaginatedResponse<T> {
+    pub data: Vec<T>,
+    pub total: i64,
+    pub limit: i64,
+    pub offset: i64,
 }
 
 // ============================================================================
@@ -82,50 +85,10 @@ pub async fn create_lobby(
             payload.is_private.unwrap_or(false),
             payload.is_sponsored,
             state.redis.clone(),
+            state.clone(),
         )
         .await
         .map_err(|e| e.to_response())?;
-
-    // Broadcast lobby creation to lobby list subscribers
-    tokio::spawn({
-        let state_clone = state.clone();
-        let lobby_id = lobby.id();
-        async move {
-            use crate::ws::broadcast;
-
-            // Fetch lobby with joins to construct LobbyExtended for broadcast
-            let lobby_repo = LobbyRepository::new(state_clone.postgres.clone());
-            let lobby_state_repo = LobbyStateRepository::new(state_clone.redis.clone());
-
-            if let Ok(lobby_with_joins) = lobby_repo.find_by_id_with_joins(lobby_id).await {
-                if let Ok(lobby_state) = lobby_state_repo.get_state(lobby_id).await {
-                    let (creator_wallet, creator_username, creator_display_name) =
-                        lobby_with_joins.creator_info();
-                    let (game_image_url, game_min_players, game_max_players) =
-                        lobby_with_joins.game_info();
-
-                    let lobby_extended = LobbyExtended::from_parts(
-                        lobby_with_joins.to_lobby(),
-                        lobby_state,
-                        creator_wallet,
-                        creator_username,
-                        creator_display_name,
-                        game_image_url,
-                        game_min_players,
-                        game_max_players,
-                    );
-
-                    let _ = broadcast::broadcast_lobby_list(
-                        &state_clone,
-                        &LobbyServerMessage::LobbyCreated {
-                            lobby: lobby_extended,
-                        },
-                    )
-                    .await;
-                }
-            }
-        }
-    });
 
     Ok((StatusCode::CREATED, Json(lobby)))
 }
@@ -162,19 +125,22 @@ pub async fn list_lobbies_by_game(
     State(state): State<AppState>,
     Path(game_id): Path<Uuid>,
     Query(query): Query<LobbyQuery>,
-) -> Result<Json<Vec<Lobby>>, (StatusCode, String)> {
+) -> Result<Json<PaginatedResponse<Lobby>>, (StatusCode, String)> {
+    let limit = query.limit.unwrap_or(20).min(100) as usize;
+    let offset = query.offset.unwrap_or(0).max(0) as usize;
+
     let repo = LobbyRepository::new(state.postgres);
-    let lobbies = repo
-        .find_by_game_id(game_id)
+    let (lobbies, total) = repo
+        .find_by_game_id(game_id, offset, limit)
         .await
         .map_err(|e| e.to_response())?;
 
-    // Apply pagination
-    let limit = query.limit.unwrap_or(20).min(100) as usize;
-    let offset = query.offset.unwrap_or(0).max(0) as usize;
-    let paginated: Vec<Lobby> = lobbies.into_iter().skip(offset).take(limit).collect();
-
-    Ok(Json(paginated))
+    Ok(Json(PaginatedResponse {
+        data: lobbies,
+        total,
+        limit: limit as i64,
+        offset: offset as i64,
+    }))
 }
 
 /// List lobbies created by the authenticated user. Requires JWT.
@@ -182,39 +148,47 @@ pub async fn list_my_lobbies(
     State(state): State<AppState>,
     AuthClaims(claims): AuthClaims,
     Query(query): Query<LobbyQuery>,
-) -> Result<Json<Vec<Lobby>>, (StatusCode, String)> {
+) -> Result<Json<PaginatedResponse<Lobby>>, (StatusCode, String)> {
     let user_id = Uuid::parse_str(&claims.sub)
         .map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid token".to_string()))?;
 
+    let limit = query.limit.unwrap_or(20).min(100) as usize;
+    let offset = query.offset.unwrap_or(0).max(0) as usize;
+
     let repo = LobbyRepository::new(state.postgres);
-    let lobbies = repo
-        .find_by_creator(user_id)
+    let (lobbies, total) = repo
+        .find_by_creator(user_id, offset, limit)
         .await
         .map_err(|e| e.to_response())?;
 
-    // Apply pagination
-    let limit = query.limit.unwrap_or(20).min(100) as usize;
-    let offset = query.offset.unwrap_or(0).max(0) as usize;
-    let paginated: Vec<Lobby> = lobbies.into_iter().skip(offset).take(limit).collect();
-
-    Ok(Json(paginated))
+    Ok(Json(PaginatedResponse {
+        data: lobbies,
+        total,
+        limit: limit as i64,
+        offset: offset as i64,
+    }))
 }
 
 /// List all lobbies with pagination. Public endpoint.
 pub async fn get_all_lobbies(
     State(state): State<AppState>,
     Query(query): Query<LobbyQuery>,
-) -> Result<Json<Vec<Lobby>>, (StatusCode, String)> {
+) -> Result<Json<PaginatedResponse<Lobby>>, (StatusCode, String)> {
     let limit = query.limit.unwrap_or(20).min(100);
     let offset = query.offset.unwrap_or(0).max(0);
 
     let repo = LobbyRepository::new(state.postgres);
-    let lobbies = repo
+    let (lobbies, total) = repo
         .get_all_lobbies(limit, offset)
         .await
         .map_err(|e| e.to_response())?;
 
-    Ok(Json(lobbies))
+    Ok(Json(PaginatedResponse {
+        data: lobbies,
+        total,
+        limit,
+        offset,
+    }))
 }
 
 /// Delete a lobby. Only the lobby creator may delete it. Returns `204`.
@@ -226,7 +200,7 @@ pub async fn delete_lobby(
     let user_id = Uuid::parse_str(&claims.sub)
         .map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid token".to_string()))?;
 
-    let repo = LobbyRepository::new(state.postgres);
+    let repo = LobbyRepository::new(state.postgres.clone());
 
     // Verify user is the creator
     let lobby = repo
@@ -241,7 +215,7 @@ pub async fn delete_lobby(
         ));
     }
 
-    repo.delete_lobby(lobby_id)
+    repo.delete_lobby(lobby_id, Some(state))
         .await
         .map_err(|e| e.to_response())?;
 

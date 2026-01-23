@@ -52,22 +52,32 @@ async fn test_lobby_list_connection_and_initial_list() {
         Some("lobbyList")
     );
 
-    let lobbies = initial_list
-        .get("lobbies")
+    let lobby_info = initial_list
+        .get("lobbyInfo")
         .and_then(|v| v.as_array())
-        .expect("Should have lobbies array");
+        .expect("Should have lobby info array");
+
+    let total = initial_list
+        .get("total")
+        .and_then(|v| v.as_u64())
+        .expect("Should have total field");
 
     // Should include our created lobbies
     assert!(
-        lobbies.len() >= 2,
+        lobby_info.len() >= 2,
         "Should have at least 2 lobbies, got {}",
-        lobbies.len()
+        lobby_info.len()
     );
+    assert!(total >= 2, "Total should be at least 2, got {}", total);
 
     // Verify our lobbies are in the list
-    let lobby_ids: Vec<String> = lobbies
+    let lobby_ids: Vec<String> = lobby_info
         .iter()
-        .filter_map(|l| l.get("id").and_then(|id| id.as_str()))
+        .filter_map(|info| {
+            info.get("lobby")
+                .and_then(|l| l.get("id"))
+                .and_then(|id| id.as_str())
+        })
         .map(String::from)
         .collect();
 
@@ -127,24 +137,29 @@ async fn test_lobby_list_status_filter() {
         Some("lobbyList")
     );
 
-    let lobbies = filtered_list
-        .get("lobbies")
+    let lobby_info = filtered_list
+        .get("lobbyInfo")
         .and_then(|v| v.as_array())
-        .expect("Should have lobbies array");
+        .expect("Should have lobby info array");
 
     // All lobbies in the list should have "Waiting" status
-    for lobby in lobbies {
-        let status = lobby
-            .get("status")
+    for info in lobby_info {
+        let status = info
+            .get("lobby")
+            .and_then(|l| l.get("status"))
             .and_then(|s| s.as_str())
             .expect("Lobby should have status");
         assert_eq!(status, "waiting", "All lobbies should be in Waiting state");
     }
 
     // Verify our waiting lobby is in the list
-    let lobby_ids: Vec<String> = lobbies
+    let lobby_ids: Vec<String> = lobby_info
         .iter()
-        .filter_map(|l| l.get("id").and_then(|id| id.as_str()))
+        .filter_map(|info| {
+            info.get("lobby")
+                .and_then(|l| l.get("id"))
+                .and_then(|id| id.as_str())
+        })
         .map(String::from)
         .collect();
 
@@ -212,15 +227,16 @@ async fn test_lobby_list_subscribe_update() {
         Some("lobbyList")
     );
 
-    let lobbies = updated_list
-        .get("lobbies")
+    let lobby_info = updated_list
+        .get("lobbyInfo")
         .and_then(|v| v.as_array())
-        .expect("Should have lobbies array");
+        .expect("Should have lobby info array");
 
     // All lobbies should be in Waiting state
-    for lobby in lobbies {
-        let status = lobby
-            .get("status")
+    for info in lobby_info {
+        let status = info
+            .get("lobby")
+            .and_then(|l| l.get("status"))
             .and_then(|s| s.as_str())
             .expect("Lobby should have status");
         assert_eq!(
@@ -268,18 +284,18 @@ async fn test_lobby_list_load_more() {
             .await
             .expect("Failed to connect to lobby list");
 
-    // Receive initial list (default limit is 12)
+    // Receive initial list (default limit is 6)
     let initial_list = lobby_list_ws
         .recv_json_timeout(Duration::from_secs(2))
         .await
         .expect("Should receive initial list");
 
-    let initial_lobbies = initial_list
-        .get("lobbies")
+    let initial_lobby_info = initial_list
+        .get("lobbyInfo")
         .and_then(|v| v.as_array())
-        .expect("Should have lobbies array");
+        .expect("Should have lobby info array");
 
-    let initial_count = initial_lobbies.len();
+    let initial_count = initial_lobby_info.len();
 
     // Send LoadMore message
     lobby_list_ws
@@ -301,14 +317,14 @@ async fn test_lobby_list_load_more() {
         Some("lobbyList")
     );
 
-    let additional_lobbies = more_lobbies
-        .get("lobbies")
+    let additional_lobby_info = more_lobbies
+        .get("lobbyInfo")
         .and_then(|v| v.as_array())
-        .expect("Should have lobbies array");
+        .expect("Should have lobby info array");
 
     // Should have received additional lobbies
     assert!(
-        additional_lobbies.len() > 0,
+        additional_lobby_info.len() > 0,
         "Should receive additional lobbies"
     );
 

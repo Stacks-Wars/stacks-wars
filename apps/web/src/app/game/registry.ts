@@ -8,27 +8,28 @@
 import type { GamePlugin, PluginRegistry } from "@/lib/definitions";
 import { CoinFlipPlugin } from "./coin-flip/plugin";
 
+// Registry maps game path to plugin
 export const gamePlugins: PluginRegistry = {
-	[CoinFlipPlugin.id]: CoinFlipPlugin as GamePlugin,
+	[CoinFlipPlugin.path]: CoinFlipPlugin as GamePlugin,
 };
 
 /**
- * Get a game plugin by its ID
+ * Get a game plugin by its path
  */
-export function getGamePlugin(gameId: string) {
-	return gamePlugins[gameId];
+export function getGamePlugin(gamePath: string): GamePlugin | undefined {
+	return gamePlugins[gamePath];
 }
 
 /**
  * Get all registered game plugins
  */
-export function getAllGamePlugins() {
+export function getAllGamePlugins(): GamePlugin[] {
 	return Object.values(gamePlugins);
 }
 
 /**
  * Check if a game plugin exists
  */
-export function hasGamePlugin(gameId: string) {
-	return gameId in gamePlugins;
+export function hasGamePlugin(gamePath: string): boolean {
+	return gamePath in gamePlugins;
 }

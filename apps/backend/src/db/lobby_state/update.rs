@@ -15,7 +15,7 @@ impl LobbyStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:state", lobby_id);
+        let key = RedisKey::lobby_state(lobby_id);
 
         // Check if exists
         let exists: bool = conn
@@ -58,7 +58,7 @@ impl LobbyStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:state", lobby_id);
+        let key = RedisKey::lobby_state(lobby_id);
 
         let now = Utc::now().timestamp();
 
@@ -82,7 +82,7 @@ impl LobbyStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:state", lobby_id);
+        let key = RedisKey::lobby_state(lobby_id);
 
         let new_count: usize = conn
             .hincr(&key, "participant_count", 1)
@@ -105,7 +105,7 @@ impl LobbyStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:state", lobby_id);
+        let key = RedisKey::lobby_state(lobby_id);
 
         let new_count: isize = conn
             .hincr(&key, "participant_count", -1)
@@ -131,7 +131,7 @@ impl LobbyStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:state", lobby_id);
+        let key = RedisKey::lobby_state(lobby_id);
 
         let now = Utc::now().timestamp();
 
@@ -156,7 +156,7 @@ impl LobbyStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:state", lobby_id);
+        let key = RedisKey::lobby_state(lobby_id);
 
         let now = Utc::now().timestamp();
 
@@ -181,7 +181,7 @@ impl LobbyStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:state", lobby_id);
+        let key = RedisKey::lobby_state(lobby_id);
 
         let now_ms = Utc::now().timestamp_millis() as u64;
         let now = Utc::now().timestamp();
@@ -206,7 +206,7 @@ impl LobbyStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:state", lobby_id);
+        let key = RedisKey::lobby_state(lobby_id);
 
         let now = Utc::now().timestamp();
 
@@ -230,7 +230,7 @@ impl LobbyStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:state", lobby_id);
+        let key = RedisKey::lobby_state(lobby_id);
 
         let now = Utc::now().timestamp();
 

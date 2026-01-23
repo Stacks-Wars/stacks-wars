@@ -89,19 +89,19 @@ export default function CoinFlipGame({
 				<div className="rounded-lg border bg-card p-6">
 					<h3 className="mb-4 font-semibold">Players</h3>
 					<div className="space-y-2">
-						{state.players.map((playerId) => {
+						{state.players.map((userId) => {
 							const isActive =
-								state.activePlayers.includes(playerId);
+								state.activePlayers.includes(userId);
 							const isEliminated =
-								state.eliminatedPlayers.includes(playerId);
+								state.eliminatedPlayers.includes(userId);
 							const hasGuessed = Object.keys(
 								state.guesses
-							).includes(playerId);
-							const guess = state.guesses[playerId];
+							).includes(userId);
+							const guess = state.guesses[userId];
 
 							return (
 								<div
-									key={playerId}
+									key={userId}
 									className={`flex items-center justify-between rounded p-2 ${
 										isEliminated
 											? "line-through opacity-50"
@@ -109,7 +109,7 @@ export default function CoinFlipGame({
 									}`}
 								>
 									<span className="font-mono text-sm">
-										{playerId.slice(0, 8)}...
+										{userId.slice(0, 8)}...
 									</span>
 									<div className="flex items-center gap-2">
 										{guess && (

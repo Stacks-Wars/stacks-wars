@@ -111,6 +111,7 @@ pub async fn migrate_player_states(
                         .unwrap_or(10.0),
                     lobby_id,
                     status: crate::models::player_state::PlayerStatus::Joined, // All old players mapped as Joined
+                    state: crate::db::join_request::JoinRequestState::Accepted,
                     tx_id: player_data.get("tx_id").map(|s| s.clone()),
                     rank: player_data.get("rank").and_then(|s| s.parse().ok()),
                     prize: player_data.get("prize").and_then(|s| s.parse().ok()),
@@ -127,7 +128,7 @@ pub async fn migrate_player_states(
                         user_id, lobby_id
                     );
                 } else {
-                    player_state_repo.upsert_state(player_state).await?;
+                    player_state_repo.upsert_state(player_state, None).await?;
                     migrated_count += 1;
 
                     if migrated_count % 10 == 0 {
@@ -164,6 +165,7 @@ pub async fn migrate_player_states(
                 PlayerStatus::NotJoined => crate::models::player_state::PlayerStatus::NotJoined,
                 PlayerStatus::Joined => crate::models::player_state::PlayerStatus::Joined,
             },
+            state: crate::db::join_request::JoinRequestState::Accepted,
             tx_id: old_player.tx_id,
             rank: old_player.rank,
             prize: old_player.prize,
@@ -181,7 +183,7 @@ pub async fn migrate_player_states(
             );
         } else {
             // Create new state
-            player_state_repo.upsert_state(player_state).await?;
+            player_state_repo.upsert_state(player_state, None).await?;
             migrated_count += 1;
 
             if migrated_count % 10 == 0 {

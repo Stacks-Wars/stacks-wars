@@ -7,22 +7,27 @@ interface UserActions {
 	clearUser: () => void;
 	updateUser: (user: Partial<User>) => void;
 	setLobbyFilter: (filter: LobbyStatus[]) => void;
+	setLobbyOffset: (offset: number) => void;
 }
 
-interface UserState {
+interface UserStore {
 	user: User | null;
 	isAuthenticated: boolean;
 	lobbyFilter: LobbyStatus[];
+	lobbyOffset: number;
+	hasHydrated: boolean;
 
 	actions: UserActions;
 }
 
-const useUserStore = create<UserState>()(
+const useUserStore = create<UserStore>()(
 	persist(
 		(set) => ({
 			user: null,
 			isAuthenticated: false,
 			lobbyFilter: ["waiting", "inProgress"],
+			lobbyOffset: 0,
+			hasHydrated: false,
 
 			actions: {
 				setUser: (user) => {
@@ -45,6 +50,7 @@ const useUserStore = create<UserState>()(
 					})),
 
 				setLobbyFilter: (filter) => set({ lobbyFilter: filter }),
+				setLobbyOffset: (offset) => set({ lobbyOffset: offset }),
 			},
 		}),
 		{
@@ -53,7 +59,13 @@ const useUserStore = create<UserState>()(
 				user: state.user,
 				isAuthenticated: state.isAuthenticated,
 				lobbyFilter: state.lobbyFilter,
+				lobbyOffset: state.lobbyOffset,
 			}),
+			onRehydrateStorage: () => (state) => {
+				if (state) {
+					state.hasHydrated = true;
+				}
+			},
 		}
 	)
 );
@@ -62,4 +74,6 @@ export const useUser = () => useUserStore((state) => state.user);
 export const useIsAuthenticated = () =>
 	useUserStore((state) => state.isAuthenticated);
 export const useLobbyFilter = () => useUserStore((state) => state.lobbyFilter);
+export const useLobbyOffset = () => useUserStore((state) => state.lobbyOffset);
+export const useHasHydrated = () => useUserStore((state) => state.hasHydrated);
 export const useUserActions = () => useUserStore((state) => state.actions);

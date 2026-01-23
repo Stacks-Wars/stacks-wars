@@ -22,7 +22,7 @@ impl GameAction for LexiWarsAction {}
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum LexiWarsEvent {
     GameInitialized { players: Vec<Uuid> },
-    WordSubmitted { player_id: Uuid, word: String },
+    WordSubmitted { user_id: Uuid, word: String },
     RoundComplete { winner: Option<Uuid> },
     GameOver { winner: Uuid },
 }
@@ -64,7 +64,7 @@ impl GameEngine for LexiWarsEngine {
         match action {
             LexiWarsAction::SubmitWord { word } => {
                 let event = LexiWarsEvent::WordSubmitted {
-                    player_id: user_id,
+                    user_id,
                     word,
                 };
                 let json_event = serde_json::to_value(event).map_err(|e| {
