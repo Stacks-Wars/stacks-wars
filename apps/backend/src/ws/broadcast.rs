@@ -263,17 +263,54 @@ pub async fn broadcast_lobby_by_status<M: BroadcastMessage>(
     }
 }
 
+/// Broadcast a game-specific message to a specific user.
+///
+/// This wraps the message in the GameMessage wrapper format:
+/// ```json
+/// { "game": { "type": "...", ...fields } }
+/// ```
+///
+/// The payload should be a serialized game event with a "type" field
+pub async fn broadcast_game_message_to_user(
+    state: &AppState,
+    user_id: Uuid,
+    payload: serde_json::Value,
+) {
+    let game_msg = GameMessage::new(payload);
+
+    if let Ok(json) = serde_json::to_string(&game_msg) {
+        let indices = state.indices.lock().await;
+        let conns = state.connections.lock().await;
+
+        if let Some(conn_ids) = indices.get_user_connections(&user_id) {
+            for conn_id in conn_ids.iter() {
+                if let Some(conn) = conns.get(conn_id) {
+                    let sender = conn.sender.clone();
+                    let json_clone = json.clone();
+                    tokio::spawn(async move {
+                        let mut s = sender.lock().await;
+                        let _ = s.send(Message::Text(json_clone.into())).await;
+                    });
+                }
+            }
+        }
+    }
+}
+
 /// Broadcast a game-specific message to all connections in a lobby room.
 ///
-/// This wraps the message with game identifier for frontend router.
+/// This wraps the message in the GameMessage wrapper format:
+/// ```json
+/// { "game": { "type": "...", ...fields } }
+/// ```
+///
+/// The payload should be a serialized game event with a "type" field
 pub async fn broadcast_game_message(
     state: &AppState,
     lobby_id: Uuid,
-    game_path: &str,
-    msg_type: &str,
     payload: serde_json::Value,
 ) {
-    let game_msg = GameMessage::new(game_path.to_string(), msg_type.to_string(), payload);
+    let game_msg = GameMessage::new(payload);
 
     if let Ok(json) = serde_json::to_string(&game_msg) {
         let indices = state.indices.lock().await;
@@ -282,6 +319,53 @@ pub async fn broadcast_game_message(
             let conns = state.connections.lock().await;
 
             for conn_id in conn_ids.iter() {
+                if let Some(conn) = conns.get(conn_id) {
+                    let sender = conn.sender.clone();
+                    let json_clone = json.clone();
+                    tokio::spawn(async move {
+                        let mut s = sender.lock().await;
+                        let _ = s.send(Message::Text(json_clone.into())).await;
+                    });
+                }
+            }
+        }
+    }
+}
+
+/// Broadcast a game-specific message to all connections in a lobby room except a specific user.
+///
+/// This wraps the message in the GameMessage wrapper format:
+/// ```json
+/// { "game": { "type": "...", ...fields } }
+/// ```
+///
+/// The payload should be a serialized game event with a "type" field
+pub async fn broadcast_game_message_to_room_except(
+    state: &AppState,
+    lobby_id: Uuid,
+    except_user_id: Uuid,
+    payload: serde_json::Value,
+) {
+    let game_msg = GameMessage::new(payload);
+
+    if let Ok(json) = serde_json::to_string(&game_msg) {
+        let indices = state.indices.lock().await;
+
+        if let Some(conn_ids) = indices.get_lobby_connections(&lobby_id) {
+            let conns = state.connections.lock().await;
+
+            // Get connection IDs for the user to exclude
+            let excluded_conn_ids: std::collections::HashSet<Uuid> = indices
+                .get_user_connections(&except_user_id)
+                .map(|ids| ids.iter().copied().collect())
+                .unwrap_or_default();
+
+            for conn_id in conn_ids.iter() {
+                // Skip connections belonging to the excluded user
+                if excluded_conn_ids.contains(conn_id) {
+                    continue;
+                }
+
                 if let Some(conn) = conns.get(conn_id) {
                     let sender = conn.sender.clone();
                     let json_clone = json.clone();

@@ -12,7 +12,6 @@ use crate::db::player_state::PlayerStateRepository;
 use crate::db::user::UserRepository;
 use crate::models::{LobbyStatus, PlayerState};
 use crate::state::{AppState, ConnectionInfo};
-use crate::ws::broadcast_room_participants;
 use crate::ws::room::{
     RoomError,
     messages::{RoomClientMessage, RoomServerMessage},
@@ -43,7 +42,6 @@ pub async fn handle_room_message(
     player_repo: &PlayerStateRepository,
     lobby_state_repo: &LobbyStateRepository,
 ) {
-    // Check lobby status for gating (Phase 3)
     let lobby_status = match lobby_state_repo.get_state(lobby_id).await {
         Ok(ls) => ls.status,
         Err(_) => return, // Can't process without status
@@ -418,10 +416,9 @@ pub async fn handle_room_message(
                     )
                     .await;
 
-                    // Phase 4: Initialize game
                     let lobby_repo = LobbyRepository::new(spawn_state.postgres.clone());
-                    let (game_id, game_path) = match lobby_repo.find_by_id(spawn_lobby).await {
-                        Ok(db_lobby) => (db_lobby.game_id, db_lobby.game_path),
+                    let game_id = match lobby_repo.find_by_id(spawn_lobby).await {
+                        Ok(db_lobby) => db_lobby.game_id,
                         _ => {
                             tracing::error!(
                                 "Failed to fetch lobby metadata for game initialization"
@@ -432,6 +429,9 @@ pub async fn handle_room_message(
 
                     if let Some(factory) = spawn_state.game_registry.get(&game_id) {
                         let mut engine = factory(spawn_lobby);
+
+                        // Set app state before initialize so engine can access Redis/DB
+                        engine.set_state(spawn_state.clone()).await;
 
                         // Get all player IDs in the lobby
                         let player_repo = PlayerStateRepository::new(spawn_state.redis.clone());
@@ -454,38 +454,29 @@ pub async fn handle_room_message(
                                     spawn_lobby
                                 );
 
+                                // Start the game loop (for games with background tasks)
+                                // This must be called BEFORE storing in active_games
+                                // so the engine can set up internal state sharing
+                                engine.start_loop(spawn_state.clone());
+
                                 // Store the active game engine
                                 {
                                     let mut active_games = spawn_state.active_games.lock().await;
                                     active_games.insert(spawn_lobby, engine);
                                 }
 
-                                // Broadcast initialization events wrapped with game identifier
+                                // Broadcast initialization events to room
+                                // These are RoomServerMessage variants (GameStarted, GameStartFailed)
+                                // which should be broadcast directly without game wrapper
                                 for event in events {
-                                    // Extract type from event for wrapper
-                                    if let Some(obj) = event.as_object() {
-                                        if let Some(msg_type) =
-                                            obj.get("type").and_then(|v| v.as_str())
-                                        {
-                                            // Wrap with game identifier for frontend router
-                                            let wrapped_msg = serde_json::json!({
-                                                "game": game_path,
-                                                "type": msg_type,
-                                                "payload": event
-                                            });
-
-                                            let game_msg =
-                                                crate::ws::core::message::JsonMessage::from(
-                                                    wrapped_msg,
-                                                );
-                                            let _ = broadcast_room_participants(
-                                                &spawn_state,
-                                                spawn_lobby,
-                                                &game_msg,
-                                            )
-                                            .await;
-                                        }
-                                    }
+                                    let game_msg =
+                                        crate::ws::core::message::JsonMessage::from(event);
+                                    let _ = broadcast::broadcast_room(
+                                        &spawn_state,
+                                        spawn_lobby,
+                                        &game_msg,
+                                    )
+                                    .await;
                                 }
                             }
                             Err(e) => {
