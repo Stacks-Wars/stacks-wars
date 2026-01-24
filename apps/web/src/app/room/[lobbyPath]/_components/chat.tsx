@@ -4,28 +4,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ChatMessage, PlayerState } from "@/lib/definitions";
-import { useIsActionLoading } from "@/lib/stores/room";
+import {
+	useChatHistory,
+	usePlayers,
+	useIsActionLoading,
+} from "@/lib/stores/room";
+import { useUser } from "@/lib/stores/user";
+import { useRoom } from "@/lib/contexts/room-context";
 import { formatAddress } from "@/lib/utils";
 import { Send } from "lucide-react";
 import { useState, useMemo } from "react";
 
-interface ChatProps {
-	messages: ChatMessage[];
-	players: PlayerState[];
-	onSendMessage: (content: string) => void;
-	onAddReaction?: (messageId: string, emoji: string) => void;
-	onRemoveReaction?: (messageId: string, emoji: string) => void;
-	currentUserId?: string;
-}
+export default function Chat() {
+	const messages = useChatHistory();
+	const players = usePlayers();
+	const user = useUser();
+	const { sendLobbyMessage } = useRoom();
 
-export default function Chat({
-	messages,
-	players,
-	onSendMessage,
-	onAddReaction,
-	onRemoveReaction,
-	currentUserId,
-}: ChatProps) {
 	const [newMessage, setNewMessage] = useState("");
 	const isSending = useIsActionLoading("sendMessage");
 
@@ -50,7 +45,7 @@ export default function Chat({
 
 	const handleSend = () => {
 		if (newMessage.trim()) {
-			onSendMessage(newMessage);
+			sendLobbyMessage({ type: "sendMessage", content: newMessage });
 			setNewMessage("");
 		}
 	};
@@ -60,6 +55,14 @@ export default function Chat({
 			e.preventDefault();
 			handleSend();
 		}
+	};
+
+	const handleAddReaction = (messageId: string, emoji: string) => {
+		sendLobbyMessage({ type: "addReaction", messageId, emoji });
+	};
+
+	const handleRemoveReaction = (messageId: string, emoji: string) => {
+		sendLobbyMessage({ type: "removeReaction", messageId, emoji });
 	};
 
 	return (
@@ -110,17 +113,17 @@ export default function Chat({
 													className="text-xs px-2 py-1 rounded-full bg-muted hover:bg-muted/80 transition-colors"
 													onClick={() => {
 														if (
-															currentUserId &&
+															user?.id &&
 															userIds.includes(
-																currentUserId
+																user.id
 															)
 														) {
-															onRemoveReaction?.(
+															handleRemoveReaction(
 																msg.messageId,
 																emoji
 															);
 														} else {
-															onAddReaction?.(
+															handleAddReaction(
 																msg.messageId,
 																emoji
 															);

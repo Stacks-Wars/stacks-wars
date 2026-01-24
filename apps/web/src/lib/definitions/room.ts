@@ -5,7 +5,7 @@
  * Each game implements a plugin that handles its own state and messages.
  */
 
-import type { Game, LobbyExtended, PlayerState, User } from "@/lib/definitions";
+import type { Game, LobbyExtended } from "@/lib/definitions";
 
 // ============================================================================
 // Message Wrapper - Game messages from server
@@ -60,10 +60,6 @@ export interface GamePluginProps<TState = unknown> {
 	lobby: LobbyExtended;
 	/** Game information */
 	game: Game;
-	/** Creator information */
-	creator: User;
-	/** Current players */
-	players: PlayerState[];
 }
 
 // ============================================================================

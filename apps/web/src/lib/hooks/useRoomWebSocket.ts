@@ -36,9 +36,10 @@ import {
 	useLobbyActions,
 	useLobbyStore,
 } from "../stores/room";
-import { useUser } from "../stores/user";
+import { useUser, useUserActions } from "../stores/user";
 import { WebSocketClient } from "../websocket/wsClient";
 import { toast } from "sonner";
+import { clear } from "console";
 
 interface UseRoomOptions {
 	lobbyPath: string;
@@ -51,22 +52,6 @@ interface UseRoomOptions {
 }
 
 export interface UseRoomWebSocketReturn {
-	// Connection state
-	isConnected: boolean;
-	isConnecting: boolean;
-	error: string | null;
-	latency: number | null;
-	// Auth state
-	user: User | null;
-	isAuthenticated: boolean;
-	// Lobby state
-	lobby: LobbyExtended | null;
-	game: Game | null;
-	creator: User | null;
-	players: PlayerState[];
-	joinRequests: JoinRequest[];
-	chatHistory: ChatMessage[];
-	countdown: number | null;
 	// Game state
 	gameState: unknown;
 	gamePlugin: GamePlugin | undefined;
@@ -88,27 +73,11 @@ export function useRoomWebSocket({
 	const gamePluginRef = useRef<GamePlugin | undefined>(undefined);
 	const [gamePlugin, setGamePlugin] = useState<GamePlugin | undefined>();
 	const [gameState, setGameState] = useState<unknown>(null);
-	const [authenticatedUserId, setAuthenticatedUserId] = useState<
-		string | null
-	>(null);
-	const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 	const pendingActionsRef = useRef<Set<string>>(new Set());
 
-	const lobby = useLobby();
-	const game = useGame();
-	const creator = useCreator();
-	const players = usePlayers();
-	const joinRequests = useJoinRequests();
-	const chatHistory = useChatHistory();
-	const countdown = useCountdown();
-	const isConnected = useRoomConnected();
-	const isConnecting = useRoomConnecting();
-	const error = useRoomError();
-	const latency = useRoomLatency();
 	const lobbyActions = useLobbyActions();
 	const user = useUser();
-
-	const isAuthenticated = !isCheckingAuth && !!authenticatedUserId && !!user;
+	const { clearUser } = useUserActions();
 
 	// Check authentication status
 	useEffect(() => {
@@ -116,12 +85,11 @@ export function useRoomWebSocket({
 			try {
 				const response = await fetch("/api/auth/me");
 				const data = await response.json();
-				setAuthenticatedUserId(data.userId);
+				if (user && !data.userId && user.id !== data.userId)
+					clearUser();
 			} catch (error) {
 				console.error("Failed to check authentication:", error);
-				setAuthenticatedUserId(null);
-			} finally {
-				setIsCheckingAuth(false);
+				clearUser();
 			}
 		}
 
@@ -545,25 +513,6 @@ export function useRoomWebSocket({
 	};
 
 	return {
-		// Connection state
-		isConnected,
-		isConnecting,
-		error,
-		latency,
-
-		// Auth state
-		user,
-		isAuthenticated,
-
-		// Lobby state
-		lobby,
-		game,
-		creator,
-		players,
-		joinRequests,
-		chatHistory,
-		countdown,
-
 		// Game state
 		gameState,
 		gamePlugin,

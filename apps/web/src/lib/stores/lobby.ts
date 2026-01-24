@@ -119,7 +119,7 @@ export const useLobbyStore = create<LobbyStore>((set) => ({
 }));
 
 // Export individual state selectors
-export const useLobby = () => useLobbyStore((state) => state.lobbyInfo);
+export const useLobbyInfo = () => useLobbyStore((state) => state.lobbyInfo);
 export const useLobbyTotal = () => useLobbyStore((state) => state.total);
 export const useLobbyConnected = () =>
 	useLobbyStore((state) => state.isConnected);

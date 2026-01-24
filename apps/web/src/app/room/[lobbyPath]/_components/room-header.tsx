@@ -1,18 +1,14 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Gamepad2, Wifi, WifiOff } from "lucide-react";
-import { useRoomView } from "@/lib/contexts/room-view-context";
+import { ChevronLeft, Wifi, WifiOff } from "lucide-react";
 import { useRoom } from "@/lib/contexts/room-context";
 import ShareButton from "../@lobby/_components/share-button";
-import type { LobbyExtended } from "@/lib/definitions";
 import { cn } from "@/lib/utils";
-
-interface RoomHeaderProps {
-	lobby: LobbyExtended;
-	isConnecting: boolean;
-	isConnected: boolean;
-	latency: number | null;
-}
+import {
+	useRoomConnected,
+	useRoomConnecting,
+	useRoomLatency,
+} from "@/lib/stores/room";
 
 function getLatencyColor(latency: number): string {
 	if (latency < 50) return "text-green-500"; // Very good
@@ -28,14 +24,11 @@ function getLatencyLabel(latency: number): string {
 	return "Bad";
 }
 
-export default function RoomHeader({
-	lobby,
-	isConnected,
-	isConnecting,
-	latency,
-}: RoomHeaderProps) {
-	const { setView } = useRoomView();
+export default function RoomHeader() {
 	const { disconnect } = useRoom();
+	const latency = useRoomLatency();
+	const isConnected = useRoomConnected();
+	const isConnecting = useRoomConnecting();
 
 	const handleBackClick = () => {
 		// Disconnect WebSocket before navigating away
@@ -83,7 +76,7 @@ export default function RoomHeader({
 					</div>
 				)}
 
-				<ShareButton lobbyPath={lobby.path} />
+				<ShareButton />
 			</div>
 		</div>
 	);

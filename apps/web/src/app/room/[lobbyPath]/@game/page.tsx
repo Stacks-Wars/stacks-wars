@@ -2,20 +2,15 @@
 
 import { useRoom } from "@/lib/contexts/room-context";
 import Loading from "@/app/loading";
+import { useGame, useLobby, useRoomConnecting } from "@/lib/stores/room";
 
 export default function GameSlot() {
-	const {
-		lobby,
-		game,
-		creator,
-		players,
-		gameState,
-		gamePlugin,
-		isConnecting,
-		sendGameMessage,
-	} = useRoom();
+	const { gameState, gamePlugin, sendGameMessage } = useRoom();
+	const lobby = useLobby();
+	const game = useGame();
+	const isConnecting = useRoomConnecting();
 
-	if (isConnecting || !lobby || !game || !creator) {
+	if (isConnecting || !lobby || !game) {
 		return <Loading />;
 	}
 
@@ -27,8 +22,6 @@ export default function GameSlot() {
 					sendMessage={sendGameMessage}
 					lobby={lobby}
 					game={game}
-					creator={creator}
-					players={players}
 				/>
 			) : (
 				<div className="bg-card rounded-lg p-8 text-center">

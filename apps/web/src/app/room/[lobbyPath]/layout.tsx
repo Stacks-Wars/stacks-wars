@@ -1,4 +1,4 @@
-import RoomContent from "../room-content";
+import RoomContent from "./room-content";
 
 export default async function RoomLayout({
 	children,
