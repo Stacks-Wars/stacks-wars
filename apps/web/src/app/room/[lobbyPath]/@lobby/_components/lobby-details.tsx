@@ -11,7 +11,7 @@ import {
 	DialogTrigger,
 } from "@/components/ui/dialog";
 import { useState } from "react";
-import Chat from "../../_components/chat";
+import Chat from "@/components/room/chat";
 import { useLobby, useGame } from "@/lib/stores/room";
 
 export default function LobbyDetails() {

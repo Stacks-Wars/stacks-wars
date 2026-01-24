@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/lib/stores/user";
 import { cn, formatAddress } from "@/lib/utils";
-import RoomHeader from "@/app/room/[lobbyPath]/_components/room-header";
+import RoomHeader from "@/components/room/room-header";
 
 export default function LexiWarsGame({
 	state,

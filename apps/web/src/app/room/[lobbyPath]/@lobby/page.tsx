@@ -17,7 +17,7 @@ import {
 	useIsActionLoading,
 } from "@/lib/stores/room";
 import { useUser, useIsAuthenticated } from "@/lib/stores/user";
-import RoomHeader from "../_components/room-header";
+import RoomHeader from "@/components/room/room-header";
 
 export default function LobbySlot() {
 	const { sendLobbyMessage } = useRoom();

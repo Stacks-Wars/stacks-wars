@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Wifi, WifiOff } from "lucide-react";
 import { useRoom } from "@/lib/contexts/room-context";
-import ShareButton from "../@lobby/_components/share-button";
+import ShareButton from "../../app/room/[lobbyPath]/@lobby/_components/share-button";
 import { cn } from "@/lib/utils";
 import {
 	useRoomConnected,
