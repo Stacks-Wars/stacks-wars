@@ -750,14 +750,27 @@ impl GameEngine for LexiWarsEngine {
 /// 7. Loop back to step 1
 async fn run_game_loop(inner: Arc<RwLock<LexiWarsInner>>, state: AppState) {
     // Get the notify handle and lobby_id
-    let (turn_advance_notify, lobby_id) = {
+    let (turn_advance_notify, lobby_id, total_players) = {
         let mut inner_guard = inner.write().await;
         inner_guard.app_state = Some(state.clone());
         (
             inner_guard.turn_advance_notify.clone(),
             inner_guard.lobby_id,
+            inner_guard.total_players,
         )
     };
+
+    // Broadcast initial PlayersCount at game start
+    let players_count = LexiWarsEvent::PlayersCount {
+        remaining: total_players,
+        total: total_players,
+    };
+    broadcast::broadcast_game_message(
+        &state,
+        lobby_id,
+        serde_json::to_value(&players_count).unwrap_or_default(),
+    )
+    .await;
 
     loop {
         // Get current turn state
