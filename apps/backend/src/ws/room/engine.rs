@@ -390,6 +390,11 @@ pub async fn handle_room_message(
                     // Clear countdown and mark started
                     let _ = spawn_repo.clear_countdown(spawn_lobby).await.ok();
                     let _ = spawn_repo.mark_started(spawn_lobby).await.ok();
+                    // Update PostgreSQL status to InProgress
+                    let lobby_repo_spawn = LobbyRepository::new(spawn_state.postgres.clone());
+                    let _ = lobby_repo_spawn
+                        .update_status(spawn_lobby, LobbyStatus::InProgress, spawn_state.clone())
+                        .await;
 
                     // Get participant count and current amount for broadcast
                     let participant_count = spawn_repo
@@ -398,7 +403,6 @@ pub async fn handle_room_message(
                         .map(|s| s.participant_count)
                         .unwrap_or(0);
 
-                    let lobby_repo_spawn = LobbyRepository::new(spawn_state.postgres.clone());
                     let current_amount = lobby_repo_spawn
                         .find_by_id(spawn_lobby)
                         .await
