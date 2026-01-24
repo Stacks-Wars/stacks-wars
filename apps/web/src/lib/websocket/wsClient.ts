@@ -80,12 +80,14 @@ export class WebSocketClient {
 
 	/**
 	 * Send a game-specific message with proper wrapper format
+	 * Format: { "game": { "type": "submit_word", "word": "hello" } }
 	 */
-	sendGameMessage(game: string, type: string, payload: unknown): void {
+	sendGameMessage(type: string, payload: unknown): void {
 		this.send({
-			game,
-			type,
-			payload,
+			game: {
+				type,
+				...((payload as object) || {}),
+			},
 		});
 	}
 

@@ -17,7 +17,7 @@ import {
 	DialogTrigger,
 } from "@/components/ui/dialog";
 import { useState } from "react";
-import Chat from "./chat";
+import Chat from "../../_components/chat";
 
 interface LobbyDetailsProps {
 	lobby: LobbyExtended;

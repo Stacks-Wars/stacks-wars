@@ -9,7 +9,7 @@ import Loading from "@/app/loading";
 import { useRoomView } from "@/lib/contexts/room-view-context";
 import { useRoom } from "@/lib/contexts/room-context";
 import { useIsActionLoading } from "@/lib/stores/room";
-import RoomHeader from "./_components/header";
+import RoomHeader from "../_components/header";
 
 export default function LobbySlot() {
 	const {

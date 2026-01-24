@@ -1,22 +1,26 @@
-import type { GameMessage } from "@/lib/definitions";
 import type { CoinFlipMessage, CoinFlipState } from "./types";
 
+/**
+ * Handle incoming Coin Flip messages and update state
+ *
+ * Note: The new message format wraps game messages as:
+ * { "game": { "type": "round_started", ... } }
+ *
+ * The message parameter here is already the inner game object.
+ */
 export const handleCoinFlipMessage = (
 	state: CoinFlipState,
-	message: GameMessage<CoinFlipMessage>
+	message: CoinFlipMessage
 ): CoinFlipState => {
-	// Extract the actual message from payload (since GameMessage wraps it)
-	const msg = message.payload as CoinFlipMessage;
-
-	switch (msg.type) {
+	switch (message.type) {
 		case "game_started": {
 			return {
 				...state,
-				players: msg.payload.players,
-				currentPlayer: msg.payload.current_player,
-				activePlayers: msg.payload.players,
+				players: message.payload.players,
+				currentPlayer: message.payload.current_player,
+				activePlayers: message.payload.players,
 				currentRound: 1,
-				timeoutSecs: msg.payload.timeout_secs,
+				timeoutSecs: message.payload.timeout_secs,
 				guesses: {},
 			};
 		}
@@ -24,9 +28,9 @@ export const handleCoinFlipMessage = (
 		case "round_started": {
 			return {
 				...state,
-				currentRound: msg.payload.round,
-				currentPlayer: msg.payload.current_player,
-				timeoutSecs: msg.payload.timeout_secs,
+				currentRound: message.payload.round,
+				currentPlayer: message.payload.current_player,
+				timeoutSecs: message.payload.timeout_secs,
 				guesses: {},
 				lastCoinResult: null,
 			};
@@ -37,7 +41,7 @@ export const handleCoinFlipMessage = (
 				...state,
 				guesses: {
 					...state.guesses,
-					[msg.payload.player_id]: "heads", // We don't know the guess yet
+					[message.payload.player_id]: "heads", // We don't know the guess yet
 				},
 			};
 		}
@@ -47,7 +51,7 @@ export const handleCoinFlipMessage = (
 				...state,
 				eliminatedPlayers: [
 					...state.eliminatedPlayers,
-					msg.payload.player_id,
+					message.payload.player_id,
 				],
 			};
 		}
@@ -55,7 +59,7 @@ export const handleCoinFlipMessage = (
 		case "round_complete": {
 			// Update guesses with actual values from results
 			const newGuesses: Record<string, "heads" | "tails"> = {};
-			msg.payload.results.forEach((result) => {
+			message.payload.results.forEach((result) => {
 				if (result.guess) {
 					newGuesses[result.player_id] = result.guess;
 				}
@@ -63,10 +67,10 @@ export const handleCoinFlipMessage = (
 
 			return {
 				...state,
-				lastCoinResult: msg.payload.coin_result,
+				lastCoinResult: message.payload.coin_result,
 				guesses: newGuesses,
-				eliminatedPlayers: msg.payload.eliminated_players,
-				activePlayers: msg.payload.remaining_players,
+				eliminatedPlayers: message.payload.eliminated_players,
+				activePlayers: message.payload.remaining_players,
 			};
 		}
 
@@ -74,12 +78,12 @@ export const handleCoinFlipMessage = (
 			return {
 				...state,
 				finished: true,
-				results: msg.payload.results,
+				results: message.payload.results,
 			};
 		}
 
 		default:
-			console.warn("[CoinFlip] Unhandled message type:", msg);
+			console.warn("[CoinFlip] Unhandled message type:", message);
 			return state;
 	}
 };

@@ -30,6 +30,11 @@ export type RoomServerMessage =
 	| ReactionRemovedMessage
 	| PongMessage
 	| PlayerUpdatedMessage
+	| GameStateMessage
+	| GameStartedMessage
+	| GameStartFailedMessage
+	| FinalStandingMessage
+	| GameOverMessage
 	| ErrorMessage;
 
 export interface LobbyBootstrapMessage {
@@ -107,10 +112,45 @@ export interface PlayerUpdatedMessage {
 	players: PlayerState[];
 }
 
+/**
+ * Game state for reconnecting players - sent when joining an in-progress game.
+ * Contains game-specific state that each game engine provides.
+ * Each game plugin should define its own GameStateData type.
+ */
+export interface GameStateMessage {
+	type: "gameState";
+	gameState: unknown;
+}
+
 export interface ErrorMessage {
 	type: "error";
 	code: string;
 	message: string;
+}
+
+// ============================================================================
+// Shared Game Events (used across all games)
+// ============================================================================
+
+export interface GameStartedMessage {
+	type: "gameStarted";
+}
+
+export interface GameStartFailedMessage {
+	type: "gameStartFailed";
+	reason: string;
+}
+
+export interface FinalStandingMessage {
+	type: "finalStanding";
+	standings: PlayerState[];
+}
+
+export interface GameOverMessage {
+	type: "gameOver";
+	rank: number;
+	prize: number | null;
+	warsPoint: number;
 }
 
 /**

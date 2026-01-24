@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, Gamepad2, Wifi, WifiOff } from "lucide-react";
 import { useRoomView } from "@/lib/contexts/room-view-context";
 import { useRoom } from "@/lib/contexts/room-context";
-import ShareButton from "./share-button";
+import ShareButton from "../@lobby/_components/share-button";
 import type { LobbyExtended } from "@/lib/definitions";
 import { cn } from "@/lib/utils";
 
