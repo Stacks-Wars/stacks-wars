@@ -106,6 +106,26 @@ pub async fn create_user(
 // User Retrieval
 // ============================================================================
 
+/// Get the authenticated user's profile.
+///
+/// Requires a valid JWT. Returns the authenticated `User` or `401` if not authenticated.
+pub async fn get_me(
+    State(state): State<AppState>,
+    AuthClaims(claims): AuthClaims,
+) -> Result<Json<User>, (StatusCode, String)> {
+    let user_id = Uuid::parse_str(&claims.sub)
+        .map_err(|_| AppError::Unauthorized("Invalid token".into()).to_response())?;
+
+    let repo = UserRepository::new(state.postgres.clone());
+
+    let user = repo
+        .find_by_id(user_id)
+        .await
+        .map_err(|e| e.to_response())?;
+
+    Ok(Json(user))
+}
+
 /// Get a user's public profile by UUID, wallet address, or username.
 ///
 /// Public endpoint returning `User` or `404` if not found.

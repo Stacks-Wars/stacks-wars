@@ -2,7 +2,7 @@
 use axum::{
     Router,
     middleware::from_fn_with_state,
-    routing::{delete, patch, post},
+    routing::{delete, get, patch, post},
 };
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
         lobby::{create_lobby, delete_lobby},
         platform_rating::{create_rating, delete_rating, update_rating},
         season::create_season,
-        user::{logout, update_display_name, update_profile, update_username},
+        user::{get_me, logout, update_display_name, update_profile, update_username},
     },
     middleware::{AuthRateLimit, rate_limit_with_state},
     state::AppState,
@@ -19,6 +19,7 @@ use crate::{
 
 pub fn routes(state_for_layer: AppState) -> Router<AppState> {
     Router::new()
+        .route("/me", get(get_me))
         .route("/user/profile", patch(update_profile))
         .route("/platform-rating", post(create_rating))
         .route("/platform-rating", patch(update_rating))
