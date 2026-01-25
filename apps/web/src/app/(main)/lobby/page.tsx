@@ -6,9 +6,9 @@ import { LobbyFilter } from "@/app/(main)/lobby/_components/lobby-filter";
 import {
 	useLobbyFilter,
 	useLobbyOffset,
-	useUserActions,
-	useHasHydrated,
-} from "@/lib/stores/user";
+	useAppActions,
+	useAppHasHydrated,
+} from "@/lib/stores/app";
 import {
 	useLobbyInfo,
 	useLobbyTotal,
@@ -28,10 +28,10 @@ const ITEMS_PER_PAGE = 6;
 
 export default function LobbyPage() {
 	const router = useRouter();
-	const hasHydrated = useHasHydrated();
+	const hasHydrated = useAppHasHydrated();
 	const lobbyFilter = useLobbyFilter();
 	const currentOffset = useLobbyOffset();
-	const { setLobbyFilter, setLobbyOffset } = useUserActions();
+	const { setLobbyFilter, setLobbyOffset } = useAppActions();
 
 	const lobbyInfo = useLobbyInfo();
 	const total = useLobbyTotal();

@@ -33,7 +33,9 @@ export default function LobbyCard({ lobbyInfo }: { lobbyInfo: LobbyInfo }) {
 						</Link>
 					</div>
 					<Badge className="py-1.5 sm:py-2 px-2.5 sm:px-3.5 text-xs sm:text-sm font-medium">
-						{lobby.status}
+						{lobby.status === "inProgress"
+							? "In Progress"
+							: lobby.status}
 					</Badge>
 				</div>
 
