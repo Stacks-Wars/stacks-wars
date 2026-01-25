@@ -310,9 +310,9 @@ pub async fn handle_room_message(
         }
 
         RoomClientMessage::UpdateLobbyStatus { status } => {
-            if lobby_status == LobbyStatus::InProgress {
+            if lobby_status == LobbyStatus::InProgress || lobby_status == LobbyStatus::Finished {
                 let err = RoomError::LobbyStatusFailed(
-                    "Cannot change status during active game".to_string(),
+                    "Cannot change status during active/finished game".to_string(),
                 );
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
@@ -371,6 +371,15 @@ pub async fn handle_room_message(
                         let lobby_state_repo_bg = LobbyStateRepository::new(spawn_redis.clone());
                         if let Ok(ls) = lobby_state_repo_bg.get_state(spawn_lobby).await {
                             if !matches!(ls.status, LobbyStatus::Starting) {
+                                // Broadcast None to signal countdown cancellation
+                                let _ = broadcast::broadcast_room(
+                                    &spawn_state,
+                                    spawn_lobby,
+                                    &RoomServerMessage::StartCountdown {
+                                        seconds_remaining: None,
+                                    },
+                                )
+                                .await;
                                 return;
                             }
                         } else {
@@ -381,7 +390,7 @@ pub async fn handle_room_message(
                             &spawn_state,
                             spawn_lobby,
                             &RoomServerMessage::StartCountdown {
-                                seconds_remaining: sec as u8,
+                                seconds_remaining: Some(sec as u8),
                             },
                         )
                         .await;

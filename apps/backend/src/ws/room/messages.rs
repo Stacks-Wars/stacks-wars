@@ -81,7 +81,7 @@ pub enum RoomServerMessage {
     /// Countdown updates
     #[serde(rename_all = "camelCase")]
     StartCountdown {
-        seconds_remaining: u8,
+        seconds_remaining: Option<u8>,
     },
 
     #[serde(rename_all = "camelCase")]
