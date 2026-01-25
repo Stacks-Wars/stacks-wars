@@ -53,13 +53,14 @@ impl PlayerStateRepository {
         Ok(())
     }
 
-    /// Set player rank and prize (for winners).
+    /// Set player rank, prize, and wars_point (for game results).
     pub async fn set_result(
         &self,
         lobby_id: Uuid,
         user_id: Uuid,
         rank: usize,
         prize: Option<f64>,
+        wars_point: f64,
     ) -> Result<(), AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
@@ -69,7 +70,11 @@ impl PlayerStateRepository {
 
         let now = Utc::now().timestamp();
 
-        let mut fields = vec![("rank", rank.to_string()), ("updated_at", now.to_string())];
+        let mut fields = vec![
+            ("rank", rank.to_string()),
+            ("wars_point", wars_point.to_string()),
+            ("updated_at", now.to_string()),
+        ];
 
         if let Some(prize_amount) = prize {
             fields.push(("prize", prize_amount.to_string()));

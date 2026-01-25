@@ -73,4 +73,4 @@ pub trait GameEngine: Send + Sync {
 }
 
 /// Type of factory function that creates game engine instances
-pub type GameFactory = fn(Uuid) -> Box<dyn GameEngine>;
+pub type GameFactory = fn(Uuid, AppState) -> Box<dyn GameEngine>;

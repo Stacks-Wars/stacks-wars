@@ -404,6 +404,6 @@ impl GameEngine for CoinFlipEngine {
 }
 
 /// Factory function
-pub fn create_coin_flip(lobby_id: Uuid) -> Box<dyn GameEngine> {
+pub fn create_coin_flip(lobby_id: Uuid, _state: crate::state::AppState) -> Box<dyn GameEngine> {
     Box::new(CoinFlipEngine::new(lobby_id))
 }

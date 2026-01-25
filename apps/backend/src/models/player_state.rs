@@ -88,6 +88,9 @@ pub struct PlayerState {
     /// Prize amount won
     pub prize: Option<f64>,
 
+    /// Wars points earned from this game
+    pub wars_point: Option<f64>,
+
     /// Prize claim status
     pub claim_state: Option<ClaimState>,
 
@@ -130,6 +133,7 @@ impl PlayerState {
             tx_id,
             rank: None,
             prize: None,
+            wars_point: None,
             claim_state: None,
             last_ping: Some(Utc::now().timestamp_millis() as u64),
             joined_at: now,
@@ -230,6 +234,8 @@ impl PlayerState {
 
         let prize = data.get("prize").and_then(|p| p.parse::<f64>().ok());
 
+        let wars_point = data.get("wars_point").and_then(|v| v.parse().ok());
+
         let claim_state = data
             .get("claim_state")
             .and_then(|s| serde_json::from_str(s).ok());
@@ -263,6 +269,7 @@ impl PlayerState {
             tx_id,
             rank,
             prize,
+            wars_point,
             claim_state,
             last_ping,
             joined_at,

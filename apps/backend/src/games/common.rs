@@ -8,7 +8,14 @@
 // - Sync results to PlayerState after game completion
 // - Save permanent game summaries to Redis
 
-use crate::{db::player_state::PlayerStateRepository, errors::AppError, state::RedisClient};
+use crate::{
+    db::{
+        player_state::PlayerStateRepository, season::SeasonRepository,
+        user_wars_points::UserWarsPointsRepository,
+    },
+    errors::AppError,
+    state::{AppState, RedisClient},
+};
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
@@ -246,26 +253,48 @@ pub struct GameSummary {
     pub finished_at: i64,
 }
 
-/// Sync game results to PlayerState in Redis
+/// Result of saving a player's game result
+#[derive(Debug, Clone)]
+pub struct PlayerResult {
+    pub rank: usize,
+    pub prize: Option<f64>,
+    pub wars_point: f64,
+}
+
+/// Save a player's game result to Redis and PostgreSQL
 ///
-/// Updates each player's rank, prize (none for now), and claim_state (none) in their PlayerState.
-/// This should be called when a game finishes.
-pub async fn sync_results_to_player_state(
-    player_state_repo: &PlayerStateRepository,
+/// This function:
+/// 1. Calculates wars_point using the provided context
+/// 2. Saves rank, prize, wars_point to Redis PlayerState
+/// 3. Saves wars_point to PostgreSQL user_wars_points for current season
+/// 4. Returns the calculated values
+pub async fn save_player_result(
+    state: &AppState,
     lobby_id: Uuid,
-    results: &GameResults,
-) -> Result<(), AppError> {
-    for ranking in &results.rankings {
-        player_state_repo
-            .set_result(
-                lobby_id,
-                ranking.user_id,
-                ranking.rank,
-                None, // prize is None for now
-            )
-            .await?;
+    ctx: &WarsPointContext,
+) -> Result<PlayerResult, AppError> {
+    let wars_point = calculate_wars_point(ctx);
+
+    // Save to Redis PlayerState
+    let player_repo = PlayerStateRepository::new(state.redis.clone());
+    player_repo
+        .set_result(lobby_id, ctx.user_id, ctx.rank, ctx.prize, wars_point)
+        .await?;
+
+    // Save wars_point to PostgreSQL user_wars_points for current season
+    let season_repo = SeasonRepository::new(state.postgres.clone());
+    if let Ok(season_id) = season_repo.get_current_season().await {
+        let wars_points_repo = UserWarsPointsRepository::new(state.postgres.clone());
+        let _ = wars_points_repo
+            .upsert_wars_points(ctx.user_id, season_id, wars_point)
+            .await;
     }
-    Ok(())
+
+    Ok(PlayerResult {
+        rank: ctx.rank,
+        prize: ctx.prize,
+        wars_point,
+    })
 }
 
 /// Save permanent game summary to Redis
@@ -325,6 +354,75 @@ pub async fn load_game_summary(
         None => Ok(None),
     }
 }
+
+// ============================================================================
+// Wars Points Calculation
+// ============================================================================
+
+/// Context for calculating wars points and saving player results
+///
+/// Pass this to `save_player_result` to calculate wars points and persist results.
+#[derive(Debug, Clone)]
+pub struct WarsPointContext {
+    /// The user being calculated for
+    pub user_id: Uuid,
+    /// Player's final rank (1 = winner)
+    pub rank: usize,
+    /// Prize amount won (calculated by game)
+    pub prize: Option<f64>,
+    /// Total number of participants in the game
+    pub participants: usize,
+    /// Entry amount per player (if any)
+    pub entry_amount: Option<f64>,
+    /// Total prize pool
+    pub current_amount: Option<f64>,
+    /// Whether this is a sponsored lobby
+    pub is_sponsored: bool,
+    /// The creator's user ID (for sponsor bonus)
+    pub creator_id: Option<Uuid>,
+    /// Number of active players remaining (for sponsor bonus calculation)
+    pub active_players: usize,
+}
+
+/// Calculate wars points for a player
+///
+/// This is the standard formula used across all games:
+/// - Base points: (participants - rank + 1) * 2
+/// - Pool bonus (non-sponsored): (current_amount / participants) + (entry_amount / 5)
+/// - Sponsor bonus (sponsored + creator): 2.5 * active_players
+/// - Maximum cap: 50 points
+pub fn calculate_wars_point(ctx: &WarsPointContext) -> f64 {
+    // Base points: higher rank = more points
+    let base_point = (ctx.participants.saturating_sub(ctx.rank).saturating_add(1) * 2) as f64;
+    let mut total_point = base_point;
+
+    // Pool bonus for non-sponsored games
+    if !ctx.is_sponsored {
+        if let (Some(entry_amount), Some(current_amount)) = (ctx.entry_amount, ctx.current_amount) {
+            if entry_amount > 0.0 {
+                let pool_bonus = (current_amount / ctx.participants as f64) + (entry_amount / 5.0);
+                total_point += pool_bonus;
+            }
+        }
+    }
+
+    // Sponsor bonus if this is a sponsored lobby and the player is the creator
+    if ctx.is_sponsored {
+        if let Some(creator_id) = ctx.creator_id {
+            if ctx.user_id == creator_id {
+                let sponsor_bonus = 2.5 * ctx.active_players as f64;
+                total_point += sponsor_bonus;
+            }
+        }
+    }
+
+    // Cap at 50 points maximum
+    total_point.min(50.0)
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

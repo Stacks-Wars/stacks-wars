@@ -171,6 +171,45 @@ async fn handle_socket(
                     }
                 }
             }
+
+            // If game is finished, send FinalStanding and GameOver for authenticated users
+            if lobby_status == LobbyStatus::Finished {
+                // Get all players sorted by rank for standings
+                if let Ok(mut standings) = player_repo.get_all_in_lobby(lobby_id).await {
+                    // Sort by rank (players with rank come first, sorted ascending)
+                    standings.sort_by(|a, b| match (&a.rank, &b.rank) {
+                        (Some(ra), Some(rb)) => ra.cmp(rb),
+                        (Some(_), None) => std::cmp::Ordering::Less,
+                        (None, Some(_)) => std::cmp::Ordering::Greater,
+                        (None, None) => std::cmp::Ordering::Equal,
+                    });
+
+                    let _ = manager::send_to_connection(
+                        &conn,
+                        &RoomServerMessage::FinalStanding {
+                            standings: standings.clone(),
+                        },
+                    )
+                    .await;
+
+                    // Send GameOver to authenticated user if they were a participant
+                    if let Some(user_id) = auth_user_id {
+                        if let Some(player) = standings.iter().find(|p| p.user_id == user_id) {
+                            if let Some(rank) = player.rank {
+                                let _ = manager::send_to_connection(
+                                    &conn,
+                                    &RoomServerMessage::GameOver {
+                                        rank,
+                                        prize: player.prize,
+                                        wars_point: player.wars_point.unwrap_or(0.0),
+                                    },
+                                )
+                                .await;
+                            }
+                        }
+                    }
+                }
+            }
         }
         _ => {
             let err = RoomError::NotFound;

@@ -453,10 +453,8 @@ pub async fn handle_room_message(
                     };
 
                     if let Some(factory) = spawn_state.game_registry.get(&game_id) {
-                        let mut engine = factory(spawn_lobby);
-
-                        // Set app state before initialize so engine can access Redis/DB
-                        engine.set_state(spawn_state.clone()).await;
+                        // Create engine with state (state is now required at creation time)
+                        let mut engine = factory(spawn_lobby, spawn_state.clone());
 
                         // Get all player IDs in the lobby
                         let player_repo = PlayerStateRepository::new(spawn_state.redis.clone());
