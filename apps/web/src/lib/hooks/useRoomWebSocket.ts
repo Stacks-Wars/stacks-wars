@@ -85,11 +85,11 @@ export function useRoomWebSocket({
 			try {
 				const response = await fetch("/api/auth/me");
 				const data = await response.json();
-				if (user && !data.userId && user.id !== data.userId)
-					clearUser();
+				//if (user && !data.userId && user.id !== data.userId)
+				//	clearUser();
 			} catch (error) {
 				console.error("Failed to check authentication:", error);
-				clearUser();
+				//clearUser();
 			}
 		}
 
@@ -208,9 +208,11 @@ export function useRoomWebSocket({
 					message.participantCount,
 					message.currentAmount
 				);
-				if (pendingActionsRef.current.has("updateLobbyStatus")) {
-					pendingActionsRef.current.delete("updateLobbyStatus");
-					lobbyActions.clearActionLoading("updateLobbyStatus");
+				// Clear status-specific loading states
+				const statusActionKey = `updateLobbyStatus-${message.status}`;
+				if (pendingActionsRef.current.has(statusActionKey)) {
+					pendingActionsRef.current.delete(statusActionKey);
+					lobbyActions.clearActionLoading(statusActionKey);
 					onActionSuccess?.(
 						"updateLobbyStatus",
 						`Lobby status updated to ${message.status}`
@@ -455,8 +457,9 @@ export function useRoomWebSocket({
 				lobbyActions.setActionLoading("leave", true);
 				break;
 			case "updateLobbyStatus":
-				pendingActionsRef.current.add("updateLobbyStatus");
-				lobbyActions.setActionLoading("updateLobbyStatus", true);
+				const actionKey = `updateLobbyStatus-${message.status}`;
+				pendingActionsRef.current.add(actionKey);
+				lobbyActions.setActionLoading(actionKey, true);
 				break;
 			case "joinRequest":
 				pendingActionsRef.current.add("joinRequest");

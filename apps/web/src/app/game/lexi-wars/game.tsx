@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useUser } from "@/lib/stores/user";
 import { cn, formatAddress } from "@/lib/utils";
 import RoomHeader from "@/components/room/room-header";
+import ChatDialog from "@/components/room/chat";
 
 export default function LexiWarsGame({
 	state,
@@ -53,7 +54,7 @@ export default function LexiWarsGame({
 	return (
 		<>
 			<RoomHeader />
-			<div className="max-w-2xl py-6 space-y-6">
+			<div className="max-w-2xl py-6 space-y-6 mx-auto">
 				{/* Game Header */}
 				<div className="rounded-lg border bg-card p-4">
 					<div className="flex items-center justify-between">
@@ -180,6 +181,16 @@ export default function LexiWarsGame({
 						</div>
 					</div>
 				)}
+			</div>
+
+			{/* Floating Chat Button - stays within container bounds */}
+			<div className="fixed bottom-6 left-0 right-0 z-40 pointer-events-none">
+				<div className="container max-w-2xl mx-auto px-4 flex justify-end">
+					<ChatDialog
+						buttonVariant="default"
+						buttonClassName="size-12 shadow-lg pointer-events-auto"
+					/>
+				</div>
 			</div>
 		</>
 	);

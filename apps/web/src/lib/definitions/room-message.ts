@@ -54,7 +54,7 @@ export interface LobbyStatusChangedMessage {
 
 export interface StartCountdownMessage {
 	type: "startCountdown";
-	secondsRemaining: number;
+	secondsRemaining: number | null;
 }
 
 export interface PlayerJoinedMessage {

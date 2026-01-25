@@ -15,6 +15,7 @@ import {
 	useRoomConnected,
 	useRoomConnecting,
 	useIsActionLoading,
+	useCountdown,
 } from "@/lib/stores/room";
 import { useUser, useIsAuthenticated } from "@/lib/stores/user";
 import RoomHeader from "@/components/room/room-header";
@@ -31,7 +32,9 @@ export default function LobbySlot() {
 	const isConnected = useRoomConnected();
 	const user = useUser();
 	const isAuthenticated = useIsAuthenticated();
-	const isStartGameLoading = useIsActionLoading("updateLobbyStatus");
+	const isStartGameLoading = useIsActionLoading("updateLobbyStatus-starting");
+	const isCancelGameLoading = useIsActionLoading("updateLobbyStatus-waiting");
+	const countdown = useCountdown();
 
 	if (isConnecting || !lobby || !game) {
 		return <Loading />;
@@ -59,17 +62,55 @@ export default function LobbySlot() {
 		sendLobbyMessage({ type: "updateLobbyStatus", status: "starting" });
 	};
 
+	const handleCancelStart = () => {
+		sendLobbyMessage({ type: "updateLobbyStatus", status: "waiting" });
+	};
+
 	const canStartGame =
 		isCreator &&
 		lobby.status === "waiting" &&
 		players.length >= game.minPlayers;
 
 	return (
-		<div className="container mx-auto p-4">
+		<div className="container mx-auto p-4 pt-0">
+			{/* Countdown Overlay */}
+			{countdown !== null && countdown > 0 && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+					<div className="flex flex-col items-center gap-6 text-center">
+						<p className="text-lg sm:text-xl text-muted-foreground">
+							Game starting in
+						</p>
+						<div className="relative flex items-center justify-center">
+							<div className="absolute size-32 sm:size-40 lg:size-48 rounded-full border-4 border-primary/20" />
+							<div
+								className="absolute size-32 sm:size-40 lg:size-48 rounded-full border-4 border-primary border-t-transparent animate-spin"
+								style={{ animationDuration: "1s" }}
+							/>
+							<span className="text-6xl sm:text-7xl lg:text-8xl font-bold text-primary">
+								{countdown}
+							</span>
+						</div>
+						{isCreator && (
+							<Button
+								variant="outline"
+								size="lg"
+								onClick={handleCancelStart}
+								disabled={isCancelGameLoading}
+								className="mt-4"
+							>
+								{isCancelGameLoading
+									? "Cancelling..."
+									: "Cancel"}
+							</Button>
+						)}
+					</div>
+				</div>
+			)}
+
 			<div
 				className={cn(
 					"space-y-4 sm:space-y-8",
-					canStartGame && "mb-20 sm:mb-24"
+					canStartGame && "mb-15 sm:mb-20 lg:mb-22"
 				)}
 			>
 				<RoomHeader />
