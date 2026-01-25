@@ -6,7 +6,7 @@ import type { LexiWarsState } from "./types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/lib/stores/user";
-import { cn, formatAddress } from "@/lib/utils";
+import { cn, displayUserIdentifier } from "@/lib/utils";
 import RoomHeader from "@/components/room/room-header";
 import ChatDialog from "@/components/room/chat";
 
@@ -84,11 +84,7 @@ export default function LexiWarsGame({
 									{isMyTurn ? "Your Turn!" : "Current Turn"}
 								</p>
 								<p className="text-lg font-semibold">
-									{state.currentPlayer.displayName ||
-										state.currentPlayer.username ||
-										formatAddress(
-											state.currentPlayer.walletAddress
-										)}
+									{displayUserIdentifier(state.currentPlayer)}
 								</p>
 							</div>
 							<div

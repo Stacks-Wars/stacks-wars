@@ -1,3 +1,4 @@
+import { displayUserIdentifier } from "@/lib/utils";
 import type { LexiWarsMessage, LexiWarsState } from "./types";
 import { parseLexiWarsGameState } from "./types";
 import { toast } from "sonner";
@@ -41,7 +42,7 @@ export const handleLexiWarsMessage = (
 			const isCurrentUser =
 				message.player.userId === state.currentPlayer?.userId;
 			toast.info(
-				`${isCurrentUser ? "You" : message.player.username} entered: ${message.word}`
+				`${isCurrentUser ? "You" : displayUserIdentifier(message.player)} entered: ${message.word}`
 			);
 			return state;
 		}

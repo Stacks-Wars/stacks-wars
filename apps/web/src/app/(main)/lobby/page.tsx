@@ -22,7 +22,7 @@ import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useLobbyWebSocket } from "@/lib/hooks/useLobbyWebSocket";
-import { formatAddress } from "@/lib/utils";
+import { displayUserIdentifier } from "@/lib/utils";
 
 const ITEMS_PER_PAGE = 6;
 
@@ -43,7 +43,9 @@ export default function LobbyPage() {
 			if (action === "lobbyCreated") {
 				const lobbyInfo = data as LobbyInfo;
 				toast.success(`New ${lobbyInfo.game.name} lobby created!`, {
-					description: `${lobbyInfo.lobby.name} by ${lobbyInfo.creator.username || formatAddress(lobbyInfo.creator.walletAddress)}`,
+					description: `${lobbyInfo.lobby.name} by ${displayUserIdentifier(
+						lobbyInfo.creator
+					)}`,
 					action: {
 						label: "Open",
 						onClick: () => {

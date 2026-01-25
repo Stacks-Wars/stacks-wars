@@ -23,7 +23,7 @@ import {
 } from "@/lib/stores/room";
 import { useUser } from "@/lib/stores/user";
 import { useRoom } from "@/lib/contexts/room-context";
-import { cn, formatAddress } from "@/lib/utils";
+import { cn, displayUserIdentifier } from "@/lib/utils";
 import { MessageCircle, Send, Smile } from "lucide-react";
 import { useState, useMemo, useRef, useEffect } from "react";
 
@@ -118,11 +118,7 @@ export default function ChatDialog({
 
 	const getDisplayName = (senderId: string) => {
 		const sender = playerMap.get(senderId);
-		return (
-			sender?.displayName ||
-			sender?.username ||
-			(sender ? formatAddress(sender.walletAddress) : "Unknown")
-		);
+		return sender ? displayUserIdentifier(sender) : "Unknown";
 	};
 
 	const isOwnMessage = (senderId: string) => user?.id === senderId;

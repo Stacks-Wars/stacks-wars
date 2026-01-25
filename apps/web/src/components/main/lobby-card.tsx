@@ -5,7 +5,7 @@ import { Badge } from "../ui/badge";
 import { Lock, LockOpen, Users } from "lucide-react";
 import { BiCoinStack } from "react-icons/bi";
 import Link from "next/link";
-import { formatAddress } from "@/lib/utils";
+import { displayUserIdentifier } from "@/lib/utils";
 import { Skeleton } from "../ui/skeleton";
 
 export default function LobbyCard({ lobbyInfo }: { lobbyInfo: LobbyInfo }) {
@@ -25,10 +25,7 @@ export default function LobbyCard({ lobbyInfo }: { lobbyInfo: LobbyInfo }) {
 						>
 							Creator -{" "}
 							<span className="text-foreground">
-								@
-								{creator.displayName ||
-									creator.username ||
-									formatAddress(creator.walletAddress)}
+								@{displayUserIdentifier(creator)}
 							</span>
 						</Link>
 					</div>

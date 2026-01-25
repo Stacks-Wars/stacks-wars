@@ -25,10 +25,12 @@ import {
 	FormMessage,
 } from "@/components/ui/form";
 import { ApiClient } from "@/lib/api/client";
-import { useUser } from "@/lib/stores/user";
+import { useUser, useUserLoading } from "@/lib/stores/user";
 import type { Game, Lobby, CreateLobbyRequest } from "@/lib/definitions";
 import { useRouter } from "next/navigation";
-import { formatAddress } from "@/lib/utils";
+import { displayUserIdentifier } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import Link from "next/link";
 
 // Zod schemas
 const normalLobbySchema = z.object({
@@ -82,6 +84,8 @@ type SponsoredLobbyFormValues = z.infer<typeof sponsoredLobbySchema>;
 
 export default function CreateLobbyForm(game: Game) {
 	const user = useUser();
+	const isUserLoading = useUserLoading();
+	const isAuthenticated = !isUserLoading && user;
 	const [error, setError] = useState<string | null>(null);
 	const router = useRouter();
 
@@ -110,11 +114,7 @@ export default function CreateLobbyForm(game: Game) {
 	});
 
 	const getDefaultDescription = () => {
-		const userIdentifier =
-			user?.username ||
-			user?.displayName ||
-			(user?.walletAddress && formatAddress(user.walletAddress)) ||
-			"Anonymous";
+		const userIdentifier = user ? displayUserIdentifier(user) : "Anonymous";
 		return `Join ${userIdentifier}'s ${game.name} lobby!`;
 	};
 
@@ -334,15 +334,29 @@ export default function CreateLobbyForm(game: Game) {
 							<p className="text-sm text-destructive">{error}</p>
 						)}
 
-						<Button
-							type="submit"
-							className="flex justify-self-end w-full sm:w-fit rounded-full"
-							disabled={normalForm.formState.isSubmitting}
-						>
-							{normalForm.formState.isSubmitting
-								? "Creating..."
-								: "Create Lobby"}
-						</Button>
+						{isUserLoading ? (
+							<Skeleton className="flex justify-self-end w-full sm:w-fit rounded-full h-13 sm:min-w-30" />
+						) : isAuthenticated ? (
+							<Button
+								type="submit"
+								className="flex justify-self-end w-full sm:w-fit rounded-full"
+								disabled={normalForm.formState.isSubmitting}
+							>
+								{normalForm.formState.isSubmitting
+									? "Creating..."
+									: "Create Lobby"}
+							</Button>
+						) : (
+							<Button
+								type="button"
+								className="flex justify-self-end w-full sm:w-fit rounded-full"
+								asChild
+							>
+								<Link href="/login">
+									Login to Create a Lobby
+								</Link>
+							</Button>
+						)}
 					</form>
 				</Form>
 			</TabsContent>
@@ -494,15 +508,29 @@ export default function CreateLobbyForm(game: Game) {
 							<p className="text-sm text-destructive">{error}</p>
 						)}
 
-						<Button
-							type="submit"
-							className="flex justify-self-end w-full sm:w-fit rounded-full"
-							disabled={sponsoredForm.formState.isSubmitting}
-						>
-							{sponsoredForm.formState.isSubmitting
-								? "Creating..."
-								: "Create Lobby"}
-						</Button>
+						{isUserLoading ? (
+							<Skeleton className="flex justify-self-end w-full sm:w-fit rounded-full h-13 sm:min-w-30" />
+						) : isAuthenticated ? (
+							<Button
+								type="submit"
+								className="flex justify-self-end w-full sm:w-fit rounded-full"
+								disabled={sponsoredForm.formState.isSubmitting}
+							>
+								{sponsoredForm.formState.isSubmitting
+									? "Creating..."
+									: "Create Lobby"}
+							</Button>
+						) : (
+							<Button
+								type="button"
+								className="flex justify-self-end w-full sm:w-fit rounded-full"
+								asChild
+							>
+								<Link href="/login">
+									Login to Create a Lobby
+								</Link>
+							</Button>
+						)}
 					</form>
 				</Form>
 			</TabsContent>
