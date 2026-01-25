@@ -19,15 +19,12 @@ import { useLobbyActions, useLobbyStore } from "../stores/room";
 import { useUser } from "../stores/user";
 import { WebSocketClient } from "../websocket/wsClient";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { displayUserIdentifier } from "../utils";
 
 interface UseRoomOptions {
 	lobbyPath: string;
 	wsUrl?: string;
-	onActionSuccess?: (action: string, message?: string) => void;
-	onActionError?: (
-		action: string,
-		error: { code: string; message: string }
-	) => void;
 }
 
 export interface UseRoomWebSocketReturn {
@@ -45,8 +42,6 @@ const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
 export function useRoomWebSocket({
 	lobbyPath,
 	wsUrl = `${WS_URL}/ws/room`,
-	onActionSuccess,
-	onActionError,
 }: UseRoomOptions): UseRoomWebSocketReturn {
 	const clientRef = useRef<WebSocketClient | null>(null);
 	const gamePluginRef = useRef<GamePlugin | undefined>(undefined);
@@ -56,6 +51,7 @@ export function useRoomWebSocket({
 
 	const lobbyActions = useLobbyActions();
 	const user = useUser();
+	const router = useRouter();
 
 	useEffect(() => {
 		// Initialize WebSocket connection
@@ -174,10 +170,6 @@ export function useRoomWebSocket({
 				if (pendingActionsRef.current.has(statusActionKey)) {
 					pendingActionsRef.current.delete(statusActionKey);
 					lobbyActions.clearActionLoading(statusActionKey);
-					onActionSuccess?.(
-						"updateLobbyStatus",
-						`Lobby status updated to ${message.status}`
-					);
 				}
 				break;
 
@@ -189,32 +181,46 @@ export function useRoomWebSocket({
 				if (pendingActionsRef.current.has("join")) {
 					pendingActionsRef.current.delete("join");
 					lobbyActions.clearActionLoading("join");
-					onActionSuccess?.("join", "Successfully joined lobby");
-				}
-				break;
-
-			case "playerLeft":
-				lobbyActions.removePlayer(message.userId);
-				if (pendingActionsRef.current.has("leave")) {
-					pendingActionsRef.current.delete("leave");
-					lobbyActions.clearActionLoading("leave");
-					onActionSuccess?.("leave", "You Left the Lobby");
-				}
-				const currentCreator = useLobbyStore.getState().creator;
-				if (message.userId === currentCreator?.id) {
-					onActionSuccess?.(
-						"lobbyDeleted",
-						"Lobby has been closed by the creator"
+					toast.info(
+						`${message.player.userId === user?.id ? "You" : displayUserIdentifier(message.player)} joined the lobby`
 					);
 				}
 				break;
 
+			case "playerLeft":
+				lobbyActions.removePlayer(message.player.userId);
+				if (pendingActionsRef.current.has("leave")) {
+					pendingActionsRef.current.delete("leave");
+					lobbyActions.clearActionLoading("leave");
+					toast.info(
+						`${message.player.userId === user?.id ? "You" : displayUserIdentifier(message.player)} left the lobby`
+					);
+				}
+				const currentCreator = useLobbyStore.getState().creator;
+				if (message.player.userId === currentCreator?.id) {
+					// Creator left - lobby is being closed
+					clientRef.current?.disconnect();
+					toast.error("Lobby has been closed by the creator");
+					router.replace("/lobby");
+				}
+				break;
+
 			case "playerKicked":
-				lobbyActions.removePlayer(message.userId);
-				if (pendingActionsRef.current.has(`kick-${message.userId}`)) {
-					pendingActionsRef.current.delete(`kick-${message.userId}`);
-					lobbyActions.clearActionLoading(`kick-${message.userId}`);
-					onActionSuccess?.("kick", "Player kicked");
+				lobbyActions.removePlayer(message.player.userId);
+				if (
+					pendingActionsRef.current.has(
+						`kick-${message.player.userId}`
+					)
+				) {
+					pendingActionsRef.current.delete(
+						`kick-${message.player.userId}`
+					);
+					lobbyActions.clearActionLoading(
+						`kick-${message.player.userId}`
+					);
+					toast.info(
+						`${message.player.userId === user?.id ? "You were" : `${displayUserIdentifier(message.player)} was`} kicked from the lobby`
+					);
 				}
 				break;
 
@@ -228,7 +234,7 @@ export function useRoomWebSocket({
 					if (userInList) {
 						pendingActionsRef.current.delete("joinRequest");
 						lobbyActions.clearActionLoading("joinRequest");
-						onActionSuccess?.("joinRequest", "Join request sent");
+						toast.info("Join request sent");
 					}
 				}
 				pendingActionsRef.current.forEach((action) => {
@@ -249,14 +255,17 @@ export function useRoomWebSocket({
 				);
 				if (message.userId === user?.id) {
 					if (message.accepted) {
-						onActionSuccess?.(
-							"joinRequestAccepted",
+						toast.success(
 							"Your join request was approved! You can now join the lobby."
 						);
 					} else {
-						onActionError?.("joinRequestRejected", {
-							code: "JOIN_REQUEST_REJECTED",
-							message: "Your join request was declined",
+						toast.error("Your join request was declined", {
+							action: {
+								label: "Resend",
+								onClick: () => {
+									sendLobbyMessage({ type: "joinRequest" });
+								},
+							},
 						});
 					}
 				}
@@ -298,9 +307,8 @@ export function useRoomWebSocket({
 
 			case "gameStartFailed":
 				console.error("[Room] Game start failed:", message.reason);
-				onActionError?.("gameStart", {
-					code: "GAME_START_FAILED",
-					message: message.reason,
+				toast.error(`Game failed to start`, {
+					description: message.reason,
 				});
 				break;
 
@@ -320,10 +328,7 @@ export function useRoomWebSocket({
 			case "gameOver":
 				console.log("[Room] Game over for user:", message);
 				// This is sent to individual users with their rank/prize
-				onActionSuccess?.(
-					"gameOver",
-					`You finished #${message.rank}${message.prize ? ` and won ${message.prize.toFixed(2)}!` : ""}`
-				);
+				// Open game over modal for user
 				break;
 
 			case "gameState":
@@ -371,10 +376,7 @@ export function useRoomWebSocket({
 							lobbyActions.clearActionLoading(pendingAction);
 						}
 					});
-					onActionError?.(action, {
-						code: message.code,
-						message: message.message,
-					});
+					toast.error(message.message || `Action failed: ${action}`);
 				}
 				break;
 

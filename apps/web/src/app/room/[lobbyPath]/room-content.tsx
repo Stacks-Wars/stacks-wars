@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { RoomProvider } from "@/lib/contexts/room-context";
 import { RoomViewProvider } from "@/lib/contexts/room-view-context";
-import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { useLobby } from "@/lib/stores/room";
 
 function RoomContentInner({
@@ -50,39 +48,8 @@ export default function RoomContent({
 	lobbyPath: string;
 	children?: React.ReactNode;
 }) {
-	const router = useRouter();
-
-	const handleActionSuccess = (
-		action: string,
-		message?: string,
-		disconnect?: () => void
-	) => {
-		if (action === "lobbyDeleted") {
-			// Disconnect WebSocket before redirect to prevent reconnection attempts
-			disconnect?.();
-			toast.error(message || "Lobby has been closed");
-			router.replace("/lobby");
-			return;
-		}
-
-		if (message) {
-			toast.success(message);
-		}
-	};
-
-	const handleActionError = (
-		action: string,
-		error: { code: string; message: string }
-	) => {
-		toast.error(error.message || `Action failed: ${action}`);
-	};
-
 	return (
-		<RoomProvider
-			lobbyPath={lobbyPath}
-			onActionSuccess={handleActionSuccess}
-			onActionError={handleActionError}
-		>
+		<RoomProvider lobbyPath={lobbyPath}>
 			<RoomContentInner lobby={lobby} game={game} />
 			{children}
 		</RoomProvider>
