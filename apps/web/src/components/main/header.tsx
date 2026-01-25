@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Route } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
-import { useUser, useUserActions } from "@/lib/stores/user";
+import { useUser, useUserLoading } from "@/lib/stores/user";
 import { MenuIcon } from "lucide-react";
 import {
 	Sheet,
@@ -17,52 +17,32 @@ import {
 	SheetTrigger,
 } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatAddress } from "@/lib/utils";
 
 const navItems: { href: Route; label: string }[] = [
 	{ href: "/games", label: "Games" },
-	{ href: "/leaderboard", label: "Leaderboard" },
 	{ href: "/lobby", label: "Lobby" },
+	{ href: "/leaderboard", label: "Leaderboard" },
 ];
 
 export default function Header() {
 	const pathname = usePathname();
-	const { clearUser } = useUserActions();
 	const user = useUser();
+	const isLoading = useUserLoading();
 	const [open, setOpen] = useState(false);
-	const [authenticatedUserId, setAuthenticatedUserId] = useState<
-		string | null
-	>(null);
-	const [isChecking, setIsChecking] = useState(true);
 
-	// Check authentication status on mount
-	useEffect(() => {
-		async function checkAuth() {
-			try {
-				const response = await fetch("/api/auth/me");
-				const data = await response.json();
+	const isAuthenticated = !isLoading && user;
 
-				setAuthenticatedUserId(data.userId);
-
-				// Sync local storage with server authentication state
-				if (!data.userId && user) {
-					clearUser();
-				} else if (data.userId && user && user.id !== data.userId) {
-					clearUser();
-				}
-			} catch (error) {
-				console.error("Failed to check authentication:", error);
-				setAuthenticatedUserId(null);
-			} finally {
-				setIsChecking(false);
-			}
-		}
-
-		checkAuth();
-	}, [user, clearUser]);
-
-	// Determine if user is authenticated based on server validation
-	const isAuthenticated = !isChecking && authenticatedUserId && user;
+	const AuthSkeleton = () => (
+		<div className="flex gap-3 items-center mx-7 lg:mx-0">
+			<Skeleton className="size-12 lg:size-12.5 rounded-full" />
+			<div className="flex flex-col gap-1 lg:gap-2">
+				<Skeleton className="h-5 lg:h-6 w-28 lg:w-32" />
+				<Skeleton className="h-4 w-20 lg:w-24" />
+			</div>
+		</div>
+	);
 
 	return (
 		<header className="container mx-auto px-4">
@@ -103,7 +83,9 @@ export default function Header() {
 
 				{/* Desktop Profile/Auth */}
 				<div className="hidden lg:block">
-					{isAuthenticated ? (
+					{isLoading ? (
+						<AuthSkeleton />
+					) : isAuthenticated ? (
 						<Link
 							href={`/u/${user.username || user.walletAddress}`}
 							className="flex gap-3 items-center max-w-75 w-full truncate"
@@ -143,22 +125,18 @@ export default function Header() {
 							)}
 						</Link>
 					) : (
-						!isChecking && (
-							<div className="flex items-center gap-4">
-								<Button className="rounded-full" asChild>
-									<Link href={"/signup"}>
-										Create an Account
-									</Link>
-								</Button>
-								<Button
-									variant={"outline"}
-									className="rounded-full"
-									asChild
-								>
-									<Link href={"/login"}>Login</Link>
-								</Button>
-							</div>
-						)
+						<div className="flex items-center gap-4">
+							<Button className="rounded-full" asChild>
+								<Link href={"/signup"}>Create an Account</Link>
+							</Button>
+							<Button
+								variant={"outline"}
+								className="rounded-full"
+								asChild
+							>
+								<Link href={"/login"}>Login</Link>
+							</Button>
+						</div>
 					)}
 				</div>
 
@@ -201,7 +179,9 @@ export default function Header() {
 
 						{/* Mobile Profile/Auth */}
 						<div className="border-t pt-10">
-							{isAuthenticated ? (
+							{isLoading ? (
+								<AuthSkeleton />
+							) : isAuthenticated ? (
 								<Link
 									href={`/u/${user.username || user.walletAddress}`}
 									onClick={() => setOpen(false)}
@@ -246,33 +226,31 @@ export default function Header() {
 									)}
 								</Link>
 							) : (
-								!isChecking && (
-									<div className="flex flex-col gap-6 mx-7">
-										<Button
-											className="rounded-full w-full"
-											asChild
+								<div className="flex flex-col gap-6 mx-7">
+									<Button
+										className="rounded-full w-full"
+										asChild
+									>
+										<Link
+											href={"/signup"}
+											onClick={() => setOpen(false)}
 										>
-											<Link
-												href={"/signup"}
-												onClick={() => setOpen(false)}
-											>
-												Create an Account
-											</Link>
-										</Button>
-										<Button
-											variant={"outline"}
-											className="rounded-full w-full"
-											asChild
+											Create an Account
+										</Link>
+									</Button>
+									<Button
+										variant={"outline"}
+										className="rounded-full w-full"
+										asChild
+									>
+										<Link
+											href={"/login"}
+											onClick={() => setOpen(false)}
 										>
-											<Link
-												href={"/login"}
-												onClick={() => setOpen(false)}
-											>
-												Login
-											</Link>
-										</Button>
-									</div>
-								)
+											Login
+										</Link>
+									</Button>
+								</div>
 							)}
 						</div>
 					</SheetContent>

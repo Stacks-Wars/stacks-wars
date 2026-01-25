@@ -11,35 +11,14 @@
 import { useEffect, useRef, useState } from "react";
 import { getGamePlugin } from "@/app/game/registry";
 import type {
-	ChatMessage,
-	Game,
 	GamePlugin,
-	JoinRequest,
-	LobbyExtended,
-	PlayerState,
 	RoomClientMessage,
 	RoomServerMessage,
-	User,
 } from "@/lib/definitions";
-import {
-	useLobby,
-	useGame,
-	useCreator,
-	usePlayers,
-	useJoinRequests,
-	useChatHistory,
-	useCountdown,
-	useRoomConnected,
-	useRoomError,
-	useRoomConnecting,
-	useRoomLatency,
-	useLobbyActions,
-	useLobbyStore,
-} from "../stores/room";
-import { useUser, useUserActions } from "../stores/user";
+import { useLobbyActions, useLobbyStore } from "../stores/room";
+import { useUser } from "../stores/user";
 import { WebSocketClient } from "../websocket/wsClient";
 import { toast } from "sonner";
-import { clear } from "console";
 
 interface UseRoomOptions {
 	lobbyPath: string;
@@ -77,24 +56,6 @@ export function useRoomWebSocket({
 
 	const lobbyActions = useLobbyActions();
 	const user = useUser();
-	const { clearUser } = useUserActions();
-
-	// Check authentication status
-	useEffect(() => {
-		async function checkAuth() {
-			try {
-				const response = await fetch("/api/auth/me");
-				const data = await response.json();
-				//if (user && !data.userId && user.id !== data.userId)
-				//	clearUser();
-			} catch (error) {
-				console.error("Failed to check authentication:", error);
-				//clearUser();
-			}
-		}
-
-		checkAuth();
-	}, []);
 
 	useEffect(() => {
 		// Initialize WebSocket connection

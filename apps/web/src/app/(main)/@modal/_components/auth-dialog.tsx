@@ -9,6 +9,7 @@ import {
 import { DOMAIN_NAME, siteConfig } from "@stacks-wars/shared";
 import { CheckCircle2, Loader2, Wallet } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type React from "react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -33,20 +34,15 @@ type AuthType = "wallet" | "google";
 interface AuthDialogProps {
 	trigger?: React.ReactNode;
 	open?: boolean;
-	onOpenChange?: (open: boolean) => void;
 	mode?: AuthMode;
 }
 
-export function AuthDialog({
-	trigger,
-	open,
-	onOpenChange,
-	mode = "login",
-}: AuthDialogProps) {
+export function AuthDialog({ trigger, open, mode = "login" }: AuthDialogProps) {
 	const [isConnecting, setIsConnecting] = useState<AuthType | null>(null);
 	const [isConnected, setIsConnected] = useState<AuthType | null>(null);
 	const user = useUser();
 	const { setUser, clearUser } = useUserActions();
+	const router = useRouter();
 
 	const isSignup = mode === "signup";
 	const title = isSignup ? "Create your account" : "Sign in to your account";
@@ -117,7 +113,7 @@ export function AuthDialog({
 				toast.success("Authenticated");
 				setIsConnected("wallet");
 				setUser(authResponse.data);
-				onOpenChange?.(false);
+				router.refresh();
 			}
 		} catch (error) {
 			console.error("Stacks authentication error:", error);
@@ -145,7 +141,7 @@ export function AuthDialog({
 	};
 
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
+		<Dialog open={open} onOpenChange={() => router.back()}>
 			{trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
 			<DialogContent className="sm:max-w-md border-border bg-card">
 				<DialogHeader className="text-center space-y-3">

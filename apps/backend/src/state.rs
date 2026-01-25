@@ -14,13 +14,43 @@ use teloxide::Bot;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
+/// Application environment
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub enum Environment {
+    #[default]
+    Development,
+    Production,
+}
+
+impl Environment {
+    /// Parse from string, defaults to Development if unrecognized
+    pub fn from_str(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "production" | "prod" => Self::Production,
+            _ => Self::Development,
+        }
+    }
+
+    pub fn is_production(&self) -> bool {
+        matches!(self, Self::Production)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct AppConfig {
+    pub environment: Environment,
     pub jwt_secret: String,
     pub redis_url: String,
     pub database_url: String,
     pub telegram_bot_token: String,
     pub telegram_chat_id: String,
+}
+
+impl AppConfig {
+    /// Check if running in production environment
+    pub fn is_production(&self) -> bool {
+        self.environment.is_production()
+    }
 }
 
 /// Active game engines by lobby ID
@@ -42,6 +72,9 @@ impl AppState {
     /// Create a new AppState by connecting to PostgreSQL and Redis
     pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
         // Read essential configuration from the environment and group it.
+        let environment = Environment::from_str(
+            &std::env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string()),
+        );
         let redis_url = std::env::var("REDIS_URL")?;
         let database_url = std::env::var("DATABASE_URL")?;
         let bot_token = std::env::var("TELEGRAM_BOT_TOKEN")?;
@@ -49,6 +82,7 @@ impl AppState {
         let telegram_chat_id = std::env::var("TELEGRAM_CHAT_ID")?;
 
         let config = AppConfig {
+            environment,
             jwt_secret,
             redis_url: redis_url.clone(),
             database_url: database_url.clone(),

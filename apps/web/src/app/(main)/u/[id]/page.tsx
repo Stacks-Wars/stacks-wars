@@ -8,6 +8,7 @@ import Image from "next/image";
 import { FiEdit3 } from "react-icons/fi";
 import { getAuthenticatedUserId } from "@/lib/auth/jwt";
 import EditProfile from "./_components/edit-profile";
+import LogoutButton from "./_components/logout-button";
 import GameCard from "@/components/main/game-card";
 import Link from "next/link";
 import { IoAdd } from "react-icons/io5";
@@ -65,11 +66,14 @@ export default async function page({
 						</AvatarFallback>
 					</Avatar>
 					{isOwnProfile && (
-						<EditProfile currentUser={user}>
-							<Button className="rounded-full text-xs sm:text-base bg-muted hover:bg-muted/90 h-6 sm:h-12 has-[>svg]:px-3.5 sm:has-[>svg]:px-7 -translate-y-1/2">
-								<FiEdit3 /> Edit Profile
-							</Button>
-						</EditProfile>
+						<div className="flex gap-2">
+							<EditProfile currentUser={user}>
+								<Button className="rounded-full text-xs sm:text-base bg-muted hover:bg-muted/90 h-6 sm:h-12 has-[>svg]:px-3.5 sm:has-[>svg]:px-7 -translate-y-1/2">
+									<FiEdit3 /> Edit Profile
+								</Button>
+							</EditProfile>
+							<LogoutButton />
+						</div>
 					)}
 				</div>
 			</div>

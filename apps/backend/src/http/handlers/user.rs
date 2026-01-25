@@ -83,15 +83,12 @@ pub async fn create_user(
         .map_err(|e| e.to_response())?;
 
     // Create httpOnly cookie for the token
-    let is_production =
-        std::env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string()) == "production";
-
     let cookie = Cookie::build(("auth_token", token.clone()))
         .path("/")
         .max_age(time::Duration::days(7))
         .same_site(SameSite::Strict)
         .http_only(true)
-        .secure(is_production)
+        .secure(state.config.is_production())
         .build();
 
     let mut response = Json(user).into_response();
@@ -105,6 +102,26 @@ pub async fn create_user(
 // ============================================================================
 // User Retrieval
 // ============================================================================
+
+/// Get the authenticated user's profile.
+///
+/// Requires a valid JWT. Returns the authenticated `User` or `401` if not authenticated.
+pub async fn get_me(
+    State(state): State<AppState>,
+    AuthClaims(claims): AuthClaims,
+) -> Result<Json<User>, (StatusCode, String)> {
+    let user_id = Uuid::parse_str(&claims.sub)
+        .map_err(|_| AppError::Unauthorized("Invalid token".into()).to_response())?;
+
+    let repo = UserRepository::new(state.postgres.clone());
+
+    let user = repo
+        .find_by_id(user_id)
+        .await
+        .map_err(|e| e.to_response())?;
+
+    Ok(Json(user))
+}
 
 /// Get a user's public profile by UUID, wallet address, or username.
 ///
@@ -251,9 +268,9 @@ pub async fn logout(
     let cookie = Cookie::build(("auth_token", ""))
         .path("/")
         .max_age(time::Duration::seconds(0))
-        .same_site(SameSite::None)
+        .same_site(SameSite::Strict)
         .http_only(true)
-        .secure(true)
+        .secure(state.config.is_production())
         .build();
 
     let mut response = StatusCode::NO_CONTENT.into_response();

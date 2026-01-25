@@ -1,79 +1,60 @@
+/**
+ * User Store
+ *
+ * User is fetched from the API on app load and cleared on logout.
+ */
+
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import type { User, LobbyStatus } from "@/lib/definitions";
+import type { User } from "@/lib/definitions";
 
 interface UserActions {
 	setUser: (user: User) => void;
 	clearUser: () => void;
-	updateUser: (user: Partial<User>) => void;
-	setLobbyFilter: (filter: LobbyStatus[]) => void;
-	setLobbyOffset: (offset: number) => void;
+	updateUser: (updates: Partial<User>) => void;
+	setLoading: (loading: boolean) => void;
 }
 
 interface UserStore {
 	user: User | null;
 	isAuthenticated: boolean;
-	lobbyFilter: LobbyStatus[];
-	lobbyOffset: number;
-	hasHydrated: boolean;
+	isLoading: boolean;
 
 	actions: UserActions;
 }
 
-const useUserStore = create<UserStore>()(
-	persist(
-		(set) => ({
-			user: null,
-			isAuthenticated: false,
-			lobbyFilter: ["waiting", "inProgress"],
-			lobbyOffset: 0,
-			hasHydrated: false,
+const useUserStore = create<UserStore>((set) => ({
+	user: null,
+	isAuthenticated: false,
+	isLoading: true, // Start as loading until we check auth
 
-			actions: {
-				setUser: (user) => {
-					set({
-						user,
-						isAuthenticated: true,
-					});
-				},
+	actions: {
+		setUser: (user) => {
+			set({
+				user,
+				isAuthenticated: true,
+				isLoading: false,
+			});
+		},
 
-				clearUser: () => {
-					set({
-						user: null,
-						isAuthenticated: false,
-					});
-				},
+		clearUser: () => {
+			set({
+				user: null,
+				isAuthenticated: false,
+				isLoading: false,
+			});
+		},
 
-				updateUser: (updates) =>
-					set((state) => ({
-						user: state.user ? { ...state.user, ...updates } : null,
-					})),
+		updateUser: (updates) =>
+			set((state) => ({
+				user: state.user ? { ...state.user, ...updates } : null,
+			})),
 
-				setLobbyFilter: (filter) => set({ lobbyFilter: filter }),
-				setLobbyOffset: (offset) => set({ lobbyOffset: offset }),
-			},
-		}),
-		{
-			name: "user-storage",
-			partialize: (state) => ({
-				user: state.user,
-				isAuthenticated: state.isAuthenticated,
-				lobbyFilter: state.lobbyFilter,
-				lobbyOffset: state.lobbyOffset,
-			}),
-			onRehydrateStorage: () => (state) => {
-				if (state) {
-					state.hasHydrated = true;
-				}
-			},
-		}
-	)
-);
+		setLoading: (loading) => set({ isLoading: loading }),
+	},
+}));
 
 export const useUser = () => useUserStore((state) => state.user);
 export const useIsAuthenticated = () =>
 	useUserStore((state) => state.isAuthenticated);
-export const useLobbyFilter = () => useUserStore((state) => state.lobbyFilter);
-export const useLobbyOffset = () => useUserStore((state) => state.lobbyOffset);
-export const useHasHydrated = () => useUserStore((state) => state.hasHydrated);
+export const useUserLoading = () => useUserStore((state) => state.isLoading);
 export const useUserActions = () => useUserStore((state) => state.actions);
