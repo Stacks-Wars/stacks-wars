@@ -242,7 +242,8 @@ impl LexiWarsInner {
 
     /// Calculate wars points for a player
     fn calculate_wars_point(&self, user_id: Uuid, rank: usize, participants: usize) -> f64 {
-        let base_point = ((participants - rank + 1) * 2) as f64;
+        // Use saturating_sub to prevent overflow if rank > participants
+        let base_point = (participants.saturating_sub(rank).saturating_add(1) * 2) as f64;
         let mut total_point = base_point;
 
         // Pool bonus for non-sponsored games
@@ -275,9 +276,9 @@ impl LexiWarsInner {
     /// This also calculates and sends GameOver to the eliminated player
     async fn eliminate_player(&mut self, player_id: Uuid, reason: &str) {
         // Calculate rank, prize and wars_point before elimination
-        // Rank is based on remaining active players + 1 (last eliminated = highest rank number)
+        // Rank equals remaining players count (e.g., if 2 players remain, eliminated = rank 2)
         let remaining = self.turn_rotation.active_count();
-        let rank = remaining + 1; // e.g., if 2 players remain, eliminated player gets rank 3
+        let rank = remaining; // e.g., if 2 players remain, eliminated player gets rank 2
         let prize = self.calculate_prize(rank, self.total_players);
         let wars_point = self.calculate_wars_point(player_id, rank, self.total_players);
 
