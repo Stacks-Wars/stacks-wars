@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRoom, RoomProvider } from "@/lib/contexts/room-context";
+import { RoomProvider } from "@/lib/contexts/room-context";
 import { RoomViewProvider } from "@/lib/contexts/room-view-context";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useLobby } from "@/lib/stores/room";
 
 function RoomContentInner({
 	lobby,
@@ -13,7 +14,7 @@ function RoomContentInner({
 	lobby: React.ReactNode;
 	game: React.ReactNode;
 }) {
-	const { lobby: lobbyData } = useRoom();
+	const lobbyData = useLobby();
 	const [manualView, setManualView] = useState<"lobby" | "game" | null>(null);
 
 	// Determine automatic view based on lobby status
@@ -51,7 +52,11 @@ export default function RoomContent({
 }) {
 	const router = useRouter();
 
-	const handleActionSuccess = (action: string, message?: string, disconnect?: () => void) => {
+	const handleActionSuccess = (
+		action: string,
+		message?: string,
+		disconnect?: () => void
+	) => {
 		if (action === "lobbyDeleted") {
 			// Disconnect WebSocket before redirect to prevent reconnection attempts
 			disconnect?.();

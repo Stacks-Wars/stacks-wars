@@ -12,7 +12,6 @@ use crate::db::player_state::PlayerStateRepository;
 use crate::db::user::UserRepository;
 use crate::models::{LobbyStatus, PlayerState};
 use crate::state::{AppState, ConnectionInfo};
-use crate::ws::broadcast_room_participants;
 use crate::ws::room::{
     RoomError,
     messages::{RoomClientMessage, RoomServerMessage},
@@ -43,7 +42,6 @@ pub async fn handle_room_message(
     player_repo: &PlayerStateRepository,
     lobby_state_repo: &LobbyStateRepository,
 ) {
-    // Check lobby status for gating (Phase 3)
     let lobby_status = match lobby_state_repo.get_state(lobby_id).await {
         Ok(ls) => ls.status,
         Err(_) => return, // Can't process without status
@@ -312,9 +310,9 @@ pub async fn handle_room_message(
         }
 
         RoomClientMessage::UpdateLobbyStatus { status } => {
-            if lobby_status == LobbyStatus::InProgress {
+            if lobby_status == LobbyStatus::InProgress || lobby_status == LobbyStatus::Finished {
                 let err = RoomError::LobbyStatusFailed(
-                    "Cannot change status during active game".to_string(),
+                    "Cannot change status during active/finished game".to_string(),
                 );
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
@@ -373,6 +371,15 @@ pub async fn handle_room_message(
                         let lobby_state_repo_bg = LobbyStateRepository::new(spawn_redis.clone());
                         if let Ok(ls) = lobby_state_repo_bg.get_state(spawn_lobby).await {
                             if !matches!(ls.status, LobbyStatus::Starting) {
+                                // Broadcast None to signal countdown cancellation
+                                let _ = broadcast::broadcast_room(
+                                    &spawn_state,
+                                    spawn_lobby,
+                                    &RoomServerMessage::StartCountdown {
+                                        seconds_remaining: None,
+                                    },
+                                )
+                                .await;
                                 return;
                             }
                         } else {
@@ -383,7 +390,7 @@ pub async fn handle_room_message(
                             &spawn_state,
                             spawn_lobby,
                             &RoomServerMessage::StartCountdown {
-                                seconds_remaining: sec as u8,
+                                seconds_remaining: Some(sec as u8),
                             },
                         )
                         .await;
@@ -392,6 +399,11 @@ pub async fn handle_room_message(
                     // Clear countdown and mark started
                     let _ = spawn_repo.clear_countdown(spawn_lobby).await.ok();
                     let _ = spawn_repo.mark_started(spawn_lobby).await.ok();
+                    // Update PostgreSQL status to InProgress
+                    let lobby_repo_spawn = LobbyRepository::new(spawn_state.postgres.clone());
+                    let _ = lobby_repo_spawn
+                        .update_status(spawn_lobby, LobbyStatus::InProgress, spawn_state.clone())
+                        .await;
 
                     // Get participant count and current amount for broadcast
                     let participant_count = spawn_repo
@@ -400,7 +412,6 @@ pub async fn handle_room_message(
                         .map(|s| s.participant_count)
                         .unwrap_or(0);
 
-                    let lobby_repo_spawn = LobbyRepository::new(spawn_state.postgres.clone());
                     let current_amount = lobby_repo_spawn
                         .find_by_id(spawn_lobby)
                         .await
@@ -418,10 +429,9 @@ pub async fn handle_room_message(
                     )
                     .await;
 
-                    // Phase 4: Initialize game
                     let lobby_repo = LobbyRepository::new(spawn_state.postgres.clone());
-                    let (game_id, game_path) = match lobby_repo.find_by_id(spawn_lobby).await {
-                        Ok(db_lobby) => (db_lobby.game_id, db_lobby.game_path),
+                    let game_id = match lobby_repo.find_by_id(spawn_lobby).await {
+                        Ok(db_lobby) => db_lobby.game_id,
                         _ => {
                             tracing::error!(
                                 "Failed to fetch lobby metadata for game initialization"
@@ -432,6 +442,9 @@ pub async fn handle_room_message(
 
                     if let Some(factory) = spawn_state.game_registry.get(&game_id) {
                         let mut engine = factory(spawn_lobby);
+
+                        // Set app state before initialize so engine can access Redis/DB
+                        engine.set_state(spawn_state.clone()).await;
 
                         // Get all player IDs in the lobby
                         let player_repo = PlayerStateRepository::new(spawn_state.redis.clone());
@@ -454,38 +467,29 @@ pub async fn handle_room_message(
                                     spawn_lobby
                                 );
 
+                                // Start the game loop (for games with background tasks)
+                                // This must be called BEFORE storing in active_games
+                                // so the engine can set up internal state sharing
+                                engine.start_loop(spawn_state.clone());
+
                                 // Store the active game engine
                                 {
                                     let mut active_games = spawn_state.active_games.lock().await;
                                     active_games.insert(spawn_lobby, engine);
                                 }
 
-                                // Broadcast initialization events wrapped with game identifier
+                                // Broadcast initialization events to room
+                                // These are RoomServerMessage variants (GameStarted, GameStartFailed)
+                                // which should be broadcast directly without game wrapper
                                 for event in events {
-                                    // Extract type from event for wrapper
-                                    if let Some(obj) = event.as_object() {
-                                        if let Some(msg_type) =
-                                            obj.get("type").and_then(|v| v.as_str())
-                                        {
-                                            // Wrap with game identifier for frontend router
-                                            let wrapped_msg = serde_json::json!({
-                                                "game": game_path,
-                                                "type": msg_type,
-                                                "payload": event
-                                            });
-
-                                            let game_msg =
-                                                crate::ws::core::message::JsonMessage::from(
-                                                    wrapped_msg,
-                                                );
-                                            let _ = broadcast_room_participants(
-                                                &spawn_state,
-                                                spawn_lobby,
-                                                &game_msg,
-                                            )
-                                            .await;
-                                        }
-                                    }
+                                    let game_msg =
+                                        crate::ws::core::message::JsonMessage::from(event);
+                                    let _ = broadcast::broadcast_room(
+                                        &spawn_state,
+                                        spawn_lobby,
+                                        &game_msg,
+                                    )
+                                    .await;
                                 }
                             }
                             Err(e) => {

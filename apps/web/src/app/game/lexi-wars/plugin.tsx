@@ -1,29 +1,26 @@
 /**
- * Coin Flip Game Plugin
+ * Lexi Wars Game Plugin
  *
- * Simple coin flip game to demonstrate the plugin system.
+ * Word game where players take turns submitting words following rules.
  */
 
 import type { GamePlugin } from "@/lib/definitions";
-import CoinFlipGame from "./game";
-import type { CoinFlipMessage, CoinFlipState } from "./types";
-import { handleCoinFlipMessage } from "./handler";
+import LexiWarsGame from "./game";
+import type { LexiWarsMessage, LexiWarsState } from "./types";
+import { applyLexiWarsGameState, handleLexiWarsMessage } from "./handler";
 
 // ============================================================================
-// Plugin Implementation
+// Initial State
 // ============================================================================
 
-const createInitialState = (): CoinFlipState => ({
-	players: [],
+const createInitialState = (): LexiWarsState => ({
 	currentPlayer: null,
-	activePlayers: [],
-	currentRound: 0,
-	guesses: {},
-	eliminatedPlayers: [],
-	lastCoinResult: null,
+	currentRule: null,
+	timeRemaining: 15,
+	totalPlayers: 0,
+	remainingPlayers: 0,
 	finished: false,
-	results: null,
-	timeoutSecs: 5,
+	standings: null,
 });
 
 // ============================================================================
@@ -33,30 +30,31 @@ const createInitialState = (): CoinFlipState => ({
 /**
  * Handle incoming game messages
  *
- * New message format: { "game": { "type": "round_started", ... } }
+ * New message format: { "game": { "type": "word_entry", ... } }
  * The `message.game` field contains the actual game message object
  */
 const handleMessage = (
-	state: CoinFlipState,
-	message: { game: CoinFlipMessage }
-): CoinFlipState => {
+	state: LexiWarsState,
+	message: { game: LexiWarsMessage }
+): LexiWarsState => {
 	// Extract the game message from the wrapper
 	const gameMessage = message.game;
-	return handleCoinFlipMessage(state, gameMessage);
+	return handleLexiWarsMessage(state, gameMessage);
 };
 
 // ============================================================================
 // Export Plugin
 // ============================================================================
 
-export const CoinFlipPlugin: GamePlugin<
-	CoinFlipState,
-	{ game: CoinFlipMessage }
+export const LexiWarsPlugin: GamePlugin<
+	LexiWarsState,
+	{ game: LexiWarsMessage }
 > = {
-	path: "coin-flip",
-	name: "Coin Flip",
-	description: "Simple coin flip betting game",
+	path: "lexi-wars",
+	name: "Lexi Wars",
+	description: "Word battle game - submit words following the rules!",
 	createInitialState,
 	handleMessage,
-	GameComponent: CoinFlipGame,
+	applyGameState: applyLexiWarsGameState,
+	GameComponent: LexiWarsGame,
 };

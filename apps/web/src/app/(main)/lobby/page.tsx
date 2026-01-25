@@ -10,7 +10,7 @@ import {
 	useHasHydrated,
 } from "@/lib/stores/user";
 import {
-	useLobby,
+	useLobbyInfo,
 	useLobbyTotal,
 	useLobbyConnecting,
 	useIsLobbyActionLoading,
@@ -33,7 +33,7 @@ export default function LobbyPage() {
 	const currentOffset = useLobbyOffset();
 	const { setLobbyFilter, setLobbyOffset } = useUserActions();
 
-	const lobbyInfo = useLobby();
+	const lobbyInfo = useLobbyInfo();
 	const total = useLobbyTotal();
 	const isConnecting = useLobbyConnecting();
 	const isLoadingMore = useIsLobbyActionLoading("loadMore");

@@ -81,7 +81,7 @@ pub enum RoomServerMessage {
     /// Countdown updates
     #[serde(rename_all = "camelCase")]
     StartCountdown {
-        seconds_remaining: u8,
+        seconds_remaining: Option<u8>,
     },
 
     #[serde(rename_all = "camelCase")]
@@ -143,6 +143,38 @@ pub enum RoomServerMessage {
         players: Vec<PlayerState>,
     },
 
+    /// Game state for reconnecting players - sent when joining an in-progress game
+    /// Contains game-specific state that each game engine provides via get_game_state
+    #[serde(rename_all = "camelCase")]
+    GameState {
+        game_state: serde_json::Value,
+    },
+
+    // ========================================================================
+    // Shared Game Events (used across all games)
+    // ========================================================================
+    /// Game has started - broadcast to room
+    GameStarted,
+
+    /// Game failed to start - broadcast to room
+    GameStartFailed {
+        reason: String,
+    },
+
+    /// Final standings when game ends - broadcast to room
+    FinalStanding {
+        standings: Vec<PlayerState>,
+    },
+
+    /// Game over for a specific user - sent to individual user
+    /// Used to render claim reward modal on client
+    #[serde(rename_all = "camelCase")]
+    GameOver {
+        rank: usize,
+        prize: Option<f64>,
+        wars_point: f64,
+    },
+
     Error {
         code: String,
         message: String,
@@ -165,43 +197,33 @@ impl From<RoomError> for RoomServerMessage {
 /// Example:
 /// ```json
 /// {
-///   "game": "lexi-wars",
-///   "type": "wordSubmitted",
-///   "payload": { "word": "hello", "points": 5, "valid": true }
+///   "game": {
+///     "type": "wordEntry",
+///     "word": "hello",
+///     "player": { ... }
+///   }
 /// }
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameMessage {
-    /// Game identifier (e.g., "lexi-wars", "coin-flip")
-    pub game: String,
-    /// Message type specific to the game
-    #[serde(rename = "type")]
-    pub msg_type: String,
-    /// Game-specific payload
-    pub payload: serde_json::Value,
+    /// Game-specific event containing type and all fields
+    pub game: serde_json::Value,
 }
 
 impl GameMessage {
     /// Create a new game message
-    pub fn new(game: String, msg_type: String, payload: serde_json::Value) -> Self {
-        Self {
-            game,
-            msg_type,
-            payload,
-        }
+    ///
+    /// The payload should be a JSON object with a "type" field
+    /// Example: { "type": "wordEntry", "word": "hello", "player": {...} }
+    pub fn new(payload: serde_json::Value) -> Self {
+        Self { game: payload }
     }
 
     /// Create a game message from a serializable payload
-    pub fn with_payload<T: serde::Serialize>(
-        game: String,
-        msg_type: String,
-        payload: T,
-    ) -> Result<Self, serde_json::Error> {
+    pub fn from_event<T: serde::Serialize>(event: &T) -> Result<Self, serde_json::Error> {
         Ok(Self {
-            game,
-            msg_type,
-            payload: serde_json::to_value(payload)?,
+            game: serde_json::to_value(event)?,
         })
     }
 }

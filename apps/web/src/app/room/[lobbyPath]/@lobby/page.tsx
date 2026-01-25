@@ -6,31 +6,37 @@ import Participants from "./_components/participants";
 import LobbyDetails from "./_components/lobby-details";
 import { cn } from "@/lib/utils";
 import Loading from "@/app/loading";
-import { useRoomView } from "@/lib/contexts/room-view-context";
 import { useRoom } from "@/lib/contexts/room-context";
-import { useIsActionLoading } from "@/lib/stores/room";
-import RoomHeader from "./_components/header";
+import {
+	useLobby,
+	useGame,
+	usePlayers,
+	useJoinRequests,
+	useRoomConnected,
+	useRoomConnecting,
+	useIsActionLoading,
+	useCountdown,
+} from "@/lib/stores/room";
+import { useUser, useIsAuthenticated } from "@/lib/stores/user";
+import RoomHeader from "@/components/room/room-header";
 
 export default function LobbySlot() {
-	const {
-		lobby,
-		game,
-		creator,
-		players,
-		joinRequests,
-		chatHistory,
-		isConnecting,
-		isConnected,
-		user,
-		isAuthenticated,
-		sendLobbyMessage,
-		latency,
-	} = useRoom();
+	const { sendLobbyMessage } = useRoom();
 
-	// Get loading states from store
-	const isStartGameLoading = useIsActionLoading("updateLobbyStatus");
+	// Get state from stores
+	const lobby = useLobby();
+	const game = useGame();
+	const players = usePlayers();
+	const joinRequests = useJoinRequests();
+	const isConnecting = useRoomConnecting();
+	const isConnected = useRoomConnected();
+	const user = useUser();
+	const isAuthenticated = useIsAuthenticated();
+	const isStartGameLoading = useIsActionLoading("updateLobbyStatus-starting");
+	const isCancelGameLoading = useIsActionLoading("updateLobbyStatus-waiting");
+	const countdown = useCountdown();
 
-	if (isConnecting || !lobby || !game || !creator) {
+	if (isConnecting || !lobby || !game) {
 		return <Loading />;
 	}
 
@@ -52,59 +58,62 @@ export default function LobbySlot() {
 		}
 	};
 
-	const handleApproveJoin = (userId: string) => {
-		sendLobbyMessage({ type: "approveJoin", userId });
-	};
-
-	const handleRejectJoin = (userId: string) => {
-		sendLobbyMessage({ type: "rejectJoin", userId });
-	};
-
-	const handleKick = (userId: string) => {
-		sendLobbyMessage({ type: "kick", userId });
-	};
-
-	const handleSendMessage = (content: string) => {
-		sendLobbyMessage({ type: "sendMessage", content });
-	};
-
-	const handleAddReaction = (messageId: string, emoji: string) => {
-		console.log("addReaction called");
-		sendLobbyMessage({ type: "addReaction", messageId, emoji });
-	};
-
-	const handleRemoveReaction = (messageId: string, emoji: string) => {
-		console.log("removeReaction called");
-		sendLobbyMessage({ type: "removeReaction", messageId, emoji });
-	};
-
 	const handleStartGame = () => {
 		sendLobbyMessage({ type: "updateLobbyStatus", status: "starting" });
+	};
+
+	const handleCancelStart = () => {
+		sendLobbyMessage({ type: "updateLobbyStatus", status: "waiting" });
 	};
 
 	const canStartGame =
 		isCreator &&
 		lobby.status === "waiting" &&
 		players.length >= game.minPlayers;
-	//const canStartGame = true;
-
-	const acceptedPlayers = players.filter((p) => p.state === "accepted");
-	const pendingPlayers = joinRequests.filter((jr) => jr.state === "pending");
 
 	return (
-		<div className="container mx-auto p-4">
+		<div className="container mx-auto p-4 pt-0">
+			{/* Countdown Overlay */}
+			{countdown !== null && countdown > 0 && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+					<div className="flex flex-col items-center gap-6 text-center">
+						<p className="text-lg sm:text-xl text-muted-foreground">
+							Game starting in
+						</p>
+						<div className="relative flex items-center justify-center">
+							<div className="absolute size-32 sm:size-40 lg:size-48 rounded-full border-4 border-primary/20" />
+							<div
+								className="absolute size-32 sm:size-40 lg:size-48 rounded-full border-4 border-primary border-t-transparent animate-spin"
+								style={{ animationDuration: "1s" }}
+							/>
+							<span className="text-6xl sm:text-7xl lg:text-8xl font-bold text-primary">
+								{countdown}
+							</span>
+						</div>
+						{isCreator && (
+							<Button
+								variant="outline"
+								size="lg"
+								onClick={handleCancelStart}
+								disabled={isCancelGameLoading}
+								className="mt-4"
+							>
+								{isCancelGameLoading
+									? "Cancelling..."
+									: "Cancel"}
+							</Button>
+						)}
+					</div>
+				</div>
+			)}
+
 			<div
 				className={cn(
 					"space-y-4 sm:space-y-8",
-					canStartGame && "mb-20 sm:mb-24"
+					canStartGame && "mb-15 sm:mb-20 lg:mb-22"
 				)}
 			>
-				<RoomHeader
-					lobby={lobby}
-					isConnected={isConnected}
-					isConnecting={isConnecting}
-					latency={latency}
-				/>
+				<RoomHeader />
 				<GameCard
 					game={game}
 					action="joinLobby"
@@ -115,24 +124,8 @@ export default function LobbySlot() {
 					isJoinRequestAccepted={isJoinRequestAccepted}
 					isAuthenticated={isAuthenticated}
 				/>
-				<LobbyDetails
-					lobby={lobby}
-					game={game}
-					players={players}
-					chatHistory={chatHistory}
-					currentUserId={user?.id}
-					onSendMessage={handleSendMessage}
-					onAddReaction={handleAddReaction}
-					onRemoveReaction={handleRemoveReaction}
-				/>
-				<Participants
-					players={acceptedPlayers}
-					pendingPlayers={pendingPlayers}
-					isCreator={isCreator}
-					onApprove={handleApproveJoin}
-					onReject={handleRejectJoin}
-					onKick={handleKick}
-				/>
+				<LobbyDetails />
+				<Participants />
 			</div>
 			{canStartGame && (
 				<div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 ">

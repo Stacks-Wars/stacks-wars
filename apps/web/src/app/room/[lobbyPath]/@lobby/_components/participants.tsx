@@ -1,24 +1,35 @@
-import type { JoinRequest, PlayerState } from "@/lib/definitions";
+"use client";
+
+import { usePlayers, useJoinRequests } from "@/lib/stores/room";
+import { useLobby } from "@/lib/stores/room";
+import { useUser } from "@/lib/stores/user";
+import { useRoom } from "@/lib/contexts/room-context";
 import Player from "./player";
 import { Clock, Users } from "lucide-react";
 
-interface ParticipantsProps {
-	players: PlayerState[];
-	pendingPlayers: JoinRequest[];
-	isCreator: boolean;
-	onApprove?: (userId: string) => void;
-	onReject?: (userId: string) => void;
-	onKick?: (userId: string) => void;
-}
+export default function Participants() {
+	const players = usePlayers();
+	const joinRequests = useJoinRequests();
+	const lobby = useLobby();
+	const user = useUser();
+	const { sendLobbyMessage } = useRoom();
 
-export default function Participants({
-	players,
-	pendingPlayers,
-	isCreator,
-	onApprove,
-	onReject,
-	onKick,
-}: ParticipantsProps) {
+	const isCreator = user?.id === lobby?.creatorId;
+	const acceptedPlayers = players.filter((p) => p.state === "accepted");
+	const pendingPlayers = joinRequests.filter((jr) => jr.state === "pending");
+
+	const handleApprove = (userId: string) => {
+		sendLobbyMessage({ type: "approveJoin", userId });
+	};
+
+	const handleReject = (userId: string) => {
+		sendLobbyMessage({ type: "rejectJoin", userId });
+	};
+
+	const handleKick = (userId: string) => {
+		sendLobbyMessage({ type: "kick", userId });
+	};
+
 	return (
 		<div className="border rounded-3xl p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
 			<div className="space-y-3 sm:space-y-4">
@@ -27,12 +38,12 @@ export default function Participants({
 					<span>Participants</span>
 				</p>
 				<div className="space-y-2 sm:space-y-3">
-					{players.map((player) => (
+					{acceptedPlayers.map((player) => (
 						<Player
 							key={player.userId}
 							player={player}
 							isCreator={isCreator}
-							onKick={onKick}
+							onKick={handleKick}
 							kickActionKey={`kick-${player.userId}`}
 						/>
 					))}
@@ -50,8 +61,8 @@ export default function Participants({
 								key={pendingPlayer.userId}
 								player={pendingPlayer}
 								isCreator={isCreator}
-								onApprove={onApprove}
-								onReject={onReject}
+								onApprove={handleApprove}
+								onReject={handleReject}
 								approveActionKey={`approve-${pendingPlayer.userId}`}
 								rejectActionKey={`reject-${pendingPlayer.userId}`}
 							/>

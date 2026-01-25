@@ -13,7 +13,6 @@ import { getGamePlugin } from "@/app/game/registry";
 import type {
 	ChatMessage,
 	Game,
-	GameMessage,
 	GamePlugin,
 	JoinRequest,
 	LobbyExtended,
@@ -37,9 +36,10 @@ import {
 	useLobbyActions,
 	useLobbyStore,
 } from "../stores/room";
-import { useUser } from "../stores/user";
+import { useUser, useUserActions } from "../stores/user";
 import { WebSocketClient } from "../websocket/wsClient";
 import { toast } from "sonner";
+import { clear } from "console";
 
 interface UseRoomOptions {
 	lobbyPath: string;
@@ -52,22 +52,6 @@ interface UseRoomOptions {
 }
 
 export interface UseRoomWebSocketReturn {
-	// Connection state
-	isConnected: boolean;
-	isConnecting: boolean;
-	error: string | null;
-	latency: number | null;
-	// Auth state
-	user: User | null;
-	isAuthenticated: boolean;
-	// Lobby state
-	lobby: LobbyExtended | null;
-	game: Game | null;
-	creator: User | null;
-	players: PlayerState[];
-	joinRequests: JoinRequest[];
-	chatHistory: ChatMessage[];
-	countdown: number | null;
 	// Game state
 	gameState: unknown;
 	gamePlugin: GamePlugin | undefined;
@@ -86,29 +70,14 @@ export function useRoomWebSocket({
 	onActionError,
 }: UseRoomOptions): UseRoomWebSocketReturn {
 	const clientRef = useRef<WebSocketClient | null>(null);
+	const gamePluginRef = useRef<GamePlugin | undefined>(undefined);
 	const [gamePlugin, setGamePlugin] = useState<GamePlugin | undefined>();
 	const [gameState, setGameState] = useState<unknown>(null);
-	const [authenticatedUserId, setAuthenticatedUserId] = useState<
-		string | null
-	>(null);
-	const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 	const pendingActionsRef = useRef<Set<string>>(new Set());
 
-	const lobby = useLobby();
-	const game = useGame();
-	const creator = useCreator();
-	const players = usePlayers();
-	const joinRequests = useJoinRequests();
-	const chatHistory = useChatHistory();
-	const countdown = useCountdown();
-	const isConnected = useRoomConnected();
-	const isConnecting = useRoomConnecting();
-	const error = useRoomError();
-	const latency = useRoomLatency();
 	const lobbyActions = useLobbyActions();
 	const user = useUser();
-
-	const isAuthenticated = !isCheckingAuth && !!authenticatedUserId && !!user;
+	const { clearUser } = useUserActions();
 
 	// Check authentication status
 	useEffect(() => {
@@ -116,12 +85,11 @@ export function useRoomWebSocket({
 			try {
 				const response = await fetch("/api/auth/me");
 				const data = await response.json();
-				setAuthenticatedUserId(data.userId);
+				//if (user && !data.userId && user.id !== data.userId)
+				//	clearUser();
 			} catch (error) {
 				console.error("Failed to check authentication:", error);
-				setAuthenticatedUserId(null);
-			} finally {
-				setIsCheckingAuth(false);
+				//clearUser();
 			}
 		}
 
@@ -151,25 +119,30 @@ export function useRoomWebSocket({
 		// Message router
 		const unsubscribe = client.onMessage((message: unknown) => {
 			try {
-				// Try to parse as wrapped game message
-				const msg = message as {
-					game?: string;
-					type: string;
-					payload?: unknown;
-				};
+				const msg = message as Record<string, unknown>;
 
-				if (msg.game && gamePlugin && msg.game === gamePlugin.path) {
-					// Route to game plugin
-					console.log(
-						`[Room] Routing message to game: ${msg.game}`,
-						msg
-					);
-					setGameState((prevState: unknown) =>
-						gamePlugin.handleMessage(prevState, msg as GameMessage)
-					);
+				// Check if this is a game message (wrapped in "game" object)
+				// Format: { "game": { "type": "wordEntry", ... } }
+				if (msg.game && typeof msg.game === "object") {
+					const plugin = gamePluginRef.current;
+					if (plugin) {
+						const gameMsg = msg.game as { type?: string };
+						console.log(
+							`[Room] Routing game message to plugin:`,
+							gameMsg.type
+						);
+						// Call the plugin's message handler and update state
+						setGameState((prevState: unknown) =>
+							plugin.handleMessage(prevState, msg)
+						);
+					} else {
+						console.warn(
+							"[Room] Received game message but no plugin loaded"
+						);
+					}
 				} else {
-					// Route to lobby handler
-					handleLobbyMessage(msg as RoomServerMessage);
+					// Route to lobby handler (room-level messages)
+					handleLobbyMessage(msg as unknown as RoomServerMessage);
 				}
 			} catch (err) {
 				console.error("[Room] Failed to handle message:", err);
@@ -195,6 +168,7 @@ export function useRoomWebSocket({
 			client.disconnect();
 			lobbyActions.reset();
 			setGamePlugin(undefined);
+			gamePluginRef.current = undefined;
 			setGameState(null);
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -216,8 +190,9 @@ export function useRoomWebSocket({
 					);
 					if (plugin) {
 						setGamePlugin(plugin);
+						gamePluginRef.current = plugin;
 						setGameState(plugin.createInitialState());
-						console.log("[Room] Loaded game plugin:", plugin.id);
+						console.log("[Room] Loaded game plugin:", plugin.path);
 					} else {
 						console.warn(
 							`[Room] No plugin found for game: ${message.lobbyInfo.lobby.gamePath}`
@@ -233,9 +208,11 @@ export function useRoomWebSocket({
 					message.participantCount,
 					message.currentAmount
 				);
-				if (pendingActionsRef.current.has("updateLobbyStatus")) {
-					pendingActionsRef.current.delete("updateLobbyStatus");
-					lobbyActions.clearActionLoading("updateLobbyStatus");
+				// Clear status-specific loading states
+				const statusActionKey = `updateLobbyStatus-${message.status}`;
+				if (pendingActionsRef.current.has(statusActionKey)) {
+					pendingActionsRef.current.delete(statusActionKey);
+					lobbyActions.clearActionLoading(statusActionKey);
 					onActionSuccess?.(
 						"updateLobbyStatus",
 						`Lobby status updated to ${message.status}`
@@ -352,6 +329,62 @@ export function useRoomWebSocket({
 				lobbyActions.setPlayers(message.players);
 				break;
 
+			// Shared game events
+			case "gameStarted":
+				toast.info("Game has started!");
+				console.log("[Room] Game started");
+				break;
+
+			case "gameStartFailed":
+				console.error("[Room] Game start failed:", message.reason);
+				onActionError?.("gameStart", {
+					code: "GAME_START_FAILED",
+					message: message.reason,
+				});
+				break;
+
+			case "finalStanding":
+				console.log("[Room] Final standings:", message.standings);
+				// Update game state with final standings
+				setGameState((prevState: unknown) => {
+					const state = prevState as Record<string, unknown>;
+					return {
+						...state,
+						finished: true,
+						standings: message.standings,
+					};
+				});
+				break;
+
+			case "gameOver":
+				console.log("[Room] Game over for user:", message);
+				// This is sent to individual users with their rank/prize
+				onActionSuccess?.(
+					"gameOver",
+					`You finished #${message.rank}${message.prize ? ` and won ${message.prize.toFixed(2)}!` : ""}`
+				);
+				break;
+
+			case "gameState":
+				console.log(
+					"[Room] Received game state for reconnection:",
+					message
+				);
+				// Apply game state when reconnecting to an in-progress game
+				if (gamePluginRef.current?.applyGameState) {
+					setGameState((prevState: unknown) =>
+						gamePluginRef.current!.applyGameState!(
+							prevState,
+							message.gameState
+						)
+					);
+				} else {
+					console.warn(
+						"[Room] No applyGameState handler for game plugin"
+					);
+				}
+				break;
+
 			case "error":
 				lobbyActions.setError(message.message || "An error occurred");
 				// Map error codes to actions
@@ -400,7 +433,7 @@ export function useRoomWebSocket({
 			);
 			return;
 		}
-		clientRef.current.sendGameMessage(gamePlugin.path, type, payload);
+		clientRef.current.sendGameMessage(type, payload);
 	};
 
 	// Send a lobby-level message
@@ -424,8 +457,9 @@ export function useRoomWebSocket({
 				lobbyActions.setActionLoading("leave", true);
 				break;
 			case "updateLobbyStatus":
-				pendingActionsRef.current.add("updateLobbyStatus");
-				lobbyActions.setActionLoading("updateLobbyStatus", true);
+				const actionKey = `updateLobbyStatus-${message.status}`;
+				pendingActionsRef.current.add(actionKey);
+				lobbyActions.setActionLoading(actionKey, true);
 				break;
 			case "joinRequest":
 				pendingActionsRef.current.add("joinRequest");
@@ -482,25 +516,6 @@ export function useRoomWebSocket({
 	};
 
 	return {
-		// Connection state
-		isConnected,
-		isConnecting,
-		error,
-		latency,
-
-		// Auth state
-		user,
-		isAuthenticated,
-
-		// Lobby state
-		lobby,
-		game,
-		creator,
-		players,
-		joinRequests,
-		chatHistory,
-		countdown,
-
 		// Game state
 		gameState,
 		gamePlugin,
