@@ -9,6 +9,7 @@ import { create } from "zustand";
 import type {
 	ChatMessage,
 	Game,
+	GameOverMessage,
 	JoinRequest,
 	joinState,
 	LobbyBootstrapMessage,
@@ -44,6 +45,8 @@ interface LobbyActions {
 	setActionLoading: (action: string, loading: boolean) => void;
 	clearActionLoading: (action: string) => void;
 	clearAllLoadingActions: () => void;
+	setGameOver: (data: Omit<GameOverMessage, "type"> | null) => void;
+	setFinalStandings: (standings: PlayerState[] | null) => void;
 	reset: () => void;
 }
 
@@ -61,6 +64,8 @@ interface LobbyStore {
 	error: string | null;
 	loadingActions: Set<string>;
 	latency: number | null;
+	gameOverData: Omit<GameOverMessage, "type"> | null;
+	finalStandings: PlayerState[] | null;
 
 	// Actions
 	actions: LobbyActions;
@@ -78,6 +83,8 @@ const initialState = {
 	isConnecting: false,
 	error: null,
 	loadingActions: new Set<string>(),
+	gameOverData: null,
+	finalStandings: null,
 	latency: null,
 };
 
@@ -238,6 +245,14 @@ export const useLobbyStore = create<LobbyStore>((set) => ({
 			set({ loadingActions: new Set<string>() });
 		},
 
+		setGameOver: (data) => {
+			set({ gameOverData: data });
+		},
+
+		setFinalStandings: (standings) => {
+			set({ finalStandings: standings });
+		},
+
 		reset: () => {
 			set(initialState);
 		},
@@ -266,3 +281,9 @@ export const useLoadingActions = () =>
 	useLobbyStore((state) => state.loadingActions);
 export const useIsActionLoading = (action: string) =>
 	useLobbyStore((state) => state.loadingActions.has(action));
+
+// Game end state selectors
+export const useGameOverData = () =>
+	useLobbyStore((state) => state.gameOverData);
+export const useFinalStandings = () =>
+	useLobbyStore((state) => state.finalStandings);

@@ -310,21 +310,17 @@ export function useRoomWebSocket({
 
 			case "finalStanding":
 				console.log("[Room] Final standings:", message.standings);
-				// Update game state with final standings
-				setGameState((prevState: unknown) => {
-					const state = prevState as Record<string, unknown>;
-					return {
-						...state,
-						finished: true,
-						standings: message.standings,
-					};
-				});
+				lobbyActions.setFinalStandings(message.standings);
 				break;
 
 			case "gameOver":
 				console.log("[Room] Game over for user:", message);
-				// This is sent to individual users with their rank/prize
-				// Open game over modal for user
+				// Store game over data in room store to show modal
+				lobbyActions.setGameOver({
+					rank: message.rank,
+					prize: message.prize,
+					warsPoint: message.warsPoint,
+				});
 				break;
 
 			case "gameState":

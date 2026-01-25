@@ -21,7 +21,7 @@ export default async function CreateLobbyPage({
 	return (
 		<div className="container mx-auto px-4">
 			<GameCard game={game.data} action="gamePage" />
-			<div className="mx-auto max-w-4xl">
+			<div className="mx-auto max-w-4xl py-4">
 				<div className="flex items-center gap-4 mb-4 sm:mb-8">
 					<div className="bg-primary/50 p-4.5 rounded-full inline-block">
 						<Image

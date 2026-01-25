@@ -4,6 +4,8 @@ import { useState } from "react";
 import { RoomProvider } from "@/lib/contexts/room-context";
 import { RoomViewProvider } from "@/lib/contexts/room-view-context";
 import { useLobby } from "@/lib/stores/room";
+import GameOverModal from "@/components/room/game-over-modal";
+import FinalStandingsModal from "@/components/room/final-standings-modal";
 
 function RoomContentInner({
 	lobby,
@@ -52,6 +54,8 @@ export default function RoomContent({
 		<RoomProvider lobbyPath={lobbyPath}>
 			<RoomContentInner lobby={lobby} game={game} />
 			{children}
+			<GameOverModal />
+			<FinalStandingsModal />
 		</RoomProvider>
 	);
 }
