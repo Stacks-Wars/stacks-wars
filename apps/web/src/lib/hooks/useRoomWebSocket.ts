@@ -177,25 +177,28 @@ export function useRoomWebSocket({
 				lobbyActions.setCountdown(message.secondsRemaining);
 				break;
 
-			case "playerJoined":
-				if (pendingActionsRef.current.has("join")) {
-					pendingActionsRef.current.delete("join");
-					lobbyActions.clearActionLoading("join");
-					toast.info(
-						`${message.player.userId === user?.id ? "You" : displayUserIdentifier(message.player)} joined the lobby`
-					);
+			case "playerJoined": {
+				const joinKey = `join-${message.player.userId}`;
+				if (pendingActionsRef.current.has(joinKey)) {
+					pendingActionsRef.current.delete(joinKey);
+					lobbyActions.clearActionLoading(joinKey);
 				}
+				toast.info(
+					`${message.player.userId === user?.id ? "You" : displayUserIdentifier(message.player)} joined the lobby`
+				);
 				break;
+			}
 
 			case "playerLeft":
 				lobbyActions.removePlayer(message.player.userId);
-				if (pendingActionsRef.current.has("leave")) {
-					pendingActionsRef.current.delete("leave");
-					lobbyActions.clearActionLoading("leave");
-					toast.info(
-						`${message.player.userId === user?.id ? "You" : displayUserIdentifier(message.player)} left the lobby`
-					);
+				const leaveKey = `leave-${message.player.userId}`;
+				if (pendingActionsRef.current.has(leaveKey)) {
+					pendingActionsRef.current.delete(leaveKey);
+					lobbyActions.clearActionLoading(leaveKey);
 				}
+				toast.info(
+					`${message.player.userId === user?.id ? "You" : displayUserIdentifier(message.player)} left the lobby`
+				);
 				const currentCreator = useLobbyStore.getState().creator;
 				if (message.player.userId === currentCreator?.id) {
 					// Creator left - lobby is being closed
@@ -207,21 +210,14 @@ export function useRoomWebSocket({
 
 			case "playerKicked":
 				lobbyActions.removePlayer(message.player.userId);
-				if (
-					pendingActionsRef.current.has(
-						`kick-${message.player.userId}`
-					)
-				) {
-					pendingActionsRef.current.delete(
-						`kick-${message.player.userId}`
-					);
-					lobbyActions.clearActionLoading(
-						`kick-${message.player.userId}`
-					);
-					toast.info(
-						`${message.player.userId === user?.id ? "You were" : `${displayUserIdentifier(message.player)} was`} kicked from the lobby`
-					);
+				const kickKey = `kick-${message.player.userId}`;
+				if (pendingActionsRef.current.has(kickKey)) {
+					pendingActionsRef.current.delete(kickKey);
+					lobbyActions.clearActionLoading(kickKey);
 				}
+				toast.info(
+					`${message.player.userId === user?.id ? "You were" : `${displayUserIdentifier(message.player)} was`} kicked from the lobby`
+				);
 				break;
 
 			case "joinRequestsUpdated":
@@ -411,14 +407,18 @@ export function useRoomWebSocket({
 
 		// Track pending actions
 		switch (message.type) {
-			case "join":
-				pendingActionsRef.current.add("join");
-				lobbyActions.setActionLoading("join", true);
+			case "join": {
+				const joinKey = `join-${user?.id}`;
+				pendingActionsRef.current.add(joinKey);
+				lobbyActions.setActionLoading(joinKey, true);
 				break;
-			case "leave":
-				pendingActionsRef.current.add("leave");
-				lobbyActions.setActionLoading("leave", true);
+			}
+			case "leave": {
+				const leaveKey = `leave-${user?.id}`;
+				pendingActionsRef.current.add(leaveKey);
+				lobbyActions.setActionLoading(leaveKey, true);
 				break;
+			}
 			case "updateLobbyStatus":
 				const actionKey = `updateLobbyStatus-${message.status}`;
 				pendingActionsRef.current.add(actionKey);
