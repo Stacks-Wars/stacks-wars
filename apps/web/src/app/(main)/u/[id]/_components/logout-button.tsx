@@ -7,10 +7,12 @@ import { disconnectWallet } from "@/lib/wallet";
 import { LogOut, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useUserActions } from "@/lib/stores/user";
 
 export default function LogoutButton() {
 	const [isLoggingOut, setIsLoggingOut] = useState(false);
 	const router = useRouter();
+	const { clearUser } = useUserActions();
 
 	const handleLogout = async () => {
 		setIsLoggingOut(true);
@@ -21,7 +23,9 @@ export default function LogoutButton() {
 			// Call backend logout to revoke token and clear cookie
 			await ApiClient.post("/api/logout");
 
+			// Refresh auth state (will clear user since token is revoked)
 			router.refresh();
+			clearUser();
 
 			toast.success("Logged out successfully");
 		} catch (error) {
