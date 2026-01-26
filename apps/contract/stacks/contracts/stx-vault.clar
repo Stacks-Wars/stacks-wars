@@ -77,7 +77,7 @@
 		(
 			(sender tx-sender)
 			(player-count (var-get total-players))
-			(message-hash (try! (construct-message-hash ENTRY-FEE)))
+			(message-hash (try! (construct-message-hash ENTRY-FEE sender)))
 		)
 		;; Check if player has joined
 		(asserts! (is-some (map-get? players sender)) ERR-NOT-JOINED)
@@ -109,12 +109,14 @@
 
 ;; Kick a player from the lobby (creator only, before game starts)
 ;; @param player: principal address of player to kick
+;; @param signature: signature from stacks wars
 ;; @returns (ok true) on success
-(define-public (kick (player principal))
+(define-public (kick (player principal) (signature (buff 65)))
 	(let
 		(
 			(sender tx-sender)
 			(player-count (var-get total-players))
+			(message-hash (try! (construct-message-hash ENTRY-FEE player)))
 		)
 		;; Only deployer can kick
 		(asserts! (is-eq sender DEPLOYER) ERR-NOT-DEPLOYER)
@@ -124,6 +126,12 @@
 
 		;; Deployer cannot kick themselves
 		(asserts! (not (is-eq player DEPLOYER)) ERR-CANNOT-KICK-SELF)
+
+		;; Verify signature from stacks wars
+		(asserts!
+			(secp256k1-verify message-hash signature TRUSTED-PUBLIC-KEY)
+			ERR-INVALID-SIGNATURE
+		)
 
 		;; Transfer entry fee from contract back to player
 		(try! (as-contract (stx-transfer? ENTRY-FEE tx-sender player)))
@@ -157,11 +165,12 @@
 
 ;; Construct message hash for signature verification
 ;; @param amount: amount to include in the message
+;; @param player: principal address of the player
 ;; @returns (ok buff) containing the message hash
-(define-private (construct-message-hash (amount uint))
+(define-private (construct-message-hash (amount uint) (player principal))
 	(let ((message {
 		amount: amount,
-		player: tx-sender,
+		player: player,
 		contract: (as-contract tx-sender)
 		}))
 		(match (to-consensus-buff? message)
