@@ -1,6 +1,6 @@
 // Read-focused API routes mounted under `/api` (public/read-only)
 
-use axum::{middleware::from_fn_with_state, routing::get, Router};
+use axum::{Router, middleware::from_fn_with_state, routing::get};
 
 use crate::{
     http::handlers::{
@@ -13,7 +13,7 @@ use crate::{
         token_info::{get_token_info_mainnet, get_token_info_testnet},
         user::get_user,
     },
-    middleware::{rate_limit_with_state, ApiRateLimit},
+    middleware::{ApiRateLimit, rate_limit_with_state},
     state::AppState,
 };
 

@@ -283,7 +283,7 @@ pub async fn save_player_result(
 
     // Save wars_point to PostgreSQL user_wars_points for current season
     let season_repo = SeasonRepository::new(state.postgres.clone());
-    if let Ok(season_id) = season_repo.get_current_season().await {
+    if let Ok(season_id) = season_repo.get_current_season_id().await {
         let wars_points_repo = UserWarsPointsRepository::new(state.postgres.clone());
         let _ = wars_points_repo
             .upsert_wars_points(ctx.user_id, season_id, wars_point)

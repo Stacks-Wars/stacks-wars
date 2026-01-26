@@ -1,4 +1,5 @@
 use crate::games::{GameEngine, GameFactory, create_game_registry};
+use crate::models::WalletAddress;
 use axum::extract::ws::{Message, WebSocket};
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
@@ -44,12 +45,18 @@ pub struct AppConfig {
     pub database_url: String,
     pub telegram_bot_token: String,
     pub telegram_chat_id: String,
+    pub admins: Vec<WalletAddress>,
 }
 
 impl AppConfig {
     /// Check if running in production environment
     pub fn is_production(&self) -> bool {
         self.environment.is_production()
+    }
+
+    /// Check if a wallet address is an admin
+    pub fn is_admin(&self, wallet: &str) -> bool {
+        self.admins.iter().any(|admin| admin.as_str() == wallet)
     }
 }
 
@@ -81,6 +88,26 @@ impl AppState {
         let jwt_secret = std::env::var("JWT_SECRET")?;
         let telegram_chat_id = std::env::var("TELEGRAM_CHAT_ID")?;
 
+        // Parse admin wallet addresses from comma-separated list
+        let admins: Vec<WalletAddress> = std::env::var("ADMIN_WALLETS")
+            .unwrap_or_default()
+            .split(',')
+            .filter_map(|s| {
+                let trimmed = s.trim();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    match WalletAddress::new(trimmed) {
+                        Ok(addr) => Some(addr),
+                        Err(e) => {
+                            tracing::warn!("Invalid admin wallet address '{}': {}", trimmed, e);
+                            None
+                        }
+                    }
+                }
+            })
+            .collect();
+
         let config = AppConfig {
             environment,
             jwt_secret,
@@ -88,6 +115,7 @@ impl AppState {
             database_url: database_url.clone(),
             telegram_bot_token: bot_token.clone(),
             telegram_chat_id,
+            admins,
         };
 
         // Redis connection pool built from config.redis_url
