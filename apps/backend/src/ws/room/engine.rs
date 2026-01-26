@@ -139,7 +139,9 @@ pub async fn handle_room_message(
                     None,
                     false,
                 );
-                let _ = player_repo.upsert_state(pstate, Some(state.clone())).await;
+                let _ = player_repo
+                    .upsert_state(pstate.clone(), Some(state.clone()))
+                    .await;
 
                 let participant_count = lobby_state_repo
                     .increment_participants(lobby_id)
@@ -147,10 +149,10 @@ pub async fn handle_room_message(
                     .unwrap_or(0);
 
                 // broadcast joined and updated player list
-                let _ = broadcast::broadcast_user(
+                let _ = broadcast::broadcast_room(
                     state,
-                    user_id,
-                    &RoomServerMessage::PlayerJoined { user_id },
+                    lobby_id,
+                    &RoomServerMessage::PlayerJoined { player: pstate },
                 )
                 .await;
 
@@ -235,6 +237,9 @@ pub async fn handle_room_message(
                 let participant_count = player_repo.count_players(lobby_id).await.unwrap_or(0);
 
                 if participant_count == 1 {
+                    // Get player state before deletion for broadcast
+                    let player = player_repo.get_state(lobby_id, user_id).await.ok();
+
                     // Delete the entire lobby
                     let lobby_repo = LobbyRepository::new(state.postgres.clone());
                     let lobby_chat_repo = LobbyChatRepository::new(state.redis.clone());
@@ -245,12 +250,14 @@ pub async fn handle_room_message(
                     let _ = lobby_chat_repo.cleanup_lobby(lobby_id).await;
                     let _ = lobby_repo.delete_lobby(lobby_id, Some(state.clone())).await;
 
-                    let _ = broadcast::broadcast_room(
-                        state,
-                        lobby_id,
-                        &RoomServerMessage::PlayerLeft { user_id },
-                    )
-                    .await;
+                    if let Some(player) = player {
+                        let _ = broadcast::broadcast_room(
+                            state,
+                            lobby_id,
+                            &RoomServerMessage::PlayerLeft { player },
+                        )
+                        .await;
+                    }
                     return;
                 } else {
                     // Creator cannot leave if there are other participants
@@ -263,6 +270,9 @@ pub async fn handle_room_message(
                 }
             }
 
+            // Get player state before deletion for broadcast
+            let player = player_repo.get_state(lobby_id, user_id).await.ok();
+
             // remove player state
             let _ = player_repo
                 .delete_state(lobby_id, user_id, Some(state.clone()))
@@ -274,12 +284,14 @@ pub async fn handle_room_message(
                 .await
                 .unwrap_or(0);
 
-            let _ = broadcast::broadcast_user(
-                state,
-                user_id,
-                &RoomServerMessage::PlayerLeft { user_id },
-            )
-            .await;
+            if let Some(player) = player {
+                let _ = broadcast::broadcast_room(
+                    state,
+                    lobby_id,
+                    &RoomServerMessage::PlayerLeft { player },
+                )
+                .await;
+            }
             if let Ok(players) = player_repo.get_all_in_lobby(lobby_id).await {
                 let _ = broadcast::broadcast_room(
                     state,
@@ -441,10 +453,8 @@ pub async fn handle_room_message(
                     };
 
                     if let Some(factory) = spawn_state.game_registry.get(&game_id) {
-                        let mut engine = factory(spawn_lobby);
-
-                        // Set app state before initialize so engine can access Redis/DB
-                        engine.set_state(spawn_state.clone()).await;
+                        // Create engine with state (state is now required at creation time)
+                        let mut engine = factory(spawn_lobby, spawn_state.clone());
 
                         // Get all player IDs in the lobby
                         let player_repo = PlayerStateRepository::new(spawn_state.redis.clone());
@@ -759,6 +769,9 @@ pub async fn handle_room_message(
                 return;
             }
 
+            // Get player state before deletion for broadcast
+            let kicked_player = player_repo.get_state(lobby_id, kicked_user_id).await.ok();
+
             // remove player state
             let _ = player_repo
                 .delete_state(lobby_id, kicked_user_id, Some(state.clone()))
@@ -770,14 +783,16 @@ pub async fn handle_room_message(
                 .await
                 .unwrap_or(0);
 
-            let _ = broadcast::broadcast_room(
-                state,
-                lobby_id,
-                &RoomServerMessage::PlayerKicked {
-                    user_id: kicked_user_id,
-                },
-            )
-            .await;
+            if let Some(ref player) = kicked_player {
+                let _ = broadcast::broadcast_room(
+                    state,
+                    lobby_id,
+                    &RoomServerMessage::PlayerKicked {
+                        player: player.clone(),
+                    },
+                )
+                .await;
+            }
             if let Ok(players) = player_repo.get_all_in_lobby(lobby_id).await {
                 let _ = broadcast::broadcast_room(
                     state,
@@ -786,14 +801,6 @@ pub async fn handle_room_message(
                 )
                 .await;
             }
-            let _ = broadcast::broadcast_user(
-                state,
-                kicked_user_id,
-                &RoomServerMessage::PlayerKicked {
-                    user_id: kicked_user_id,
-                },
-            )
-            .await;
 
             let lobby_repo = LobbyRepository::new(state.postgres.clone());
             let current_amount = lobby_repo

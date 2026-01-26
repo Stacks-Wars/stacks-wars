@@ -6,7 +6,7 @@ import type { LexiWarsState } from "./types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/lib/stores/user";
-import { cn, formatAddress } from "@/lib/utils";
+import { cn, displayUserIdentifier } from "@/lib/utils";
 import RoomHeader from "@/components/room/room-header";
 import ChatDialog from "@/components/room/chat";
 
@@ -84,11 +84,7 @@ export default function LexiWarsGame({
 									{isMyTurn ? "Your Turn!" : "Current Turn"}
 								</p>
 								<p className="text-lg font-semibold">
-									{state.currentPlayer.displayName ||
-										state.currentPlayer.username ||
-										formatAddress(
-											state.currentPlayer.walletAddress
-										)}
+									{displayUserIdentifier(state.currentPlayer)}
 								</p>
 							</div>
 							<div
@@ -152,35 +148,6 @@ export default function LexiWarsGame({
 						{isSubmitting ? "Submitting..." : "Submit Word"}
 					</Button>
 				</form>
-
-				{/* Final Standings */}
-				{state.finished && state.standings && (
-					<div className="rounded-lg border bg-card p-4">
-						<h3 className="mb-3 font-semibold">Final Standings</h3>
-						<div className="space-y-2">
-							{state.standings.map((player, idx) => (
-								<div
-									key={player.userId}
-									className="flex items-center justify-between rounded-md bg-muted px-3 py-2"
-								>
-									<div className="flex items-center gap-2">
-										<span className="font-bold">
-											#{player.rank || idx + 1}
-										</span>
-										<span>
-											{player.username || "Player"}
-										</span>
-									</div>
-									{player.prize && (
-										<span className="text-sm text-green-500">
-											+{player.prize.toFixed(2)}
-										</span>
-									)}
-								</div>
-							))}
-						</div>
-					</div>
-				)}
 			</div>
 
 			{/* Floating Chat Button - stays within container bounds */}

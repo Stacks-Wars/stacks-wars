@@ -5,6 +5,7 @@ import { Button } from "../ui/button";
 import Link from "next/link";
 import type { Game } from "@/lib/definitions";
 import { useIsActionLoading } from "@/lib/stores/room";
+import { useUser } from "@/lib/stores/user";
 import { Loader2 } from "lucide-react";
 
 export default function GameCard({
@@ -27,8 +28,9 @@ export default function GameCard({
 	isAuthenticated?: boolean;
 }) {
 	// Get loading states from store
-	const isJoinLoading = useIsActionLoading("join");
-	const isLeaveLoading = useIsActionLoading("leave");
+	const user = useUser();
+	const isJoinLoading = useIsActionLoading(`join-${user?.id}`);
+	const isLeaveLoading = useIsActionLoading(`leave-${user?.id}`);
 	const isJoinRequestLoading = useIsActionLoading("joinRequest");
 
 	return (

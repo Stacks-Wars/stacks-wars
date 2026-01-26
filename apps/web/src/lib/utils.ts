@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import type { PlayerState, User } from "./definitions";
 
 export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
@@ -17,4 +18,10 @@ export function formatAddress(
 	const start = address.slice(0, length);
 	const end = address.slice(-length);
 	return `${start}${separator}${end}`;
+}
+
+export function displayUserIdentifier(user: User | PlayerState): string {
+	return (
+		user.displayName || user.username || formatAddress(user.walletAddress)
+	);
 }

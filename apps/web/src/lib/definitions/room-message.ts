@@ -59,17 +59,17 @@ export interface StartCountdownMessage {
 
 export interface PlayerJoinedMessage {
 	type: "playerJoined";
-	userId: string;
+	player: PlayerState;
 }
 
 export interface PlayerLeftMessage {
 	type: "playerLeft";
-	userId: string;
+	player: PlayerState;
 }
 
 export interface PlayerKickedMessage {
 	type: "playerKicked";
-	userId: string;
+	player: PlayerState;
 }
 
 export interface JoinRequestsUpdatedMessage {

@@ -7,6 +7,8 @@ import type {
 } from "@/lib/definitions/lobby-message";
 import { useLobbyActions } from "@/lib/stores/lobby";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { displayUserIdentifier } from "@/lib/utils";
 
 const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
 
@@ -14,20 +16,15 @@ interface UseLobbyWebSocketOptions {
 	statusFilter: LobbyStatus[];
 	limit: number;
 	enabled: boolean;
-	onActionSuccess?: (action: string, data?: string | LobbyInfo) => void;
-	onActionError?: (
-		action: string,
-		error: { code: string; message: string }
-	) => void;
 }
 
 export function useLobbyWebSocket(options: UseLobbyWebSocketOptions) {
-	const { statusFilter, limit, enabled, onActionSuccess, onActionError } =
-		options;
+	const { statusFilter, limit, enabled } = options;
 
 	const actions = useLobbyActions();
 	const clientRef = useRef<WebSocketClient | null>(null);
 	const pendingActionsRef = useRef<Map<string, string>>(new Map());
+	const router = useRouter();
 
 	const buildWebSocketUrl = useCallback((statuses: LobbyStatus[]) => {
 		const statusParam = statuses.join(",");
@@ -102,7 +99,20 @@ export function useLobbyWebSocket(options: UseLobbyWebSocketOptions) {
 
 				case "lobbyCreated":
 					actions.addLobby(message.lobbyInfo);
-					onActionSuccess?.("lobbyCreated", message.lobbyInfo);
+					toast.success(
+						`New ${message.lobbyInfo.game.name} lobby created!`,
+						{
+							description: `${message.lobbyInfo.lobby.name} by ${displayUserIdentifier(message.lobbyInfo.creator)}`,
+							action: {
+								label: "Open",
+								onClick: () => {
+									router.push(
+										`/room/${message.lobbyInfo.lobby.path}`
+									);
+								},
+							},
+						}
+					);
 					break;
 
 				case "lobbyUpdated":
@@ -116,7 +126,7 @@ export function useLobbyWebSocket(options: UseLobbyWebSocketOptions) {
 				case "error": {
 					actions.setError(message.message);
 
-					// Map error codes to logical actions so callers can handle them
+					// Map error codes to logical actions
 					const errorCodeToAction: Record<string, string> = {
 						FETCH_FAILED: "fetch",
 					};
@@ -133,17 +143,21 @@ export function useLobbyWebSocket(options: UseLobbyWebSocketOptions) {
 								actions.clearActionLoading(pendingAction);
 							}
 						});
+					}
 
-						onActionError?.(action, {
-							code: message.code,
-							message: message.message,
+					// Show error toast
+					if (action === "fetch") {
+						toast.error(`Failed to load lobbies`, {
+							description: message.message,
+							action: {
+								label: "Retry",
+								onClick: () => {
+									subscribe(statusFilter);
+								},
+							},
 						});
 					} else {
-						// Fallback notify
-						onActionError?.("unknown", {
-							code: message.code,
-							message: message.message,
-						});
+						toast.error(message.message || "An error occurred");
 					}
 					break;
 				}
@@ -187,15 +201,7 @@ export function useLobbyWebSocket(options: UseLobbyWebSocketOptions) {
 			client.disconnect();
 			clientRef.current = null;
 		};
-	}, [
-		enabled,
-		statusFilter,
-		limit,
-		buildWebSocketUrl,
-		actions,
-		onActionSuccess,
-		onActionError,
-	]);
+	}, [enabled, statusFilter, limit, buildWebSocketUrl, actions, router]);
 
 	return {
 		subscribe,

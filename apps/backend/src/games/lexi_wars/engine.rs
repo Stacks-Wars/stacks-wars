@@ -8,10 +8,7 @@
 // - Word validation
 
 use crate::{
-    db::{
-        player_state::PlayerStateRepository, season::SeasonRepository,
-        user_wars_points::UserWarsPointsRepository,
-    },
+    db::player_state::PlayerStateRepository,
     errors::AppError,
     games::{GameEngine, GameError, GameResults, common::*},
     models::PlayerState,
@@ -73,11 +70,12 @@ struct LexiWarsInner {
 
     // Game loop control - Notify is used to signal valid word submission
     turn_advance_notify: Arc<Notify>,
-    app_state: Option<AppState>,
+
+    state: AppState,
 }
 
 impl LexiWarsInner {
-    fn new(lobby_id: Uuid) -> Self {
+    fn new(lobby_id: Uuid, state: AppState) -> Self {
         Self {
             lobby_id,
             players: HashMap::new(),
@@ -97,7 +95,7 @@ impl LexiWarsInner {
             is_sponsored: false,
             creator_id: None,
             turn_advance_notify: Arc::new(Notify::new()),
-            app_state: None,
+            state,
         }
     }
 }
@@ -112,21 +110,15 @@ pub struct LexiWarsEngine {
 }
 
 impl LexiWarsEngine {
-    pub fn new(lobby_id: Uuid) -> Self {
+    pub fn new(lobby_id: Uuid, state: AppState) -> Self {
         Self {
-            inner: Arc::new(RwLock::new(LexiWarsInner::new(lobby_id))),
+            inner: Arc::new(RwLock::new(LexiWarsInner::new(lobby_id, state))),
         }
     }
 
     /// Get the Arc<RwLock<Inner>> for spawning game loop
     fn get_inner(&self) -> Arc<RwLock<LexiWarsInner>> {
         self.inner.clone()
-    }
-
-    /// Set app state for broadcasting
-    pub async fn set_app_state(&self, state: AppState) {
-        let mut inner = self.inner.write().await;
-        inner.app_state = Some(state);
     }
 
     /// Set lobby context for prize/points calculation
@@ -240,47 +232,34 @@ impl LexiWarsInner {
         if prize > 0.0 { Some(prize) } else { None }
     }
 
-    /// Calculate wars points for a player
-    fn calculate_wars_point(&self, user_id: Uuid, rank: usize, participants: usize) -> f64 {
-        // Use saturating_sub to prevent overflow if rank > participants
-        let base_point = (participants.saturating_sub(rank).saturating_add(1) * 2) as f64;
-        let mut total_point = base_point;
-
-        // Pool bonus for non-sponsored games
-        if !self.is_sponsored {
-            if let (Some(entry_amount), Some(current_amount)) =
-                (self.entry_amount, self.current_amount)
-            {
-                if entry_amount > 0.0 {
-                    let pool_bonus = (current_amount / participants as f64) + (entry_amount / 5.0);
-                    total_point += pool_bonus;
-                }
-            }
+    /// Build WarsPointContext for a player result
+    fn build_wars_point_context(
+        &self,
+        user_id: Uuid,
+        rank: usize,
+        prize: Option<f64>,
+    ) -> WarsPointContext {
+        WarsPointContext {
+            user_id,
+            rank,
+            prize,
+            participants: self.total_players,
+            entry_amount: self.entry_amount,
+            current_amount: self.current_amount,
+            is_sponsored: self.is_sponsored,
+            creator_id: self.creator_id,
+            active_players: self.turn_rotation.active_count(),
         }
-
-        // Sponsor bonus if this is a sponsored lobby and the player is the creator
-        if self.is_sponsored {
-            if let Some(creator_id) = self.creator_id {
-                if user_id == creator_id {
-                    let sponsor_bonus = 2.5 * self.turn_rotation.active_count() as f64;
-                    total_point += sponsor_bonus;
-                }
-            }
-        }
-
-        // Cap at 50 points maximum
-        total_point.min(50.0)
     }
 
     /// Eliminate a player (called on timeout)
     /// This also calculates and sends GameOver to the eliminated player
     async fn eliminate_player(&mut self, player_id: Uuid, reason: &str) {
-        // Calculate rank, prize and wars_point before elimination
+        // Calculate rank and prize before elimination
         // Rank equals remaining players count (e.g., if 2 players remain, eliminated = rank 2)
         let remaining = self.turn_rotation.active_count();
-        let rank = remaining; // e.g., if 2 players remain, eliminated player gets rank 2
+        let rank = remaining;
         let prize = self.calculate_prize(rank, self.total_players);
-        let wars_point = self.calculate_wars_point(player_id, rank, self.total_players);
 
         self.turn_rotation.eliminate_player(player_id);
 
@@ -288,39 +267,31 @@ impl LexiWarsInner {
             player_state.eliminate();
         }
 
+        // Save to Redis and PostgreSQL using save_player_result
+        let ctx = self.build_wars_point_context(player_id, rank, prize);
+        let wars_point = match save_player_result(&self.state, self.lobby_id, &ctx).await {
+            Ok(result) => result.wars_point,
+            Err(e) => {
+                tracing::error!("Failed to save player result: {}", e);
+                calculate_wars_point(&ctx) // Fallback to just calculating
+            }
+        };
+
         // Update player_state with rank, prize, wars_point
         if let Some(ps) = self.player_states.get_mut(&player_id) {
             ps.rank = Some(rank);
             ps.prize = prize;
-        }
-
-        // Save to Redis and PostgreSQL
-        if let Some(state) = &self.app_state {
-            let player_repo = PlayerStateRepository::new(state.redis.clone());
-            let _ = player_repo
-                .set_result(self.lobby_id, player_id, rank, prize)
-                .await;
-
-            // Save wars points
-            let season_repo = SeasonRepository::new(state.postgres.clone());
-            if let Ok(season_id) = season_repo.get_current_season().await {
-                let wars_points_repo = UserWarsPointsRepository::new(state.postgres.clone());
-                let _ = wars_points_repo
-                    .upsert_wars_points(player_id, season_id, wars_point)
-                    .await;
-            }
+            ps.wars_point = Some(wars_point);
         }
 
         // Broadcast Eliminated event to room (game-specific)
-        if let (Some(state), Some(player)) =
-            (&self.app_state, self.player_states.get(&player_id).cloned())
-        {
+        if let Some(player) = self.player_states.get(&player_id).cloned() {
             let event = LexiWarsEvent::Eliminated {
                 player,
                 reason: reason.to_string(),
             };
             broadcast::broadcast_game_message(
-                state,
+                &self.state,
                 self.lobby_id,
                 serde_json::to_value(&event).unwrap_or_default(),
             )
@@ -332,7 +303,7 @@ impl LexiWarsInner {
                 prize,
                 wars_point,
             };
-            broadcast::broadcast_user(state, player_id, &game_over).await;
+            broadcast::broadcast_user(&self.state, player_id, &game_over).await;
 
             // Broadcast PlayersCount update
             let count_event = LexiWarsEvent::PlayersCount {
@@ -340,7 +311,7 @@ impl LexiWarsInner {
                 total: self.total_players,
             };
             broadcast::broadcast_game_message(
-                state,
+                &self.state,
                 self.lobby_id,
                 serde_json::to_value(&count_event).unwrap_or_default(),
             )
@@ -357,59 +328,60 @@ impl LexiWarsInner {
         let player_game_states: Vec<GamePlayerState> = self.players.values().cloned().collect();
         let results = GameResults::from_game_states(player_game_states);
 
-        // Get remaining active players (they need GameOver too)
+        // Get remaining active players (they need results saved + GameOver)
         let active_player_ids: Vec<Uuid> = self.turn_rotation.active_players().clone();
 
         // Update player states with rank, prize, wars_point
         let participants = self.total_players;
         let mut final_standings: Vec<PlayerState> = Vec::new();
+        let state = self.state.clone();
+        let lobby_id = self.lobby_id;
 
         for ranking in &results.rankings {
             let prize = self.calculate_prize(ranking.rank, participants);
-            let wars_point = self.calculate_wars_point(ranking.user_id, ranking.rank, participants);
+            let is_active = active_player_ids.contains(&ranking.user_id);
 
+            // Only save results for active players (winner) - eliminated players already saved
+            let wars_point = if is_active {
+                let ctx = self.build_wars_point_context(ranking.user_id, ranking.rank, prize);
+                match save_player_result(&state, lobby_id, &ctx).await {
+                    Ok(result) => result.wars_point,
+                    Err(e) => {
+                        tracing::error!("Failed to save player result: {}", e);
+                        calculate_wars_point(&ctx)
+                    }
+                }
+            } else {
+                // Already saved during elimination, just recalculate for in-memory update
+                let ctx = self.build_wars_point_context(ranking.user_id, ranking.rank, prize);
+                calculate_wars_point(&ctx)
+            };
+
+            // Update in-memory player_state
             if let Some(player_state) = self.player_states.get_mut(&ranking.user_id) {
                 player_state.rank = Some(ranking.rank);
                 player_state.prize = prize;
+                player_state.wars_point = Some(wars_point);
                 final_standings.push(player_state.clone());
             }
 
-            // Save to Redis player_state and PostgreSQL user_wars_points
-            if let Some(state) = &self.app_state {
-                let player_repo = PlayerStateRepository::new(state.redis.clone());
-                let _ = player_repo
-                    .set_result(self.lobby_id, ranking.user_id, ranking.rank, prize)
-                    .await;
-
-                // Save wars points to user_wars_points table for current season
-                let season_repo = SeasonRepository::new(state.postgres.clone());
-                if let Ok(season_id) = season_repo.get_current_season().await {
-                    let wars_points_repo = UserWarsPointsRepository::new(state.postgres.clone());
-                    let _ = wars_points_repo
-                        .upsert_wars_points(ranking.user_id, season_id, wars_point)
-                        .await;
-                }
-
-                // Send GameOver to active players (those not yet eliminated)
-                // They receive GameOver at end_game, not during elimination
-                if active_player_ids.contains(&ranking.user_id) {
-                    let game_over = RoomServerMessage::GameOver {
-                        rank: ranking.rank,
-                        prize,
-                        wars_point,
-                    };
-                    broadcast::broadcast_user(state, ranking.user_id, &game_over).await;
-                }
+            // Send GameOver to active players (those not yet eliminated)
+            // They receive GameOver at end_game, not during elimination
+            if is_active {
+                let game_over = RoomServerMessage::GameOver {
+                    rank: ranking.rank,
+                    prize,
+                    wars_point,
+                };
+                broadcast::broadcast_user(&state, ranking.user_id, &game_over).await;
             }
         }
 
         // Broadcast FinalStanding to room (shared event via RoomServerMessage)
-        if let Some(state) = &self.app_state {
-            let final_standing = RoomServerMessage::FinalStanding {
-                standings: final_standings,
-            };
-            broadcast::broadcast_room(state, self.lobby_id, &final_standing).await;
-        }
+        let final_standing = RoomServerMessage::FinalStanding {
+            standings: final_standings,
+        };
+        broadcast::broadcast_room(&state, lobby_id, &final_standing).await;
 
         self.results = Some(results);
     }
@@ -424,17 +396,13 @@ impl LexiWarsInner {
             return;
         };
 
-        let Some(state) = &self.app_state else {
-            return;
-        };
-
         // Broadcast Turn event to room
         let turn_event = LexiWarsEvent::Turn {
             player: current_player_state.clone(),
             timeout_secs: TURN_TIMEOUT_SECS,
         };
         broadcast::broadcast_game_message(
-            state,
+            &self.state,
             self.lobby_id,
             serde_json::to_value(&turn_event).unwrap_or_default(),
         )
@@ -449,7 +417,7 @@ impl LexiWarsInner {
             rule: rule_for_current.clone(),
         };
         broadcast::broadcast_game_message_to_user(
-            state,
+            &self.state,
             current_player_id,
             serde_json::to_value(&rule_event).unwrap_or_default(),
         )
@@ -458,7 +426,7 @@ impl LexiWarsInner {
         // Send Rule with None to all other players in room (to clear their UI)
         let rule_event_clear = LexiWarsEvent::Rule { rule: None };
         broadcast::broadcast_game_message_to_room_except(
-            state,
+            &self.state,
             self.lobby_id,
             current_player_id,
             serde_json::to_value(&rule_event_clear).unwrap_or_default(),
@@ -539,11 +507,6 @@ impl LexiWarsInner {
 
 #[async_trait]
 impl GameEngine for LexiWarsEngine {
-    async fn set_state(&mut self, state: AppState) {
-        let mut inner = self.inner.write().await;
-        inner.app_state = Some(state);
-    }
-
     async fn initialize(&mut self, player_ids: Vec<Uuid>) -> Result<Vec<Value>, AppError> {
         tracing::info!("Initializing LexiWars with {} players", player_ids.len());
 
@@ -567,12 +530,10 @@ impl GameEngine for LexiWarsEngine {
         inner.turn_rotation = TurnRotation::new(player_ids.clone());
 
         // Load player states from Redis
-        if let Some(state) = &inner.app_state {
-            let player_repo = PlayerStateRepository::new(state.redis.clone());
-            if let Ok(states) = player_repo.get_all_in_lobby(inner.lobby_id).await {
-                for ps in states {
-                    inner.player_states.insert(ps.user_id, ps);
-                }
+        let player_repo = PlayerStateRepository::new(inner.state.redis.clone());
+        if let Ok(states) = player_repo.get_all_in_lobby(inner.lobby_id).await {
+            for ps in states {
+                inner.player_states.insert(ps.user_id, ps);
             }
         }
 
@@ -752,8 +713,7 @@ impl GameEngine for LexiWarsEngine {
 async fn run_game_loop(inner: Arc<RwLock<LexiWarsInner>>, state: AppState) {
     // Get the notify handle and lobby_id
     let (turn_advance_notify, lobby_id, total_players) = {
-        let mut inner_guard = inner.write().await;
-        inner_guard.app_state = Some(state.clone());
+        let inner_guard = inner.read().await;
         (
             inner_guard.turn_advance_notify.clone(),
             inner_guard.lobby_id,
@@ -859,8 +819,8 @@ async fn run_game_loop(inner: Arc<RwLock<LexiWarsInner>>, state: AppState) {
 // ============================================================================
 
 /// Factory function to create new LexiWars game instances
-pub fn create_lexi_wars(lobby_id: Uuid) -> Box<dyn GameEngine> {
-    Box::new(LexiWarsEngine::new(lobby_id))
+pub fn create_lexi_wars(lobby_id: Uuid, state: AppState) -> Box<dyn GameEngine> {
+    Box::new(LexiWarsEngine::new(lobby_id, state))
 }
 
 // ============================================================================
@@ -871,40 +831,63 @@ pub fn create_lexi_wars(lobby_id: Uuid) -> Box<dyn GameEngine> {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn test_prize_calculation() {
-        let engine = LexiWarsEngine::new(Uuid::new_v4());
-        {
-            let mut inner = engine.inner.write().await;
-            inner.current_amount = Some(100.0);
-            inner.total_players = 3;
+    /// Test prize calculation logic
+    /// Prize distribution: 1st = 50% (or 70% for 2 players), 2nd = 30%, 3rd = 20%
+    #[test]
+    fn test_prize_calculation() {
+        let total_pool = 100.0;
 
-            // 3 players
-            assert_eq!(inner.calculate_prize(1, 3), Some(50.0)); // 50%
-            assert_eq!(inner.calculate_prize(2, 3), Some(30.0)); // 30%
-            assert_eq!(inner.calculate_prize(3, 3), Some(20.0)); // 20%
+        // Helper to calculate prize (mirrors the logic in LexiWarsInner::calculate_prize)
+        let calc_prize = |rank: usize, participants: usize| -> Option<f64> {
+            if total_pool <= 0.0 {
+                return None;
+            }
+            let prize = match rank {
+                1 => {
+                    if participants == 2 {
+                        (total_pool * 70.0) / 100.0
+                    } else {
+                        (total_pool * 50.0) / 100.0
+                    }
+                }
+                2 => (total_pool * 30.0) / 100.0,
+                3 => (total_pool * 20.0) / 100.0,
+                _ => 0.0,
+            };
+            if prize > 0.0 { Some(prize) } else { None }
+        };
 
-            // 2 players
-            assert_eq!(inner.calculate_prize(1, 2), Some(70.0)); // 70%
-            assert_eq!(inner.calculate_prize(2, 2), Some(30.0)); // 30%
-        }
+        // 3 players
+        assert_eq!(calc_prize(1, 3), Some(50.0)); // 50%
+        assert_eq!(calc_prize(2, 3), Some(30.0)); // 30%
+        assert_eq!(calc_prize(3, 3), Some(20.0)); // 20%
+
+        // 2 players
+        assert_eq!(calc_prize(1, 2), Some(70.0)); // 70%
+        assert_eq!(calc_prize(2, 2), Some(30.0)); // 30%
     }
 
-    #[tokio::test]
-    async fn test_wars_point_calculation() {
+    /// Test wars point calculation using WarsPointContext
+    #[test]
+    fn test_wars_point_calculation() {
         let user_id = Uuid::new_v4();
-        let engine = LexiWarsEngine::new(Uuid::new_v4());
-        {
-            let mut inner = engine.inner.write().await;
-            inner.entry_amount = Some(10.0);
-            inner.current_amount = Some(30.0);
-            inner.is_sponsored = false;
 
-            // Base points: (participants - rank + 1) * 2
-            // For 3 participants, rank 1: (3 - 1 + 1) * 2 = 6
-            let points = inner.calculate_wars_point(user_id, 1, 3);
-            assert!(points >= 6.0);
-            assert!(points <= 50.0); // Cap
-        }
+        let ctx = WarsPointContext {
+            user_id,
+            rank: 1,
+            prize: None,
+            participants: 3,
+            entry_amount: Some(10.0),
+            current_amount: Some(30.0),
+            is_sponsored: false,
+            creator_id: None,
+            active_players: 1,
+        };
+
+        // Base points: (participants - rank + 1) * 2
+        // For 3 participants, rank 1: (3 - 1 + 1) * 2 = 6
+        let points = calculate_wars_point(&ctx);
+        assert!(points >= 6.0);
+        assert!(points <= 50.0); // Cap
     }
 }

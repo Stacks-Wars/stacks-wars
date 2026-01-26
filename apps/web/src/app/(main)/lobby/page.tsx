@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import LobbyCard, { LobbyCardSkeleton } from "@/components/main/lobby-card";
 import { LobbyFilter } from "@/app/(main)/lobby/_components/lobby-filter";
 import {
@@ -16,18 +15,14 @@ import {
 	useIsLobbyActionLoading,
 } from "@/lib/stores/lobby";
 import Loading from "@/app/loading";
-import type { LobbyStatus, LobbyInfo } from "@/lib/definitions";
+import type { LobbyStatus } from "@/lib/definitions";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
-import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { useLobbyWebSocket } from "@/lib/hooks/useLobbyWebSocket";
-import { formatAddress } from "@/lib/utils";
 
 const ITEMS_PER_PAGE = 6;
 
 export default function LobbyPage() {
-	const router = useRouter();
 	const hasHydrated = useAppHasHydrated();
 	const lobbyFilter = useLobbyFilter();
 	const currentOffset = useLobbyOffset();
@@ -38,39 +33,10 @@ export default function LobbyPage() {
 	const isConnecting = useLobbyConnecting();
 	const isLoadingMore = useIsLobbyActionLoading("loadMore");
 
-	const handleActionSuccess = useCallback(
-		(action: string, data?: string | LobbyInfo) => {
-			if (action === "lobbyCreated") {
-				const lobbyInfo = data as LobbyInfo;
-				toast.success(`New ${lobbyInfo.game.name} lobby created!`, {
-					description: `${lobbyInfo.lobby.name} by ${lobbyInfo.creator.username || formatAddress(lobbyInfo.creator.walletAddress)}`,
-					action: {
-						label: "Open",
-						onClick: () => {
-							router.push(`/room/${lobbyInfo.lobby.path}`);
-						},
-					},
-				});
-			}
-		},
-		[router]
-	);
-
-	const handleActionError = useCallback(
-		(action: string, error: { code: string; message: string }) => {
-			if (action === "loadMore") {
-				toast.error(`Failed to load more lobbies: ${error.message}`);
-			}
-		},
-		[]
-	);
-
 	const { subscribe, loadMore } = useLobbyWebSocket({
 		statusFilter: lobbyFilter,
 		limit: ITEMS_PER_PAGE,
 		enabled: hasHydrated,
-		onActionSuccess: handleActionSuccess,
-		onActionError: handleActionError,
 	});
 
 	const handleFilterChange = (newStatuses: LobbyStatus[]) => {

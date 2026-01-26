@@ -86,17 +86,17 @@ pub enum RoomServerMessage {
 
     #[serde(rename_all = "camelCase")]
     PlayerJoined {
-        user_id: Uuid,
+        player: PlayerState,
     },
 
     #[serde(rename_all = "camelCase")]
     PlayerLeft {
-        user_id: Uuid,
+        player: PlayerState,
     },
 
     #[serde(rename_all = "camelCase")]
     PlayerKicked {
-        user_id: Uuid,
+        player: PlayerState,
     },
 
     /// Broadcasted list of join requests (visible to lobby); only creator may accept/reject
