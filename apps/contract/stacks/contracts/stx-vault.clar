@@ -1,14 +1,12 @@
 ;; title: stacks wars stx vault
 ;; author: flames.stx
 ;; version: v1
-;; summary:
-;; description:
-
-;; traits
-;;
-
-;; token definitions
-;;
+;; summary: A STX vault contract for Stacks Wars.
+;; description: A STX vault contract for Stacks Wars, allowing players to join
+;;				a game lobby by depositingan entry fee, leave the lobby to
+;;				withdraw their deposit, claim rewards after game completion,
+;;				and for the game creator to kick players from the lobby before
+;;				the game starts.
 
 ;; constants
 ;;
