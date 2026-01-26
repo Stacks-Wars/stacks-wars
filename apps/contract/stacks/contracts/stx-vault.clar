@@ -13,9 +13,11 @@
 ;; constants
 ;;
 
-(define-constant ENTRY-FEE u5000000) ;; 5 STX in microSTX
+(define-constant ENTRY-FEE u5000000)
 (define-constant DEPLOYER 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM)
 (define-constant TRUSTED-PUBLIC-KEY 0x0390a5cac7c33fda49f70bc1b0866fa0ba7a9440d9de647fecb8132ceb76a94dfa)
+(define-constant FEE-WALLET 'ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5)
+(define-constant FEE-PERCENTAGE u2)
 
 ;; error constants
 ;;
@@ -27,6 +29,7 @@
 (define-constant ERR-INVALID-SIGNATURE (err u104))
 (define-constant ERR-NOT-JOINED (err u105))
 (define-constant ERR-MESSAGE-HASH-FAILED (err u106))
+(define-constant ERR-ALREADY-CLAIMED (err u107))
 
 ;; data vars
 ;;
@@ -37,6 +40,7 @@
 ;;
 
 (define-map players principal uint)
+(define-map claimed-rewards principal bool)
 
 ;; public functions
 ;;
@@ -99,12 +103,41 @@
 	)
 )
 
-;; Claim reward after game completion
-;; @param recipient: principal address to receive the reward
+;; Claim after game completion
 ;; @param amount: reward amount in microSTX
+;; @param signature: signature from stacks wars
 ;; @returns (ok true) on success
-(define-public (claim-reward (recipient principal) (amount uint))
-	(ok true)
+(define-public (claim (amount uint) (signature (buff 65)))
+	(let
+		(
+			(sender tx-sender)
+			(message-hash (try! (construct-message-hash amount sender)))
+			(fee-amount (/ (* amount FEE-PERCENTAGE) u100))
+			(reward-amount (- amount fee-amount))
+		)
+		;; Check if player has joined
+		(asserts! (is-some (map-get? players sender)) ERR-NOT-JOINED)
+
+		;; Check if player has already claimed
+		(asserts! (is-none (map-get? claimed-rewards sender)) ERR-ALREADY-CLAIMED)
+
+		;; Verify signature from stacks wars
+		(asserts!
+			(secp256k1-verify message-hash signature TRUSTED-PUBLIC-KEY)
+			ERR-INVALID-SIGNATURE
+		)
+
+		;; Transfer fee to fee wallet
+		(try! (as-contract (stx-transfer? fee-amount tx-sender FEE-WALLET)))
+
+		;; Transfer reward to player
+		(try! (as-contract (stx-transfer? reward-amount tx-sender sender)))
+
+		;; Mark as claimed
+		(map-set claimed-rewards sender true)
+
+		(ok true)
+	)
 )
 
 ;; Kick a player from the lobby (creator only, before game starts)
