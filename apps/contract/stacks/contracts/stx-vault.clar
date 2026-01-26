@@ -12,7 +12,7 @@
 ;;
 
 (define-constant ENTRY-FEE u5000000)
-(define-constant DEPLOYER 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM)
+(define-constant DEPLOYER tx-sender)
 (define-constant TRUSTED-PUBLIC-KEY 0x0390a5cac7c33fda49f70bc1b0866fa0ba7a9440d9de647fecb8132ceb76a94dfa)
 (define-constant FEE-WALLET 'ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5)
 (define-constant FEE-PERCENTAGE u2)
