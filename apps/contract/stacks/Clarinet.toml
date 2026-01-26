@@ -1,0 +1,38 @@
+[project]
+name = 'stacks'
+description = ''
+authors = []
+telemetry = true
+cache_dir = './.cache'
+requirements = []
+[contracts.ft-vault]
+path = 'contracts/ft-vault.clar'
+clarity_version = 3
+epoch = 'latest'
+
+[contracts.sponsored-ft-vault]
+path = 'contracts/sponsored-ft-vault.clar'
+clarity_version = 3
+epoch = 'latest'
+
+[contracts.sponsored-stx-vault]
+path = 'contracts/sponsored-stx-vault.clar'
+clarity_version = 3
+epoch = 'latest'
+
+[contracts.stx-vault]
+path = 'contracts/stx-vault.clar'
+clarity_version = 3
+epoch = 'latest'
+[repl.analysis]
+passes = ['check_checker']
+
+[repl.analysis.check_checker]
+strict = false
+trusted_sender = false
+trusted_caller = false
+callee_filter = false
+
+[repl.remote_data]
+enabled = false
+api_url = 'https://api.hiro.so'
