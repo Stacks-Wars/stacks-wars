@@ -11,22 +11,35 @@
 ;;
 
 ;; constants
+;;
+
 (define-constant ENTRY-FEE u5000000) ;; 5 STX in microSTX
 (define-constant DEPLOYER 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM)
+(define-constant TRUSTED-PUBLIC-KEY 0x0390a5cac7c33fda49f70bc1b0866fa0ba7a9440d9de647fecb8132ceb76a94dfa)
 
 ;; error constants
+;;
+
 (define-constant ERR-ALREADY-JOINED (err u100))
 (define-constant ERR-DEPLOYER-MUST-JOIN-FIRST (err u101))
 (define-constant ERR-NOT-DEPLOYER (err u102))
 (define-constant ERR-CANNOT-KICK-SELF (err u103))
+(define-constant ERR-INVALID-SIGNATURE (err u104))
+(define-constant ERR-NOT-JOINED (err u105))
+(define-constant ERR-MESSAGE-HASH-FAILED (err u106))
 
 ;; data vars
+;;
+
 (define-data-var total-players uint u0)
 
 ;; data maps
+;;
+
 (define-map players principal uint)
 
 ;; public functions
+;;
 
 ;; Join the lobby by depositing the entry fee
 ;; @returns (ok true) on success
@@ -57,9 +70,33 @@
 )
 
 ;; Leave the lobby and withdraw deposit
+;; @param signature: signature from stacks wars
 ;; @returns (ok true) on success
-(define-public (leave)
-	(ok true)
+(define-public (leave (signature (buff 65)))
+	(let
+		(
+			(sender tx-sender)
+			(player-count (var-get total-players))
+			(message-hash (try! (construct-message-hash ENTRY-FEE)))
+		)
+		;; Check if player has joined
+		(asserts! (is-some (map-get? players sender)) ERR-NOT-JOINED)
+
+		;; Verify signature from stacks wars
+		(asserts!
+			(secp256k1-verify message-hash signature TRUSTED-PUBLIC-KEY)
+			ERR-INVALID-SIGNATURE
+		)
+
+		;; Transfer entry fee from contract back to player
+		(try! (as-contract (stx-transfer? ENTRY-FEE tx-sender sender)))
+
+		;; Update state
+		(map-delete players sender)
+		(var-set total-players (- player-count u1))
+
+		(ok true)
+	)
 )
 
 ;; Claim reward after game completion
@@ -100,6 +137,7 @@
 )
 
 ;; read only functions
+;;
 
 ;; Get the total number of players in the vault
 ;; @returns uint: total player count
@@ -117,3 +155,18 @@
 ;; private functions
 ;;
 
+;; Construct message hash for signature verification
+;; @param amount: amount to include in the message
+;; @returns (ok buff) containing the message hash
+(define-private (construct-message-hash (amount uint))
+	(let ((message {
+		amount: amount,
+		player: tx-sender,
+		contract: (as-contract tx-sender)
+		}))
+		(match (to-consensus-buff? message)
+			buff (ok (sha256 buff))
+			ERR-MESSAGE-HASH-FAILED
+		)
+	)
+)
