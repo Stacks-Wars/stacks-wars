@@ -28,6 +28,7 @@
 (define-constant ERR-NOT-JOINED (err u105))
 (define-constant ERR-MESSAGE-HASH-FAILED (err u106))
 (define-constant ERR-ALREADY-CLAIMED (err u107))
+(define-constant ERR-DEPLOYER-NOT-LAST (err u108))
 
 ;; data vars
 ;;
@@ -83,6 +84,12 @@
 		)
 		;; Check if player has joined
 		(asserts! (is-some (map-get? players sender)) ERR-NOT-JOINED)
+
+		;; If deployer is leaving, ensure they are the last player
+		(asserts!
+			(or (not (is-eq sender DEPLOYER)) (is-eq player-count u1))
+			ERR-DEPLOYER-NOT-LAST
+		)
 
 		;; Verify signature from stacks wars
 		(asserts!
