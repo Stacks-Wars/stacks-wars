@@ -4,7 +4,7 @@ use super::SeasonRepository;
 
 impl SeasonRepository {
     /// Return the ID of the currently active season, if any.
-    pub async fn get_current_season(&self) -> Result<i32, AppError> {
+    pub async fn get_current_season_id(&self) -> Result<i32, AppError> {
         let now = chrono::Utc::now();
 
         let current_season_id = sqlx::query_scalar::<_, i32>(
@@ -24,7 +24,7 @@ impl SeasonRepository {
     }
 
     /// Return the full `Season` for the currently active season.
-    pub async fn get_current_season_full(&self) -> Result<Season, AppError> {
+    pub async fn get_current_season(&self) -> Result<Season, AppError> {
         let now = chrono::Utc::now();
 
         let season = sqlx::query_as::<_, Season>(
