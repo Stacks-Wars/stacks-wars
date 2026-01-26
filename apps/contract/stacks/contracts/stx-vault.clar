@@ -17,6 +17,8 @@
 ;; error constants
 (define-constant ERR-ALREADY-JOINED (err u100))
 (define-constant ERR-DEPLOYER-MUST-JOIN-FIRST (err u101))
+(define-constant ERR-NOT-DEPLOYER (err u102))
+(define-constant ERR-CANNOT-KICK-SELF (err u103))
 
 ;; data vars
 (define-data-var total-players uint u0)
@@ -72,7 +74,29 @@
 ;; @param player: principal address of player to kick
 ;; @returns (ok true) on success
 (define-public (kick (player principal))
-	(ok true)
+	(let
+		(
+			(sender tx-sender)
+			(player-count (var-get total-players))
+		)
+		;; Only deployer can kick
+		(asserts! (is-eq sender DEPLOYER) ERR-NOT-DEPLOYER)
+
+		;; Check if player is in the lobby
+		(asserts! (is-some (map-get? players player)) (ok false))
+
+		;; Deployer cannot kick themselves
+		(asserts! (not (is-eq player DEPLOYER)) ERR-CANNOT-KICK-SELF)
+
+		;; Transfer entry fee from contract back to player
+		(try! (as-contract (stx-transfer? ENTRY-FEE tx-sender player)))
+
+		;; Update state
+		(map-delete players player)
+		(var-set total-players (- player-count u1))
+
+		(ok true)
+	)
 )
 
 ;; read only functions
