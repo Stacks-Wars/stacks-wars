@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -26,9 +26,15 @@ import {
 } from "@/components/ui/form";
 import { ApiClient } from "@/lib/api/client";
 import { useUser, useUserLoading } from "@/lib/stores/user";
-import type { Game, Lobby, CreateLobbyRequest } from "@/lib/definitions";
+import type {
+	Game,
+	Lobby,
+	CreateLobbyRequest,
+	Token,
+	TokenInfo,
+} from "@/lib/definitions";
 import { useRouter } from "next/navigation";
-import { displayUserIdentifier } from "@/lib/utils";
+import { displayUserIdentifier, formatAmount } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 
@@ -72,11 +78,7 @@ const sponsoredLobbySchema = z.object({
 		.refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
 			message: "Pool amount must be greater than 0",
 		}),
-	tokenSymbol: z
-		.string()
-		.min(1, "Token symbol is required")
-		.max(10, "Token symbol must be at most 10 characters"),
-	tokenContractId: z.string().optional(),
+	selectedToken: z.string().min(1, "Token is required"),
 });
 
 type NormalLobbyFormValues = z.infer<typeof normalLobbySchema>;
@@ -108,10 +110,52 @@ export default function CreateLobbyForm(game: Game) {
 			description: "",
 			lobbyType: "public",
 			poolAmount: "",
-			tokenSymbol: "STX",
-			tokenContractId: "",
+			selectedToken: "stx",
 		},
 	});
+
+	const [tokens, setTokens] = useState<Token[]>([]);
+	const [minimumAmount, setMinimumAmount] = useState<number>(0);
+
+	useEffect(() => {
+		if (isAuthenticated && user?.walletAddress) {
+			ApiClient.get<Token[]>(`/api/balance/${user.walletAddress}`).then(
+				(response) => {
+					if (response.data) {
+						const fetchedTokens = response.data;
+						const hasSTX = fetchedTokens.some(
+							(t) => t.contractId === "stx"
+						);
+						if (!hasSTX) {
+							fetchedTokens.unshift({
+								name: "STX",
+								balance: 0,
+								contractId: "stx",
+							});
+						}
+						setTokens(fetchedTokens);
+					}
+				}
+			);
+		} else {
+			// Default to STX when not authenticated
+			setTokens([{ name: "STX", balance: 0, contractId: "stx" }]);
+		}
+	}, [isAuthenticated, user]);
+
+	const [selectedToken, setSelectedToken] = useState<string>("stx");
+
+	useEffect(() => {
+		if (selectedToken) {
+			ApiClient.get<TokenInfo>(`/api/token/${selectedToken}`).then(
+				(response) => {
+					if (response.data) {
+						setMinimumAmount(response.data.minimumAmount);
+					}
+				}
+			);
+		}
+	}, [selectedToken]);
 
 	const getDefaultDescription = () => {
 		const userIdentifier = user ? displayUserIdentifier(user) : "Anonymous";
@@ -171,12 +215,19 @@ export default function CreateLobbyForm(game: Game) {
 			};
 
 			const amount = parseFloat(values.poolAmount);
+			if (amount < minimumAmount) {
+				setError(`Pool amount must be at least ${minimumAmount}`);
+				return;
+			}
 			payload.entryAmount = 0; // No entry fee for sponsored lobbies
 			payload.currentAmount = amount; // Sponsor funds the whole pool
-			payload.tokenSymbol = values.tokenSymbol;
 
-			if (values.tokenContractId?.trim()) {
-				payload.tokenContractId = values.tokenContractId;
+			const selectedToken = tokens.find(
+				(t) => t.contractId === values.selectedToken
+			);
+			if (selectedToken) {
+				payload.tokenSymbol = selectedToken.name;
+				payload.tokenContractId = selectedToken.contractId;
 			}
 
 			const response = await ApiClient.post<Lobby>("/api/lobby", payload);
@@ -458,51 +509,80 @@ export default function CreateLobbyForm(game: Game) {
 							)}
 						/>
 
-						<FormField
-							control={sponsoredForm.control}
-							name="poolAmount"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>
-										Pool Amount{" "}
-										<span className="text-destructive">
-											*
-										</span>
-									</FormLabel>
-									<FormControl>
-										<div className="flex gap-2">
+						<div className="flex gap-2">
+							<FormField
+								control={sponsoredForm.control}
+								name="poolAmount"
+								render={({ field }) => (
+									<FormItem className="flex-1">
+										<FormLabel>
+											Pool Amount{" "}
+											<span className="text-destructive">
+												*
+											</span>
+										</FormLabel>
+										<FormControl>
 											<Input
 												type="number"
 												placeholder="0"
 												{...field}
-												min="0"
+												min={minimumAmount}
 												step="0.01"
-												className="flex-1"
 											/>
-											<FormField
-												control={sponsoredForm.control}
-												name="tokenSymbol"
-												render={({
-													field: symbolField,
-												}) => (
-													<Input
-														placeholder="STX"
-														{...symbolField}
-														maxLength={10}
-														className="w-24"
-													/>
-												)}
-											/>
-										</div>
-									</FormControl>
-									<FormDescription>
-										The total prize pool you will fund.
-										Players join for free (entry fee = 0)
-									</FormDescription>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormField
+								control={sponsoredForm.control}
+								name="selectedToken"
+								render={({ field }) => (
+									<FormItem className="self-end">
+										<FormLabel className="sr-only">
+											Token
+										</FormLabel>
+										<Select
+											onValueChange={(value) => {
+												field.onChange(value);
+												setSelectedToken(value);
+											}}
+											defaultValue={field.value}
+										>
+											<FormControl>
+												<SelectTrigger className="w-40">
+													<SelectValue placeholder="Token" />
+												</SelectTrigger>
+											</FormControl>
+											<SelectContent>
+												{tokens.map((token) => (
+													<SelectItem
+														key={token.contractId}
+														value={token.contractId}
+													>
+														<div className="flex items-center justify-between w-full">
+															<span>
+																{token.name}
+															</span>
+															<span className="text-xs ml-4 text-foreground/70 font-mono">
+																{formatAmount(
+																	token.balance
+																)}
+															</span>
+														</div>
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+						</div>
+						<FormDescription>
+							The total prize pool you will fund. Minimum:{" "}
+							{minimumAmount.toFixed(2)}
+						</FormDescription>
 
 						{error && (
 							<p className="text-sm text-destructive">{error}</p>

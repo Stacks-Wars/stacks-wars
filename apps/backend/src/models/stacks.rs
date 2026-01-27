@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// Represents a token balance for a user
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Token {
     /// Token name (e.g., "stacks" for STX, "sbtc-token" for fungible tokens)
     pub name: String,
@@ -13,6 +14,7 @@ pub struct Token {
 
 /// Token information with pricing and minimum amount for $10 USD equivalent
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TokenInfo {
     /// Current USD price per token
     pub price: f64,

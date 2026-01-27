@@ -99,7 +99,7 @@ pub async fn get_balance(
         .map_err(|e| AppError::Deserialization(e.to_string()).to_response())?
         / 1_000_000.0;
     tokens.push(Token {
-        name: "stacks".to_string(),
+        name: "STX".to_string(),
         balance: stx_balance,
         contract_id: "stx".to_string(),
     });
