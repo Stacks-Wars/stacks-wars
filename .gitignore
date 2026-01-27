@@ -45,3 +45,5 @@ coverage
 .cache
 tmp
 temp
+apps/backend/.github/copilot-instructions.md
+apps/web/.github/copilot-instructions.md
