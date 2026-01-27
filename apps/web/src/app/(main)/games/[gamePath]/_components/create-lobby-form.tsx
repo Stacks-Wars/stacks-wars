@@ -35,6 +35,8 @@ import type {
 } from "@/lib/definitions";
 import { useRouter } from "next/navigation";
 import { displayUserIdentifier, formatAmount } from "@/lib/utils";
+import { deployStacksContract } from "@/lib/wallet";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 
@@ -182,6 +184,34 @@ export default function CreateLobbyForm(game: Game) {
 				payload.entryAmount = amount;
 				payload.currentAmount = amount;
 				payload.tokenSymbol = "STX";
+
+				// Get and deploy contract
+				try {
+					const contractResponse = await ApiClient.get<string>(
+						`/api/contract?gameCreatorId=${game.creatorId}&entryFee=${amount}&contractId=stx`
+					);
+					if (contractResponse.error) {
+						toast.error("Failed to get contract template");
+						setError("Failed to get contract template");
+						return;
+					}
+
+					const deployResult = await deployStacksContract({
+						clarityCode: contractResponse.data!,
+						tokenName: "stx",
+					});
+
+					payload.contractAddress = deployResult.contractAddress;
+				} catch (deployError) {
+					toast.error("Failed to deploy contract", {
+						description:
+							deployError instanceof Error
+								? deployError.message
+								: undefined,
+					});
+					setError("Failed to deploy contract");
+					return;
+				}
 			}
 
 			const response = await ApiClient.post<Lobby>("/api/lobby", payload);
@@ -228,6 +258,34 @@ export default function CreateLobbyForm(game: Game) {
 			if (selectedToken) {
 				payload.tokenSymbol = selectedToken.name;
 				payload.tokenContractId = selectedToken.contractId;
+			}
+
+			// Get and deploy contract
+			try {
+				const contractResponse = await ApiClient.get<string>(
+					`/api/sponsored-contract?gameCreatorId=${game.creatorId}&poolSize=${amount}&contractId=${values.selectedToken}`
+				);
+				if (contractResponse.error) {
+					toast.error("Failed to get contract template");
+					setError("Failed to get contract template");
+					return;
+				}
+
+				const deployResult = await deployStacksContract({
+					clarityCode: contractResponse.data!,
+					tokenName: selectedToken!.name,
+				});
+
+				payload.contractAddress = deployResult.contractAddress;
+			} catch (deployError) {
+				toast.error("Failed to deploy contract", {
+					description:
+						deployError instanceof Error
+							? deployError.message
+							: undefined,
+				});
+				setError("Failed to deploy contract");
+				return;
 			}
 
 			const response = await ApiClient.post<Lobby>("/api/lobby", payload);
@@ -526,7 +584,6 @@ export default function CreateLobbyForm(game: Game) {
 												type="number"
 												placeholder="0"
 												{...field}
-												min={minimumAmount}
 												step="0.01"
 											/>
 										</FormControl>
@@ -565,9 +622,11 @@ export default function CreateLobbyForm(game: Game) {
 																{token.name}
 															</span>
 															<span className="text-xs ml-4 text-foreground/70 font-mono">
+																(
 																{formatAmount(
 																	token.balance
 																)}
+																)
 															</span>
 														</div>
 													</SelectItem>
