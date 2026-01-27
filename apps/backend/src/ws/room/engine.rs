@@ -10,7 +10,8 @@ use crate::db::lobby_chat::LobbyChatRepository;
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::db::player_state::PlayerStateRepository;
 use crate::db::user::UserRepository;
-use crate::models::{LobbyStatus, PlayerState};
+use crate::http::handlers::stacks::has_joined;
+use crate::models::{LobbyStatus, PlayerState, WalletAddress};
 use crate::state::{AppState, ConnectionInfo};
 use crate::ws::room::{
     RoomError,
@@ -41,6 +42,7 @@ pub async fn handle_room_message(
     state: &AppState,
     player_repo: &PlayerStateRepository,
     lobby_state_repo: &LobbyStateRepository,
+    contract_address: Option<&WalletAddress>,
 ) {
     let lobby_status = match lobby_state_repo.get_state(lobby_id).await {
         Ok(ls) => ls.status,
@@ -127,6 +129,39 @@ pub async fn handle_room_message(
                         )
                     }
                 };
+
+                let wallet_address_obj = match WalletAddress::try_from(wallet_address.as_str()) {
+                    Ok(addr) => addr,
+                    Err(_) => {
+                        let msg = RoomServerMessage::from(RoomError::JoinFailed(
+                            "Invalid wallet address".to_string(),
+                        ));
+                        let _ = manager::send_to_connection(conn, &msg).await;
+                        return;
+                    }
+                };
+
+                // Check if player has joined the vault contract if present
+                if let Some(contract_addr) = contract_address {
+                    match has_joined(contract_addr, &wallet_address_obj, state).await {
+                        Ok(true) => {} // Proceed
+                        Ok(false) => {
+                            let msg = RoomServerMessage::from(RoomError::JoinFailed(
+                                "Player has not joined the vault contract".to_string(),
+                            ));
+                            let _ = manager::send_to_connection(conn, &msg).await;
+                            return;
+                        }
+                        Err(e) => {
+                            let msg = RoomServerMessage::from(RoomError::JoinFailed(format!(
+                                "Failed to check contract join: {}",
+                                e
+                            )));
+                            let _ = manager::send_to_connection(conn, &msg).await;
+                            return;
+                        }
+                    }
+                }
 
                 // Create or upsert player state with user data
                 let pstate = PlayerState::new(

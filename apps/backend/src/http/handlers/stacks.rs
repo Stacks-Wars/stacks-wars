@@ -201,14 +201,14 @@ pub async fn get_token_info(
     }))
 }
 
-/// Confirm a join transaction for vault contracts
-pub async fn confirm_join(
+/// Check if a player has joined a vault contract
+pub async fn has_joined(
     contract_address: &WalletAddress,
     player_address: &WalletAddress,
     state: &AppState,
-) -> Result<(), AppError> {
+) -> Result<bool, AppError> {
     tracing::info!(
-        "Confirming join for contract: {}, player: {}",
+        "Checking if player has joined contract: {}, player: {}",
         contract_address.as_str(),
         player_address.as_str()
     );
@@ -302,20 +302,18 @@ pub async fn confirm_join(
         AppError::Deserialization("Missing result".into())
     })?;
 
-    tracing::debug!("Contract call result: {}", result);
+    tracing::info!("Contract call result: {}", result);
 
     // Check if result is true (0x03 for true in Clarity)
-    if result != "0x03" {
-        tracing::warn!(
+    let has_joined = result == "0x03";
+    if !has_joined {
+        tracing::info!(
             "Player has not joined - expected '0x03' (true), got '{}'",
             result
         );
-        return Err(AppError::BadRequest("Player has not joined".into()));
+    } else {
+        tracing::info!("Player has joined contract {}", player_address.as_str());
     }
 
-    tracing::info!(
-        "Successfully confirmed join for player {}",
-        player_address.as_str()
-    );
-    Ok(())
+    Ok(has_joined)
 }

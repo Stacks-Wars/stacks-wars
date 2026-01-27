@@ -8,7 +8,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::http::handlers::stacks::confirm_join;
+use crate::http::handlers::stacks::has_joined;
 use crate::models::WalletAddress;
 use crate::{auth::AuthClaims, db::lobby::LobbyRepository, models::Lobby, state::AppState};
 
@@ -79,9 +79,15 @@ pub async fn create_lobby(
                 "Invalid contract address".to_string(),
             )
         })?;
-        confirm_join(&contract_wallet, &wallet_address, &state)
+        let has_joined = has_joined(&contract_wallet, &wallet_address, &state)
             .await
             .map_err(|e| e.to_response())?;
+        if !has_joined {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Player has not joined the vault contract".to_string(),
+            ));
+        }
     }
 
     // For non-sponsored lobbies, default current_amount to entry_amount if not provided
