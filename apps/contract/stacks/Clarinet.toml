@@ -4,7 +4,14 @@ description = ''
 authors = []
 telemetry = true
 cache_dir = './.cache'
-requirements = []
+
+[[project.requirements]]
+contract_id = 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard'
+[contracts.STACKS-WARS-TOKEN]
+path = 'contracts/STACKS-WARS-TOKEN.clar'
+clarity_version = 3
+epoch = 'latest'
+
 [contracts.ft-vault]
 path = 'contracts/ft-vault.clar'
 clarity_version = 3
