@@ -1,4 +1,11 @@
-use crate::{errors::AppError, models::stacks::Token, state::AppState};
+use crate::{
+    errors::AppError,
+    models::{
+        WalletAddress,
+        stacks::{Token, TokenInfo},
+    },
+    state::AppState,
+};
 use axum::{
     Json,
     extract::{Path, State},
@@ -31,6 +38,18 @@ struct TokenBalance {
 struct HiroBalancesResponse {
     stx: StxBalance,
     fungible_tokens: FungibleTokens,
+}
+
+/// StxTools API metrics
+#[derive(Debug, Deserialize)]
+struct StxToolsMetrics {
+    price_usd: f64,
+}
+
+/// StxTools API response
+#[derive(Debug, Deserialize)]
+struct StxToolsResponse {
+    metrics: StxToolsMetrics,
 }
 
 /// Get user balance from Hiro API
@@ -109,4 +128,55 @@ fn parse_token_key(key: &str) -> Option<(String, String)> {
     } else {
         None
     }
+}
+
+/// Get token information including price and minimum amount for $10 USD
+pub async fn get_token_info(
+    Path(contract_address_str): Path<String>,
+    State(state): State<AppState>,
+) -> Result<Json<TokenInfo>, (StatusCode, String)> {
+    let contract_address =
+        WalletAddress::try_from(contract_address_str.as_str()).map_err(|_| {
+            (
+                StatusCode::BAD_REQUEST,
+                "Invalid contract address".to_string(),
+            )
+        })?;
+    if !state.config.network.is_mainnet() {
+        // Return hardcoded values for testnet
+        return Ok(Json(TokenInfo {
+            price: 0.01,
+            minimum_amount: 1000.0,
+        }));
+    }
+
+    let url = format!(
+        "https://api.stxtools.io/tokens/{}",
+        contract_address.as_str()
+    );
+
+    let client = Client::new();
+    let response = client
+        .get(&url)
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .map_err(|e| AppError::FetchError(e.to_string()).to_response())?;
+
+    if !response.status().is_success() {
+        return Err(AppError::NotFound("Token not found".to_string()).to_response());
+    }
+
+    let token_data: StxToolsResponse = response
+        .json()
+        .await
+        .map_err(|e| AppError::Deserialization(e.to_string()).to_response())?;
+
+    let price = token_data.metrics.price_usd;
+    let minimum_amount = if price > 0.0 { 10.0 / price } else { 0.0 };
+
+    Ok(Json(TokenInfo {
+        price,
+        minimum_amount,
+    }))
 }

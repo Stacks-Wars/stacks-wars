@@ -10,3 +10,12 @@ pub struct Token {
     /// Contract ID (e.g., "stx" for STX, full contract address for fungible tokens)
     pub contract_id: String,
 }
+
+/// Token information with pricing and minimum amount for $10 USD equivalent
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenInfo {
+    /// Current USD price per token
+    pub price: f64,
+    /// Calculated minimum token amount for $10 USD equivalent
+    pub minimum_amount: f64,
+}
