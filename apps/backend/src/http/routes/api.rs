@@ -10,6 +10,7 @@ use crate::{
         },
         platform_rating::{get_rating, list_ratings},
         season::{get_current_season, list_seasons},
+        stacks::get_balance,
         token_info::{get_token_info_mainnet, get_token_info_testnet},
         user::get_user,
         contract::{get_contract, get_sponsored_contract},
@@ -41,6 +42,7 @@ pub fn routes(state_for_layer: AppState) -> Router<AppState> {
         )
         .route("/contract", get(get_contract))
         .route("/sponsored-contract", get(get_sponsored_contract))
+        .route("/balance/{wallet_address}", get(get_balance))
         .layer(from_fn_with_state(
             state_for_layer.clone(),
             rate_limit_with_state::<ApiRateLimit>,
