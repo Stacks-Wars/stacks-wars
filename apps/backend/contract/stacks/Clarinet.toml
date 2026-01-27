@@ -1,7 +1,7 @@
 [project]
-name = 'stacks'
+name = 'stacks wars contracts'
 description = ''
-authors = []
+authors = ['flames.stx']
 telemetry = true
 cache_dir = './.cache'
 
