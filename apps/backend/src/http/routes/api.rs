@@ -12,6 +12,7 @@ use crate::{
         season::{get_current_season, list_seasons},
         token_info::{get_token_info_mainnet, get_token_info_testnet},
         user::get_user,
+        contract::{get_contract, get_sponsored_contract},
     },
     middleware::{ApiRateLimit, rate_limit_with_state},
     state::AppState,
@@ -38,6 +39,8 @@ pub fn routes(state_for_layer: AppState) -> Router<AppState> {
             "/token/testnet/{contract_address}",
             get(get_token_info_testnet),
         )
+        .route("/contract", get(get_contract))
+        .route("/sponsored-contract", get(get_sponsored_contract))
         .layer(from_fn_with_state(
             state_for_layer.clone(),
             rate_limit_with_state::<ApiRateLimit>,
