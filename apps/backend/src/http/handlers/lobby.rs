@@ -219,34 +219,3 @@ pub async fn get_all_lobbies(
         offset,
     }))
 }
-
-/// Delete a lobby. Only the lobby creator may delete it. Returns `204`.
-pub async fn delete_lobby(
-    State(state): State<AppState>,
-    AuthClaims(claims): AuthClaims,
-    Path(lobby_id): Path<Uuid>,
-) -> Result<StatusCode, (StatusCode, String)> {
-    let user_id = Uuid::parse_str(&claims.sub)
-        .map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid token".to_string()))?;
-
-    let repo = LobbyRepository::new(state.postgres.clone());
-
-    // Verify user is the creator
-    let lobby = repo
-        .find_by_id(lobby_id)
-        .await
-        .map_err(|e| e.to_response())?;
-
-    if lobby.creator_id != user_id {
-        return Err((
-            StatusCode::FORBIDDEN,
-            "Only the creator can delete this lobby".to_string(),
-        ));
-    }
-
-    repo.delete_lobby(lobby_id, Some(state))
-        .await
-        .map_err(|e| e.to_response())?;
-
-    Ok(StatusCode::NO_CONTENT)
-}

@@ -1,5 +1,6 @@
 use crate::{db::user::UserRepository, errors::AppError, models::WalletAddress, state::AppState};
 use axum::{
+    Json,
     extract::{Query, State},
     http::StatusCode,
 };
@@ -18,7 +19,7 @@ pub struct ContractQuery {
 pub async fn get_contract(
     State(state): State<AppState>,
     Query(query): Query<ContractQuery>,
-) -> Result<String, (StatusCode, String)> {
+) -> Result<Json<String>, (StatusCode, String)> {
     let user_repo = UserRepository::new(state.postgres);
     let creator_wallet = user_repo
         .find_by_id(query.game_creator_id)
@@ -53,7 +54,7 @@ pub async fn get_contract(
             &format!("'{}", query.contract_id.as_str()),
         );
 
-    Ok(contract)
+    Ok(Json(contract))
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,7 +68,7 @@ pub struct SponsoredContractQuery {
 pub async fn get_sponsored_contract(
     State(state): State<AppState>,
     Query(query): Query<SponsoredContractQuery>,
-) -> Result<String, (StatusCode, String)> {
+) -> Result<Json<String>, (StatusCode, String)> {
     let user_repo = UserRepository::new(state.postgres);
     let creator_wallet = user_repo
         .find_by_id(query.game_creator_id)
@@ -96,5 +97,5 @@ pub async fn get_sponsored_contract(
             &format!("'{}", query.contract_id.as_str()),
         );
 
-    Ok(contract)
+    Ok(Json(contract))
 }
