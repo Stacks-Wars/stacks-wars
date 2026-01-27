@@ -8,6 +8,8 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::http::handlers::stacks::confirm_join;
+use crate::models::WalletAddress;
 use crate::{auth::AuthClaims, db::lobby::LobbyRepository, models::Lobby, state::AppState};
 
 // ============================================================================
@@ -60,6 +62,27 @@ pub async fn create_lobby(
         tracing::error!("Invalid user ID in token");
         (StatusCode::UNAUTHORIZED, "Invalid token".to_string())
     })?;
+
+    // Get user's wallet address from JWT claims
+    let wallet_address = WalletAddress::try_from(claims.wallet.as_str()).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            "Invalid wallet address in token".to_string(),
+        )
+    })?;
+
+    // Confirm join if contract_address is provided
+    if let Some(ref contract_addr) = payload.contract_address {
+        let contract_wallet = WalletAddress::try_from(contract_addr.as_str()).map_err(|_| {
+            (
+                StatusCode::BAD_REQUEST,
+                "Invalid contract address".to_string(),
+            )
+        })?;
+        confirm_join(&contract_wallet, &wallet_address, &state)
+            .await
+            .map_err(|e| e.to_response())?;
+    }
 
     // For non-sponsored lobbies, default current_amount to entry_amount if not provided
     let current_amount = if !payload.is_sponsored {

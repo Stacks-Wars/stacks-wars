@@ -11,8 +11,12 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
+use bs58;
+use hex;
 use reqwest::Client;
 use serde::Deserialize;
+use serde_json::Value;
+use tracing;
 
 /// Hiro API response for STX balance
 #[derive(Debug, Deserialize)]
@@ -130,6 +134,22 @@ fn parse_token_key(key: &str) -> Option<(String, String)> {
     }
 }
 
+/// Serialize a Stacks address to Clarity principal hex
+fn serialize_principal(address: &str) -> Result<String, AppError> {
+    let decoded = bs58::decode(address)
+        .into_vec()
+        .map_err(|_| AppError::BadRequest("Invalid address".into()))?;
+    if decoded.len() != 25 {
+        return Err(AppError::BadRequest("Invalid address length".into()));
+    }
+    let version = decoded[0];
+    let hash160 = &decoded[1..21];
+    // Clarity principal: 0x05 + version + hash160
+    let mut result = vec![0x05, version];
+    result.extend_from_slice(hash160);
+    Ok(format!("0x{}", hex::encode(result)))
+}
+
 /// Get token information including price and minimum amount for $10 USD
 pub async fn get_token_info(
     Path(contract_address_str): Path<String>,
@@ -179,4 +199,123 @@ pub async fn get_token_info(
         price,
         minimum_amount,
     }))
+}
+
+/// Confirm a join transaction for vault contracts
+pub async fn confirm_join(
+    contract_address: &WalletAddress,
+    player_address: &WalletAddress,
+    state: &AppState,
+) -> Result<(), AppError> {
+    tracing::info!(
+        "Confirming join for contract: {}, player: {}",
+        contract_address.as_str(),
+        player_address.as_str()
+    );
+
+    let network = if state.config.network.is_mainnet() {
+        "mainnet"
+    } else {
+        "testnet"
+    };
+
+    // Split contract_address into principal and contract_name
+    let addr_str = contract_address.as_str();
+    let last_dot = addr_str
+        .rfind('.')
+        .ok_or_else(|| AppError::BadRequest("Invalid contract address".into()))?;
+    let principal = &addr_str[..last_dot];
+    let contract_name = &addr_str[last_dot + 1..];
+
+    tracing::info!(
+        "Parsed contract - principal: {}, contract_name: {}",
+        principal,
+        contract_name
+    );
+
+    let url = format!(
+        "https://api.{}.hiro.so/v2/contracts/call-read/{}/{}/has-joined",
+        network, principal, contract_name
+    );
+
+    tracing::info!("API URL: {}", url);
+
+    let hex_principal = serialize_principal(player_address.as_str())?;
+    tracing::info!("Serialized principal: {}", hex_principal);
+
+    let body = serde_json::json!({
+        "sender": player_address.as_str(),
+        "arguments": [hex_principal]
+    });
+
+    tracing::info!("Request body: {}", body);
+
+    let client = Client::new();
+    let response = client
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .body(body.to_string())
+        .send()
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to send request to Hiro API: {}", e);
+            AppError::FetchError(e.to_string())
+        })?;
+
+    tracing::info!("Response status: {}", response.status());
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let error_text = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unknown error".to_string());
+        tracing::error!("Hiro API returned error status {}: {}", status, error_text);
+        return Err(AppError::FetchError("Failed to call contract".into()));
+    }
+
+    let json: Value = response.json().await.map_err(|e| {
+        tracing::error!("Failed to parse JSON response: {}", e);
+        AppError::Deserialization(e.to_string())
+    })?;
+
+    tracing::info!("Parsed JSON response: {:?}", json);
+
+    let okay = json.get("okay").and_then(|v| v.as_bool()).ok_or_else(|| {
+        tracing::error!("Missing 'okay' field in response");
+        AppError::Deserialization("Missing okay".into())
+    })?;
+
+    tracing::info!("Contract call okay: {}", okay);
+
+    if !okay {
+        let cause = json
+            .get("cause")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown cause");
+        tracing::warn!("Contract call failed with cause: {}", cause);
+        return Err(AppError::BadRequest("Contract call failed".into()));
+    }
+
+    let result = json.get("result").and_then(|v| v.as_str()).ok_or_else(|| {
+        tracing::error!("Missing 'result' field in response");
+        AppError::Deserialization("Missing result".into())
+    })?;
+
+    tracing::debug!("Contract call result: {}", result);
+
+    // Check if result is true (0x03 for true in Clarity)
+    if result != "0x03" {
+        tracing::warn!(
+            "Player has not joined - expected '0x03' (true), got '{}'",
+            result
+        );
+        return Err(AppError::BadRequest("Player has not joined".into()));
+    }
+
+    tracing::info!(
+        "Successfully confirmed join for player {}",
+        player_address.as_str()
+    );
+    Ok(())
 }
