@@ -35,10 +35,20 @@ import type {
 } from "@/lib/definitions";
 import { useRouter } from "next/navigation";
 import { displayUserIdentifier, formatAmount } from "@/lib/utils";
-import { deployStacksContract } from "@/lib/wallet";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
+import { useLobbyCreationProgress, useAppActions } from "@/lib/stores/app";
+import { deployStacksContract } from "@/lib/contracts-utils/deploy";
+import { waitForTxConfirmed } from "@/lib/contracts-utils/waitForTxConfirmed";
+import {
+	joinNormalContract,
+	joinSponsoredContract,
+} from "@/lib/contracts-utils/join";
+import type {
+	AssetString,
+	ContractIdString,
+} from "@stacks/connect/dist/types/methods";
 
 // Zod schemas
 const normalLobbySchema = z.object({
@@ -92,6 +102,12 @@ export default function CreateLobbyForm(game: Game) {
 	const isAuthenticated = !isUserLoading && user;
 	const [error, setError] = useState<string | null>(null);
 	const router = useRouter();
+	const progress = useLobbyCreationProgress();
+	const {
+		setLobbyCreationProgress,
+		clearLobbyCreationProgress,
+		handleContinue,
+	} = useAppActions();
 
 	// Normal lobby form
 	const normalForm = useForm<NormalLobbyFormValues>({
@@ -192,7 +208,7 @@ export default function CreateLobbyForm(game: Game) {
 					);
 					if (contractResponse.error) {
 						toast.error("Failed to get contract template");
-						setError("Failed to get contract template");
+						console.error(contractResponse.error);
 						return;
 					}
 
@@ -201,15 +217,64 @@ export default function CreateLobbyForm(game: Game) {
 						tokenName: "stx",
 					});
 
-					payload.contractAddress = deployResult.contractAddress;
-				} catch (deployError) {
-					toast.error("Failed to deploy contract", {
-						description:
-							deployError instanceof Error
-								? deployError.message
-								: undefined,
+					if (!deployResult.txid) {
+						toast.error("Failed to deploy contract, try again");
+						throw new Error(
+							"Failed to deploy contract: No transaction ID returned"
+						);
+					}
+
+					// Wait for deployment confirmation
+					await waitForTxConfirmed(deployResult.txid);
+
+					// Store progress after deployment
+					setLobbyCreationProgress({
+						contractAddress: deployResult.contractAddress,
+						step: "deployed",
+						payload: {
+							...payload,
+							contractAddress: deployResult.contractAddress,
+							isSponsored: false,
+							entryAmount: amount,
+						},
 					});
-					setError("Failed to deploy contract");
+
+					// Join the contract
+					const joinTxId = await joinNormalContract({
+						contract:
+							deployResult.contractAddress as ContractIdString,
+						amount,
+						address: user!.walletAddress,
+					});
+
+					if (!joinTxId) {
+						toast.error("Failed to join contract", {
+							description: "Please try again later.",
+						});
+						throw new Error(
+							"Failed to join contract: No transaction ID returned"
+						);
+					}
+
+					await waitForTxConfirmed(joinTxId);
+
+					// Update progress after joining
+					setLobbyCreationProgress({
+						contractAddress: deployResult.contractAddress,
+						step: "joined",
+						payload: {
+							...payload,
+							contractAddress: deployResult.contractAddress,
+						},
+					});
+
+					toast.success(
+						"Successfully deployed and joined contract!",
+						{ description: "Wait while we create your lobby..." }
+					);
+				} catch (error) {
+					setError("Failed to deploy or join contract");
+					console.error(error);
 					return;
 				}
 			}
@@ -217,16 +282,22 @@ export default function CreateLobbyForm(game: Game) {
 			const response = await ApiClient.post<Lobby>("/api/lobby", payload);
 
 			if (response.error) {
-				setError(response.error);
+				toast.error("Failed to create lobby", {
+					description: "Please try again later.",
+				});
+				console.error("API error:", response.error);
 				return;
 			}
+
+			// Clear progress on success
+			clearLobbyCreationProgress();
 
 			// Redirect to lobby page
 			if (response.data) {
 				router.push(`/room/${response.data.path}`);
 			}
 		} catch (err) {
-			setError("Failed to create lobby");
+			console.error(err);
 		}
 	};
 
@@ -267,7 +338,7 @@ export default function CreateLobbyForm(game: Game) {
 				);
 				if (contractResponse.error) {
 					toast.error("Failed to get contract template");
-					setError("Failed to get contract template");
+					console.error(contractResponse.error);
 					return;
 				}
 
@@ -276,403 +347,541 @@ export default function CreateLobbyForm(game: Game) {
 					tokenName: selectedToken!.name,
 				});
 
-				payload.contractAddress = deployResult.contractAddress;
-			} catch (deployError) {
-				toast.error("Failed to deploy contract", {
-					description:
-						deployError instanceof Error
-							? deployError.message
-							: undefined,
+				if (!deployResult.txid) {
+					toast.error("Failed to deploy contract", {
+						description: "Please try again later.",
+					});
+					throw new Error(
+						"Failed to deploy contract: No transaction ID returned"
+					);
+				}
+
+				// Wait for deployment confirmation
+				await waitForTxConfirmed(deployResult.txid);
+
+				// Store progress after deployment
+				setLobbyCreationProgress({
+					contractAddress: deployResult.contractAddress,
+					step: "deployed",
+					payload: {
+						...payload,
+						contractAddress: deployResult.contractAddress,
+						isSponsored: true,
+						tokenContractId: selectedToken!.contractId,
+						tokenSymbol: selectedToken!.name,
+						currentAmount: amount,
+					},
 				});
-				setError("Failed to deploy contract");
+
+				// Join the contract
+				const joinTxId = await joinSponsoredContract({
+					contract: deployResult.contractAddress as ContractIdString,
+					amount,
+					isCreator: true,
+					tokenId:
+						`${selectedToken!.contractId}::${selectedToken!.name}` as AssetString,
+					address: user!.walletAddress,
+				});
+
+				if (!joinTxId) {
+					toast.error("Failed to join contract", {
+						description: "Please try again later.",
+					});
+					throw new Error(
+						"Failed to join contract: No transaction ID returned"
+					);
+				}
+
+				await waitForTxConfirmed(joinTxId);
+
+				// Update progress after joining
+				setLobbyCreationProgress({
+					contractAddress: deployResult.contractAddress,
+					step: "joined",
+					payload: {
+						...payload,
+						contractAddress: deployResult.contractAddress,
+					},
+				});
+
+				toast.success("Successfully deployed and joined contract!", {
+					description: "Wait while we create your lobby...",
+				});
+			} catch (error) {
+				setError("Failed to deploy or join contract");
+				console.error(error);
 				return;
 			}
 
 			const response = await ApiClient.post<Lobby>("/api/lobby", payload);
 
 			if (response.error) {
-				setError(response.error);
+				toast.error("Failed to create lobby", {
+					description: "Please try again later.",
+				});
+				console.error("API error:", response.error);
 				return;
 			}
+
+			// Clear progress on success
+			clearLobbyCreationProgress();
 
 			// Redirect to lobby page
 			if (response.data) {
 				router.push(`/room/${response.data.path}`);
 			}
 		} catch (err) {
-			setError("Failed to create lobby");
+			console.error(err);
 		}
 	};
 
 	return (
-		<Tabs defaultValue="normal" className="w-full">
-			<TabsList className="grid w-full grid-cols-2 gap-2 p-1 sm:p-2.5 rounded-full">
-				<TabsTrigger
-					value="normal"
-					className="data-[state=active]:bg-primary/50 text-xs sm:text-lg py-2 sm:py-2.5 rounded-full"
-				>
-					Normal
-				</TabsTrigger>
-				<TabsTrigger
-					value="sponsored"
-					className="data-[state=active]:bg-primary/50 text-xs sm:text-lg py-2 sm:py-2.5 rounded-full"
-				>
-					Sponsored
-				</TabsTrigger>
-			</TabsList>
-
-			{/* Normal Lobby Tab */}
-			<TabsContent value="normal" className="mt-4 sm:mt-8">
-				<Form {...normalForm}>
-					<form
-						onSubmit={normalForm.handleSubmit(handleNormalSubmit)}
-						className="space-y-6"
-					>
-						<FormField
-							control={normalForm.control}
-							name="lobbyName"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>
-										Lobby Name{" "}
-										<span className="text-destructive">
-											*
-										</span>
-									</FormLabel>
-									<FormControl>
-										<Input
-											placeholder="Enter lobby name"
-											{...field}
-											maxLength={50}
-										/>
-									</FormControl>
-									<FormDescription>
-										Choose a descriptive name for your lobby
-										(max 50 characters)
-									</FormDescription>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-
-						<FormField
-							control={normalForm.control}
-							name="description"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Description</FormLabel>
-									<FormControl>
-										<Textarea
-											placeholder={getDefaultDescription()}
-											{...field}
-											maxLength={200}
-											rows={3}
-										/>
-									</FormControl>
-									<FormDescription>
-										Add details about your lobby. (max 200
-										characters)
-									</FormDescription>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-
-						<FormField
-							control={normalForm.control}
-							name="lobbyType"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>
-										Lobby Type{" "}
-										<span className="text-destructive">
-											*
-										</span>
-									</FormLabel>
-									<Select
-										onValueChange={field.onChange}
-										defaultValue={field.value}
-									>
-										<FormControl>
-											<SelectTrigger className="w-full">
-												<SelectValue placeholder="Select lobby type" />
-											</SelectTrigger>
-										</FormControl>
-										<SelectContent>
-											<SelectItem value="public">
-												Public
-											</SelectItem>
-											<SelectItem value="private">
-												Private
-											</SelectItem>
-										</SelectContent>
-									</Select>
-									<FormDescription>
-										Public lobbies are open to everyone.
-										Private lobbies require creator approval
-									</FormDescription>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-
-						<FormField
-							control={normalForm.control}
-							name="entryAmount"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Entry Fee (STX)</FormLabel>
-									<FormControl>
-										<Input
-											type="number"
-											placeholder="0"
-											{...field}
-											min="5"
-											step="0.01"
-										/>
-									</FormControl>
-									<FormDescription>
-										Minimum 5 STX.
-									</FormDescription>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-
-						{error && (
-							<p className="text-sm text-destructive">{error}</p>
-						)}
-
-						{isUserLoading ? (
-							<Skeleton className="flex justify-self-end w-full sm:w-fit rounded-full h-13 sm:min-w-30" />
-						) : isAuthenticated ? (
-							<Button
-								type="submit"
-								className="flex justify-self-end w-full sm:w-fit rounded-full"
-								disabled={normalForm.formState.isSubmitting}
-							>
-								{normalForm.formState.isSubmitting
-									? "Creating..."
-									: "Create Lobby"}
-							</Button>
-						) : (
-							<Button
-								type="button"
-								className="flex justify-self-end w-full sm:w-fit rounded-full"
-								asChild
-							>
-								<Link href="/login">
-									Login to Create a Lobby
-								</Link>
-							</Button>
-						)}
-					</form>
-				</Form>
-			</TabsContent>
-
-			{/* Sponsored Lobby Tab */}
-			<TabsContent value="sponsored" className="mt-8">
-				<Form {...sponsoredForm}>
-					<form
-						onSubmit={sponsoredForm.handleSubmit(
-							handleSponsoredSubmit
-						)}
-						className="space-y-6"
-					>
-						<FormField
-							control={sponsoredForm.control}
-							name="lobbyName"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>
-										Lobby Name{" "}
-										<span className="text-destructive">
-											*
-										</span>
-									</FormLabel>
-									<FormControl>
-										<Input
-											placeholder="Enter lobby name"
-											{...field}
-											maxLength={50}
-										/>
-									</FormControl>
-									<FormDescription>
-										Choose a descriptive name for your lobby
-										(max 50 characters)
-									</FormDescription>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-
-						<FormField
-							control={sponsoredForm.control}
-							name="description"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Description</FormLabel>
-									<FormControl>
-										<Textarea
-											placeholder={getDefaultDescription()}
-											{...field}
-											maxLength={200}
-											rows={3}
-										/>
-									</FormControl>
-									<FormDescription>
-										Add details about your lobby. (max 200
-										characters)
-									</FormDescription>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-
-						<FormField
-							control={sponsoredForm.control}
-							name="lobbyType"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>
-										Lobby Type{" "}
-										<span className="text-destructive">
-											*
-										</span>
-									</FormLabel>
-									<Select
-										onValueChange={field.onChange}
-										defaultValue={field.value}
-									>
-										<FormControl>
-											<SelectTrigger className="w-full">
-												<SelectValue placeholder="Select lobby type" />
-											</SelectTrigger>
-										</FormControl>
-										<SelectContent>
-											<SelectItem value="public">
-												Public
-											</SelectItem>
-											<SelectItem value="private">
-												Private
-											</SelectItem>
-										</SelectContent>
-									</Select>
-									<FormDescription>
-										Public lobbies are open to everyone.
-										Private lobbies require creator approval
-									</FormDescription>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-
-						<div className="flex gap-2">
-							<FormField
-								control={sponsoredForm.control}
-								name="poolAmount"
-								render={({ field }) => (
-									<FormItem className="flex-1">
-										<FormLabel>
-											Pool Amount{" "}
-											<span className="text-destructive">
-												*
-											</span>
-										</FormLabel>
-										<FormControl>
-											<Input
-												type="number"
-												placeholder="0"
-												{...field}
-												step="0.01"
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<FormField
-								control={sponsoredForm.control}
-								name="selectedToken"
-								render={({ field }) => (
-									<FormItem className="self-end">
-										<FormLabel className="sr-only">
-											Token
-										</FormLabel>
-										<Select
-											onValueChange={(value) => {
-												field.onChange(value);
-												setSelectedToken(value);
-											}}
-											defaultValue={field.value}
-										>
-											<FormControl>
-												<SelectTrigger className="w-40">
-													<SelectValue placeholder="Token" />
-												</SelectTrigger>
-											</FormControl>
-											<SelectContent>
-												{tokens.map((token) => (
-													<SelectItem
-														key={token.contractId}
-														value={token.contractId}
-													>
-														<div className="flex items-center justify-between w-full">
-															<span>
-																{token.name}
-															</span>
-															<span className="text-xs ml-4 text-foreground/70 font-mono">
-																(
-																{formatAmount(
-																	token.balance
-																)}
-																)
-															</span>
-														</div>
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
+		<>
+			{progress?.restoredFromStorage ? (
+				<div className="bg-card border p-4 sm:p-6 lg:p-8 rounded-3xl w-full space-y-4 sm:space-y-6 mb-6">
+					<div className="space-y-3 sm:space-y-4">
+						<div className="flex items-center justify-between gap-2">
+							<p className="truncate text-base sm:text-lg lg:text-xl font-semibold">
+								Resume Lobby Creation
+							</p>
+							<span className="inline-block bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-full px-3 py-1 text-xs font-semibold">
+								In Progress
+							</span>
 						</div>
-						<FormDescription>
-							The total prize pool you will fund. Minimum:{" "}
-							{minimumAmount.toFixed(2)}
-						</FormDescription>
+						<p className="text-xs sm:text-sm lg:text-base text-muted-foreground">
+							You have an incomplete lobby creation in progress.
+						</p>
+						<div className="flex items-center gap-2 text-xs sm:text-sm">
+							<span className="font-mono bg-muted px-2 py-1 rounded">
+								{progress.contractAddress}
+							</span>
+							{progress.step === "deployed" && (
+								<span className="text-yellow-700 dark:text-yellow-300">
+									(waiting to join)
+								</span>
+							)}
+							{progress.step === "joined" && (
+								<span className="text-green-700 dark:text-green-300">
+									(ready to post lobby)
+								</span>
+							)}
+						</div>
+					</div>
+					<div className="flex gap-2 pt-2">
+						<Button
+							className="rounded-full px-6 py-2 text-sm font-medium"
+							variant="secondary"
+							onClick={() => {
+								if (user?.walletAddress) {
+									handleContinue(user.walletAddress, router);
+								}
+							}}
+						>
+							Continue
+						</Button>
+						<Button
+							className="rounded-full px-6 py-2 text-sm font-medium"
+							variant="outline"
+							onClick={() => {
+								clearLobbyCreationProgress();
+								toast.info("Lobby creation progress discarded");
+							}}
+						>
+							Discard
+						</Button>
+					</div>
+				</div>
+			) : (
+				<Tabs defaultValue="normal" className="w-full">
+					<TabsList className="grid w-full grid-cols-2 gap-2 p-1 sm:p-2.5 rounded-full">
+						<TabsTrigger
+							value="normal"
+							className="data-[state=active]:bg-primary/50 text-xs sm:text-lg py-2 sm:py-2.5 rounded-full"
+						>
+							Normal
+						</TabsTrigger>
+						<TabsTrigger
+							value="sponsored"
+							className="data-[state=active]:bg-primary/50 text-xs sm:text-lg py-2 sm:py-2.5 rounded-full"
+						>
+							Sponsored
+						</TabsTrigger>
+					</TabsList>
 
-						{error && (
-							<p className="text-sm text-destructive">{error}</p>
-						)}
+					{/* Normal Lobby Tab */}
+					<TabsContent value="normal" className="mt-4 sm:mt-8">
+						<Form {...normalForm}>
+							<form
+								onSubmit={normalForm.handleSubmit(
+									handleNormalSubmit
+								)}
+								className="space-y-6"
+							>
+								<FormField
+									control={normalForm.control}
+									name="lobbyName"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>
+												Lobby Name{" "}
+												<span className="text-destructive">
+													*
+												</span>
+											</FormLabel>
+											<FormControl>
+												<Input
+													placeholder="Enter lobby name"
+													{...field}
+													maxLength={50}
+												/>
+											</FormControl>
+											<FormDescription>
+												Choose a descriptive name for
+												your lobby (max 50 characters)
+											</FormDescription>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
 
-						{isUserLoading ? (
-							<Skeleton className="flex justify-self-end w-full sm:w-fit rounded-full h-13 sm:min-w-30" />
-						) : isAuthenticated ? (
-							<Button
-								type="submit"
-								className="flex justify-self-end w-full sm:w-fit rounded-full"
-								disabled={sponsoredForm.formState.isSubmitting}
+								<FormField
+									control={normalForm.control}
+									name="description"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Description</FormLabel>
+											<FormControl>
+												<Textarea
+													placeholder={getDefaultDescription()}
+													{...field}
+													maxLength={200}
+													rows={3}
+												/>
+											</FormControl>
+											<FormDescription>
+												Add details about your lobby.
+												(max 200 characters)
+											</FormDescription>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+
+								<FormField
+									control={normalForm.control}
+									name="lobbyType"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>
+												Lobby Type{" "}
+												<span className="text-destructive">
+													*
+												</span>
+											</FormLabel>
+											<Select
+												onValueChange={field.onChange}
+												defaultValue={field.value}
+											>
+												<FormControl>
+													<SelectTrigger className="w-full">
+														<SelectValue placeholder="Select lobby type" />
+													</SelectTrigger>
+												</FormControl>
+												<SelectContent>
+													<SelectItem value="public">
+														Public
+													</SelectItem>
+													<SelectItem value="private">
+														Private
+													</SelectItem>
+												</SelectContent>
+											</Select>
+											<FormDescription>
+												Public lobbies are open to
+												everyone. Private lobbies
+												require creator approval
+											</FormDescription>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+
+								<FormField
+									control={normalForm.control}
+									name="entryAmount"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>
+												Entry Fee (STX)
+											</FormLabel>
+											<FormControl>
+												<Input
+													type="number"
+													placeholder="0"
+													{...field}
+													min="5"
+													step="0.01"
+												/>
+											</FormControl>
+											<FormDescription>
+												Minimum 5 STX.
+											</FormDescription>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+
+								{error && (
+									<p className="text-sm text-destructive">
+										{error}
+									</p>
+								)}
+
+								{isUserLoading ? (
+									<Skeleton className="flex justify-self-end w-full sm:w-fit rounded-full h-13 sm:min-w-30" />
+								) : isAuthenticated ? (
+									<Button
+										type="submit"
+										className="flex justify-self-end w-full sm:w-fit rounded-full"
+										disabled={
+											normalForm.formState.isSubmitting
+										}
+									>
+										{normalForm.formState.isSubmitting
+											? "Creating..."
+											: "Create Lobby"}
+									</Button>
+								) : (
+									<Button
+										type="button"
+										className="flex justify-self-end w-full sm:w-fit rounded-full"
+										asChild
+									>
+										<Link href="/login">
+											Login to Create a Lobby
+										</Link>
+									</Button>
+								)}
+							</form>
+						</Form>
+					</TabsContent>
+
+					{/* Sponsored Lobby Tab */}
+					<TabsContent value="sponsored" className="mt-8">
+						<Form {...sponsoredForm}>
+							<form
+								onSubmit={sponsoredForm.handleSubmit(
+									handleSponsoredSubmit
+								)}
+								className="space-y-6"
 							>
-								{sponsoredForm.formState.isSubmitting
-									? "Creating..."
-									: "Create Lobby"}
-							</Button>
-						) : (
-							<Button
-								type="button"
-								className="flex justify-self-end w-full sm:w-fit rounded-full"
-								asChild
-							>
-								<Link href="/login">
-									Login to Create a Lobby
-								</Link>
-							</Button>
-						)}
-					</form>
-				</Form>
-			</TabsContent>
-		</Tabs>
+								<FormField
+									control={sponsoredForm.control}
+									name="lobbyName"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>
+												Lobby Name{" "}
+												<span className="text-destructive">
+													*
+												</span>
+											</FormLabel>
+											<FormControl>
+												<Input
+													placeholder="Enter lobby name"
+													{...field}
+													maxLength={50}
+												/>
+											</FormControl>
+											<FormDescription>
+												Choose a descriptive name for
+												your lobby (max 50 characters)
+											</FormDescription>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+
+								<FormField
+									control={sponsoredForm.control}
+									name="description"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Description</FormLabel>
+											<FormControl>
+												<Textarea
+													placeholder={getDefaultDescription()}
+													{...field}
+													maxLength={200}
+													rows={3}
+												/>
+											</FormControl>
+											<FormDescription>
+												Add details about your lobby.
+												(max 200 characters)
+											</FormDescription>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+
+								<FormField
+									control={sponsoredForm.control}
+									name="lobbyType"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>
+												Lobby Type{" "}
+												<span className="text-destructive">
+													*
+												</span>
+											</FormLabel>
+											<Select
+												onValueChange={field.onChange}
+												defaultValue={field.value}
+											>
+												<FormControl>
+													<SelectTrigger className="w-full">
+														<SelectValue placeholder="Select lobby type" />
+													</SelectTrigger>
+												</FormControl>
+												<SelectContent>
+													<SelectItem value="public">
+														Public
+													</SelectItem>
+													<SelectItem value="private">
+														Private
+													</SelectItem>
+												</SelectContent>
+											</Select>
+											<FormDescription>
+												Public lobbies are open to
+												everyone. Private lobbies
+												require creator approval
+											</FormDescription>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+
+								<div className="flex gap-2">
+									<FormField
+										control={sponsoredForm.control}
+										name="poolAmount"
+										render={({ field }) => (
+											<FormItem className="flex-1">
+												<FormLabel>
+													Pool Amount{" "}
+													<span className="text-destructive">
+														*
+													</span>
+												</FormLabel>
+												<FormControl>
+													<Input
+														type="number"
+														placeholder="0"
+														{...field}
+														step="0.01"
+													/>
+												</FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
+									<FormField
+										control={sponsoredForm.control}
+										name="selectedToken"
+										render={({ field }) => (
+											<FormItem className="self-end">
+												<FormLabel className="sr-only">
+													Token
+												</FormLabel>
+												<Select
+													onValueChange={(value) => {
+														field.onChange(value);
+														setSelectedToken(value);
+													}}
+													defaultValue={field.value}
+												>
+													<FormControl>
+														<SelectTrigger className="w-40">
+															<SelectValue placeholder="Token" />
+														</SelectTrigger>
+													</FormControl>
+													<SelectContent>
+														{tokens.map((token) => (
+															<SelectItem
+																key={
+																	token.contractId
+																}
+																value={
+																	token.contractId
+																}
+															>
+																<div className="flex items-center justify-between w-full">
+																	<span>
+																		{
+																			token.name
+																		}
+																	</span>
+																	<span className="text-xs ml-4 text-foreground/70 font-mono">
+																		(
+																		{formatAmount(
+																			token.balance
+																		)}
+																		)
+																	</span>
+																</div>
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
+								</div>
+								<FormDescription>
+									The total prize pool you will fund. Minimum:{" "}
+									{minimumAmount.toFixed(2)}
+								</FormDescription>
+
+								{error && (
+									<p className="text-sm text-destructive">
+										{error}
+									</p>
+								)}
+
+								{isUserLoading ? (
+									<Skeleton className="flex justify-self-end w-full sm:w-fit rounded-full h-13 sm:min-w-30" />
+								) : isAuthenticated ? (
+									<Button
+										type="submit"
+										className="flex justify-self-end w-full sm:w-fit rounded-full"
+										disabled={
+											sponsoredForm.formState.isSubmitting
+										}
+									>
+										{sponsoredForm.formState.isSubmitting
+											? "Creating..."
+											: "Create Lobby"}
+									</Button>
+								) : (
+									<Button
+										type="button"
+										className="flex justify-self-end w-full sm:w-fit rounded-full"
+										asChild
+									>
+										<Link href="/login">
+											Login to Create a Lobby
+										</Link>
+									</Button>
+								)}
+							</form>
+						</Form>
+					</TabsContent>
+				</Tabs>
+			)}
+		</>
 	);
 }
