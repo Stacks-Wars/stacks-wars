@@ -202,7 +202,11 @@ async fn handle_socket(
                                     &conn,
                                     &RoomServerMessage::GameOver {
                                         rank,
-                                        prize: player.prize,
+                                        prize: if player.has_claimed() {
+                                            None
+                                        } else {
+                                            player.prize
+                                        },
                                         wars_point: player.wars_point.unwrap_or(0.0),
                                     },
                                 )
