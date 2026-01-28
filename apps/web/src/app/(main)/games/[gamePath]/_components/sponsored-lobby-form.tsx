@@ -114,7 +114,6 @@ export default function SponsoredLobbyForm({
 				gamePath: game.path,
 				isPrivate: values.lobbyType === "private",
 				isSponsored: true,
-				entryAmount: 0,
 				currentAmount: amount,
 				tokenSymbol: selectedTokenObj?.name,
 				tokenContractId: selectedTokenObj?.contractId,

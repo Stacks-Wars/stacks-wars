@@ -12,7 +12,7 @@ interface PlayerProps {
 	isCreator: boolean;
 	onApprove?: (userId: string) => void;
 	onReject?: (userId: string) => void;
-	onKick?: (userId: string) => void;
+	onKick?: (userId: string, playerAddress: string) => void;
 	kickActionKey?: string;
 	approveActionKey?: string;
 	rejectActionKey?: string;
@@ -112,7 +112,9 @@ export default function Player({
 						<Button
 							variant={"outline"}
 							className="rounded-full text-xs sm:text-sm lg:text-base font-medium px-3 sm:px-4 h-8 sm:h-9 lg:h-10"
-							onClick={() => onKick?.(player.userId)}
+							onClick={() =>
+								onKick?.(player.userId, player.walletAddress)
+							}
 							disabled={isKickLoading}
 						>
 							{isKickLoading ? "Removing..." : "Remove"}

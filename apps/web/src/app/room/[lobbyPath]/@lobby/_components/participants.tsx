@@ -6,6 +6,13 @@ import { useUser } from "@/lib/stores/user";
 import { useRoom } from "@/lib/contexts/room-context";
 import Player from "./player";
 import { Clock, Users } from "lucide-react";
+import { kickPlayerContract } from "@/lib/contract-utils/kick";
+import type {
+	AssetString,
+	ContractIdString,
+} from "@stacks/connect/dist/types/methods";
+import { toast } from "sonner";
+import { waitForTxConfirmed } from "@/lib/contract-utils/waitForTxConfirmed";
 
 export default function Participants() {
 	const players = usePlayers();
@@ -26,8 +33,43 @@ export default function Participants() {
 		sendLobbyMessage({ type: "rejectJoin", userId });
 	};
 
-	const handleKick = (userId: string) => {
-		sendLobbyMessage({ type: "kick", userId });
+	const handleKick = async (userId: string, playerAddress: string) => {
+		if (!lobby) return;
+		if (lobby.contractAddress) {
+			try {
+				const contract = lobby.contractAddress as ContractIdString;
+				let amount = 0;
+				if (!lobby.isSponsored && lobby.entryAmount) {
+					amount = lobby.entryAmount;
+				}
+
+				const tokenId =
+					`${lobby.tokenContractId}::${lobby.tokenSymbol}` as AssetString;
+
+				const kickTxId = await kickPlayerContract({
+					contract,
+					playerAddress,
+					amount,
+					tokenId,
+				});
+
+				if (!kickTxId) {
+					toast.error("Failed to kick player in contract", {
+						description: "Please try again later.",
+					});
+					return;
+				}
+
+				await waitForTxConfirmed(kickTxId);
+			} catch (err) {
+				console.error("Kick contract failed", err);
+				toast.error("Contract transaction failed. Please try again.");
+				return;
+			}
+			sendLobbyMessage({ type: "kick", userId });
+		} else {
+			sendLobbyMessage({ type: "kick", userId });
+		}
 	};
 
 	return (
