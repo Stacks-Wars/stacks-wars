@@ -37,6 +37,28 @@ impl Environment {
     }
 }
 
+/// Application network
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub enum Network {
+    #[default]
+    Testnet,
+    Mainnet,
+}
+
+impl Network {
+    /// Parse from string, defaults to Mainnet if unrecognized
+    pub fn from_str(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "mainnet" => Self::Mainnet,
+            _ => Self::Testnet,
+        }
+    }
+
+    pub fn is_mainnet(&self) -> bool {
+        matches!(self, Self::Mainnet)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct AppConfig {
     pub environment: Environment,
@@ -46,6 +68,8 @@ pub struct AppConfig {
     pub telegram_bot_token: String,
     pub telegram_chat_id: String,
     pub admins: Vec<WalletAddress>,
+    pub network: Network,
+    pub hiro_api_key: String,
 }
 
 impl AppConfig {
@@ -87,6 +111,11 @@ impl AppState {
         let bot_token = std::env::var("TELEGRAM_BOT_TOKEN")?;
         let jwt_secret = std::env::var("JWT_SECRET")?;
         let telegram_chat_id = std::env::var("TELEGRAM_CHAT_ID")?;
+        let hiro_api_key = std::env::var("HIRO_API_KEY")?;
+
+        // Parse network from environment
+        let network =
+            Network::from_str(&std::env::var("NETWORK").unwrap_or_else(|_| "testnet".to_string()));
 
         // Parse admin wallet addresses from comma-separated list
         let admins: Vec<WalletAddress> = std::env::var("ADMIN_WALLETS")
@@ -116,6 +145,8 @@ impl AppState {
             telegram_bot_token: bot_token.clone(),
             telegram_chat_id,
             admins,
+            network,
+            hiro_api_key,
         };
 
         // Redis connection pool built from config.redis_url

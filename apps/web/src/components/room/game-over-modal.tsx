@@ -9,8 +9,17 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useGameOverData, useLobby, useLobbyActions } from "@/lib/stores/room";
-import { Trophy, Sparkles, Coins } from "lucide-react";
+import { useUser } from "@/lib/stores/user";
+import { claimRewardContract } from "@/lib/contract-utils/claim";
+import { waitForTxConfirmed } from "@/lib/contract-utils/waitForTxConfirmed";
+import type {
+	AssetString,
+	ContractIdString,
+} from "@stacks/connect/dist/types/methods";
+import { toast } from "sonner";
+import { Trophy, Sparkles, Coins, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 const rankLabels: Record<number, string> = {
 	1: "1st Place",
@@ -28,9 +37,45 @@ export default function GameOverModal() {
 	const gameOverData = useGameOverData();
 	const lobbyActions = useLobbyActions();
 	const lobby = useLobby();
+	const user = useUser();
+	const [isClaiming, setIsClaiming] = useState(false);
 
 	const handleClose = () => {
 		lobbyActions.setGameOver(null);
+	};
+
+	const handleClaim = async () => {
+		if (!lobby || !user || !gameOverData?.prize || !lobby.contractAddress) {
+			toast.error("Missing data for claim.");
+			return;
+		}
+		setIsClaiming(true);
+		try {
+			const contract = lobby.contractAddress as ContractIdString;
+			const tokenId =
+				`${lobby.tokenContractId}::${lobby.tokenSymbol}` as AssetString;
+			const txId = await claimRewardContract({
+				contract,
+				amount: gameOverData.prize,
+				walletAddress: user.walletAddress,
+				tokenId,
+			});
+			if (!txId) {
+				toast.error("Failed to claim reward", {
+					description: "Please try again later.",
+				});
+				setIsClaiming(false);
+				return;
+			}
+			await waitForTxConfirmed(txId);
+			toast.success("Reward claimed!");
+			handleClose();
+		} catch (err) {
+			toast.error("Contract transaction failed. Please try again.");
+			console.error("Claim contract failed", err);
+		} finally {
+			setIsClaiming(false);
+		}
 	};
 
 	if (!gameOverData) return null;
@@ -45,7 +90,11 @@ export default function GameOverModal() {
 			open={!!gameOverData}
 			onOpenChange={(open) => !open && handleClose()}
 		>
-			<DialogContent className="sm:max-w-md" showCloseButton={false}>
+			<DialogContent
+				className="sm:max-w-md"
+				showCloseButton={false}
+				disableOutsideClose={true}
+			>
 				<DialogHeader className="text-center">
 					<DialogTitle className="text-2xl font-bold">
 						Game Over!
@@ -115,9 +164,26 @@ export default function GameOverModal() {
 				</div>
 
 				<div className="flex justify-center pt-2">
-					<Button onClick={handleClose} className="w-full">
-						Close
-					</Button>
+					{prize != null && prize > 0 ? (
+						<Button
+							onClick={handleClaim}
+							className="w-full flex items-center justify-center"
+							disabled={isClaiming}
+						>
+							{isClaiming ? (
+								<>
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									Claiming...
+								</>
+							) : (
+								"Claim Reward"
+							)}
+						</Button>
+					) : (
+						<Button onClick={handleClose} className="w-full">
+							Close
+						</Button>
+					)}
 				</div>
 			</DialogContent>
 		</Dialog>

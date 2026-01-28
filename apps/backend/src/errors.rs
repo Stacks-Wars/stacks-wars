@@ -69,6 +69,12 @@ pub enum AppError {
 
     #[error("Invalid email address: {0}")]
     EmailAddressError(String),
+
+    #[error("Read error: {0}")]
+    ReadError(String),
+
+    #[error("Fetch error: {0}")]
+    FetchError(String),
 }
 
 impl AppError {
@@ -97,6 +103,8 @@ impl AppError {
             AppError::PlayerCountError(e) => (StatusCode::BAD_REQUEST, e.to_string()),
             AppError::LobbyAmountError(e) => (StatusCode::BAD_REQUEST, e.to_string()),
             AppError::EmailAddressError(e) => (StatusCode::BAD_REQUEST, e.clone()),
+            AppError::ReadError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.clone()),
+            AppError::FetchError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.clone()),
         }
     }
 }

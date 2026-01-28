@@ -19,6 +19,20 @@ import {
 } from "@/lib/stores/room";
 import { useUser, useIsAuthenticated } from "@/lib/stores/user";
 import RoomHeader from "@/components/room/room-header";
+import {
+	joinNormalContract,
+	joinSponsoredContract,
+} from "@/lib/contract-utils/join";
+import {
+	leaveNormalContract,
+	leaveSponsoredContract,
+} from "@/lib/contract-utils/leave";
+import type {
+	AssetString,
+	ContractIdString,
+} from "@stacks/connect/dist/types/methods";
+import { toast } from "sonner";
+import { waitForTxConfirmed } from "@/lib/contract-utils/waitForTxConfirmed";
 
 export default function LobbySlot() {
 	const { sendLobbyMessage } = useRoom();
@@ -48,14 +62,132 @@ export default function LobbySlot() {
 	const isJoinRequestPending = currentPlayerRequest?.state === "pending";
 	const isJoinRequestAccepted = currentPlayerRequest?.state === "accepted";
 
-	const handleJoinOrLeave = () => {
-		if (isInLobby) {
-			sendLobbyMessage({ type: "leave" });
-		} else if (lobby.isPrivate && !isJoinRequestAccepted) {
-			sendLobbyMessage({ type: "joinRequest" });
-		} else {
-			sendLobbyMessage({ type: "join" });
+	const handleJoinOrLeave = async () => {
+		if (!lobby || !user) {
+			toast.error("You must be logged in to perform this action.");
+			return;
 		}
+		// If leaving
+		if (isInLobby) {
+			if (lobby.contractAddress) {
+				let leaveTxId;
+				const contract = lobby.contractAddress as ContractIdString;
+				try {
+					if (lobby.isSponsored) {
+						if (
+							lobby.tokenContractId &&
+							lobby.tokenSymbol &&
+							lobby.currentAmount
+						) {
+							const tokenId =
+								`${lobby.tokenContractId}::${lobby.tokenSymbol}` as AssetString;
+							let amount = lobby.entryAmount || 0;
+							if (isCreator) {
+								amount = lobby.currentAmount;
+							}
+							leaveTxId = await leaveSponsoredContract({
+								contract,
+								amount,
+								walletAddress: user.walletAddress,
+								isCreator,
+								tokenId,
+							});
+						} else {
+							toast.error(
+								"Cannot leave lobby: missing token information."
+							);
+							return;
+						}
+					} else {
+						if (!lobby.entryAmount) {
+							toast.error(
+								"Cannot leave lobby: missing entry amount."
+							);
+							return;
+						}
+						leaveTxId = await leaveNormalContract({
+							contract,
+							amount: lobby.entryAmount,
+							walletAddress: user.walletAddress,
+						});
+					}
+					if (!leaveTxId) {
+						toast.error("Failed to leave contract", {
+							description: "Please try again later.",
+						});
+						return;
+					}
+					await waitForTxConfirmed(leaveTxId);
+				} catch (err) {
+					toast.error(
+						"Contract transaction failed. Please try again."
+					);
+					console.error("Leave contract failed", err);
+				}
+			}
+			sendLobbyMessage({ type: "leave" });
+			return;
+		}
+
+		// If joining
+		if (lobby.isPrivate && !isJoinRequestAccepted) {
+			sendLobbyMessage({ type: "joinRequest" });
+			return;
+		}
+
+		if (lobby.contractAddress) {
+			let joinTxId;
+			const contract = lobby.contractAddress as ContractIdString;
+			try {
+				if (lobby.isSponsored) {
+					if (
+						lobby.tokenContractId &&
+						lobby.tokenSymbol &&
+						lobby.currentAmount
+					) {
+						const tokenId =
+							`${lobby.tokenContractId}::${lobby.tokenSymbol}` as AssetString;
+						let amount = lobby.entryAmount || 0;
+						if (isCreator) {
+							amount = lobby.currentAmount;
+						}
+						joinTxId = await joinSponsoredContract({
+							contract,
+							amount,
+							isCreator,
+							tokenId,
+							address: user.walletAddress,
+						});
+					} else {
+						toast.error(
+							"Cannot join lobby: missing token information."
+						);
+						return;
+					}
+				} else {
+					if (!lobby.entryAmount) {
+						toast.error("Cannot join lobby: missing entry amount.");
+						return;
+					}
+					joinTxId = await joinNormalContract({
+						contract,
+						amount: lobby.entryAmount,
+						address: user.walletAddress,
+					});
+				}
+				if (!joinTxId) {
+					toast.error("Failed to leave contract", {
+						description: "Please try again later.",
+					});
+					return;
+				}
+				await waitForTxConfirmed(joinTxId);
+			} catch (err) {
+				toast.error("Contract transaction failed. Please try again.");
+				console.error("Join contract failed", err);
+			}
+		}
+		sendLobbyMessage({ type: "join" });
 	};
 
 	const handleStartGame = () => {

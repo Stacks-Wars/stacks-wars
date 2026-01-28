@@ -112,6 +112,8 @@ async fn handle_socket(
 
     let chat_repo = LobbyChatRepository::new(state.redis.clone());
 
+    let contract_address = lobby.contract_address.clone();
+
     let (
         game,
         creator,
@@ -246,6 +248,7 @@ async fn handle_socket(
                         &state,
                         &player_repo,
                         &lobby_state_repo,
+                        contract_address.as_ref(),
                     )
                     .await;
                     continue;

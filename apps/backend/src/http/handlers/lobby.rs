@@ -8,6 +8,8 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::http::handlers::stacks::has_joined;
+use crate::models::WalletAddress;
 use crate::{auth::AuthClaims, db::lobby::LobbyRepository, models::Lobby, state::AppState};
 
 // ============================================================================
@@ -60,6 +62,33 @@ pub async fn create_lobby(
         tracing::error!("Invalid user ID in token");
         (StatusCode::UNAUTHORIZED, "Invalid token".to_string())
     })?;
+
+    // Get user's wallet address from JWT claims
+    let wallet_address = WalletAddress::try_from(claims.wallet.as_str()).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            "Invalid wallet address in token".to_string(),
+        )
+    })?;
+
+    // Confirm join if contract_address is provided
+    if let Some(ref contract_addr) = payload.contract_address {
+        let contract_wallet = WalletAddress::try_from(contract_addr.as_str()).map_err(|_| {
+            (
+                StatusCode::BAD_REQUEST,
+                "Invalid contract address".to_string(),
+            )
+        })?;
+        let has_joined = has_joined(&contract_wallet, &wallet_address, &state)
+            .await
+            .map_err(|e| e.to_response())?;
+        if !has_joined {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Player has not joined the vault contract".to_string(),
+            ));
+        }
+    }
 
     // For non-sponsored lobbies, default current_amount to entry_amount if not provided
     let current_amount = if !payload.is_sponsored {
@@ -189,35 +218,4 @@ pub async fn get_all_lobbies(
         limit,
         offset,
     }))
-}
-
-/// Delete a lobby. Only the lobby creator may delete it. Returns `204`.
-pub async fn delete_lobby(
-    State(state): State<AppState>,
-    AuthClaims(claims): AuthClaims,
-    Path(lobby_id): Path<Uuid>,
-) -> Result<StatusCode, (StatusCode, String)> {
-    let user_id = Uuid::parse_str(&claims.sub)
-        .map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid token".to_string()))?;
-
-    let repo = LobbyRepository::new(state.postgres.clone());
-
-    // Verify user is the creator
-    let lobby = repo
-        .find_by_id(lobby_id)
-        .await
-        .map_err(|e| e.to_response())?;
-
-    if lobby.creator_id != user_id {
-        return Err((
-            StatusCode::FORBIDDEN,
-            "Only the creator can delete this lobby".to_string(),
-        ));
-    }
-
-    repo.delete_lobby(lobby_id, Some(state))
-        .await
-        .map_err(|e| e.to_response())?;
-
-    Ok(StatusCode::NO_CONTENT)
 }

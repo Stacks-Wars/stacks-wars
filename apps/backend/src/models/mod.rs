@@ -2,6 +2,7 @@ pub mod game;
 pub mod lobby;
 pub mod platform_rating;
 pub mod season;
+pub mod stacks;
 pub mod user;
 pub mod user_wars_point;
 pub mod username;

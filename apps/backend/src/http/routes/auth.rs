@@ -8,7 +8,7 @@ use axum::{
 use crate::{
     http::handlers::{
         game::create_game,
-        lobby::{create_lobby, delete_lobby},
+        lobby::create_lobby,
         platform_rating::{create_rating, delete_rating, update_rating},
         user::{get_me, logout, update_display_name, update_profile, update_username},
     },
@@ -27,7 +27,6 @@ pub fn routes(state_for_layer: AppState) -> Router<AppState> {
         .route("/user/display-name", patch(update_display_name))
         .route("/game", post(create_game))
         .route("/lobby", post(create_lobby))
-        .route("/lobby/{lobby_id}", delete(delete_lobby))
         .route("/logout", post(logout))
         .layer(from_fn_with_state(
             state_for_layer.clone(),
