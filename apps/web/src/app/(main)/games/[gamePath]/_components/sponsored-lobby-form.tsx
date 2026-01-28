@@ -37,6 +37,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser, useUserLoading } from "@/lib/stores/user";
 import { useAppActions } from "@/lib/stores/app";
+import { Loader2 } from "lucide-react";
 
 const sponsoredLobbySchema = z.object({
 	lobbyName: z
@@ -91,9 +92,11 @@ export default function SponsoredLobbyForm({
 		},
 	});
 	const [error, setError] = useState<string | null>(null);
+	const [progress, setProgress] = useState<string | null>(null);
 
 	const handleSubmit = async (values: SponsoredLobbyFormValues) => {
 		setError(null);
+		setProgress(null);
 		try {
 			const amount = parseFloat(values.poolAmount);
 			if (amount < minimumAmount) {
@@ -117,12 +120,14 @@ export default function SponsoredLobbyForm({
 				tokenContractId: selectedTokenObj?.contractId,
 			};
 			try {
+				setProgress("Setting up your contract");
 				const contractResponse = await ApiClient.get<string>(
 					`/api/sponsored-contract?gameCreatorId=${game.creatorId}&poolSize=${amount}&contractId=${values.selectedToken}`
 				);
 				if (contractResponse.error) {
-					toast.error("Failed to get contract template");
+					toast.error("Failed to set up contract");
 					console.error(contractResponse.error);
+					setProgress(null);
 					return;
 				}
 				const deployResult = await deployStacksContract({
@@ -133,10 +138,12 @@ export default function SponsoredLobbyForm({
 					toast.error("Failed to deploy contract", {
 						description: "Please try again later.",
 					});
+					setProgress(null);
 					throw new Error(
 						"Failed to deploy contract: No transaction ID returned"
 					);
 				}
+				setProgress("Deploying your contract");
 				await waitForTxConfirmed(deployResult.txid);
 				setLobbyCreationProgress({
 					contractAddress: deployResult.contractAddress,
@@ -158,10 +165,12 @@ export default function SponsoredLobbyForm({
 					toast.error("Failed to join contract", {
 						description: "Please try again later.",
 					});
+					setProgress(null);
 					throw new Error(
 						"Failed to join contract: No transaction ID returned"
 					);
 				}
+				setProgress("Adding you to the contract");
 				await waitForTxConfirmed(joinTxId);
 				setLobbyCreationProgress({
 					contractAddress: deployResult.contractAddress,
@@ -171,27 +180,30 @@ export default function SponsoredLobbyForm({
 						contractAddress: deployResult.contractAddress,
 					},
 				});
-				toast.success("Successfully deployed and joined contract!", {
-					description: "Wait while we create your lobby...",
-				});
 			} catch (error) {
 				setError("Failed to deploy or join contract");
+				setProgress(null);
 				console.error(error);
 				return;
 			}
+			setProgress("Creating your lobby");
 			const response = await ApiClient.post<Lobby>("/api/lobby", payload);
 			if (response.error) {
 				toast.error("Failed to create lobby", {
 					description: "Please try again later.",
 				});
+				setProgress(null);
 				console.error("API error:", response.error);
 				return;
 			}
-			clearLobbyCreationProgress();
 			if (response.data) {
+				clearLobbyCreationProgress();
+				setProgress(null);
+				toast.success("Lobby created successfully!");
 				router.push(`/room/${response.data.path}`);
 			}
 		} catch (err) {
+			setProgress(null);
 			console.error(err);
 		}
 	};
@@ -361,8 +373,11 @@ export default function SponsoredLobbyForm({
 						className="flex justify-self-end w-full sm:w-fit rounded-full"
 						disabled={form.formState.isSubmitting}
 					>
+						{form.formState.isSubmitting && (
+							<Loader2 className="mr-2 h-4 w-4 animate-spin inline-block align-middle" />
+						)}
 						{form.formState.isSubmitting
-							? "Creating..."
+							? progress || "Creating..."
 							: "Create Lobby"}
 					</Button>
 				) : (
