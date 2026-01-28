@@ -49,6 +49,11 @@ pub enum RoomClientMessage {
         message_id: Uuid,
         emoji: String,
     },
+    /// Request to claim a prize reward
+    #[serde(rename_all = "camelCase")]
+    ClaimReward {
+        tx_id: String,
+    },
     /// Heartbeat from client; `ts` is client's timestamp in milliseconds
     Ping {
         ts: u64,
@@ -174,6 +179,9 @@ pub enum RoomServerMessage {
         prize: Option<f64>,
         wars_point: f64,
     },
+
+    /// Claim reward success
+    ClaimSuccess,
 
     Error {
         code: String,

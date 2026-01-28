@@ -323,6 +323,11 @@ export function useRoomWebSocket({
 				});
 				break;
 
+			case "claimSuccess":
+				lobbyActions.setActionLoading("claimReward", false);
+				toast.success("Reward claimed successfully!");
+				break;
+
 			case "gameState":
 				console.log(
 					"[Room] Received game state for reconnection:",
@@ -355,6 +360,7 @@ export function useRoomWebSocket({
 					KICK_FAILED: "kick",
 					SEND_MESSAGE_FAILED: "sendMessage",
 					REACTION_FAILED: "reaction",
+					CLAIM_FAILED: "claimReward",
 				};
 				const action = errorCodeToAction[message.code];
 				if (action) {
@@ -461,6 +467,10 @@ export function useRoomWebSocket({
 					`removeReaction-${message.messageId}`,
 					true
 				);
+				break;
+			case "claimReward":
+				pendingActionsRef.current.add("claimReward");
+				lobbyActions.setActionLoading("claimReward", true);
 				break;
 		}
 

@@ -35,7 +35,12 @@ export type RoomServerMessage =
 	| GameStartFailedMessage
 	| FinalStandingMessage
 	| GameOverMessage
+	| ClaimSuccessMessage
 	| ErrorMessage;
+
+export interface ClaimSuccessMessage {
+	type: "claimSuccess";
+}
 
 export interface LobbyBootstrapMessage {
 	type: "lobbyBootstrap";
@@ -177,7 +182,13 @@ export type RoomClientMessage =
 	| SendChatMessage
 	| AddReactionMessage
 	| RemoveReactionMessage
+	| ClaimRewardMessage
 	| PingMessage;
+
+export interface ClaimRewardMessage {
+	type: "claimReward";
+	txId: string;
+}
 
 export interface JoinMessage {
 	type: "join";

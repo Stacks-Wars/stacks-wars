@@ -283,4 +283,34 @@ impl LobbyStateRepository {
 
         Ok(())
     }
+
+    /// Subtract from current_amount.
+    pub async fn subtract_current_amount(&self, lobby_id: Uuid, amount: f64) -> Result<(), AppError> {
+        let mut conn =
+            self.redis.get().await.map_err(|e| {
+                AppError::RedisError(format!("Failed to get Redis connection: {}", e))
+            })?;
+        let key = RedisKey::lobby_state(lobby_id);
+
+        // Get current amount
+        let current: Option<String> = conn.hget(&key, "current_amount").await.map_err(AppError::RedisCommandError)?;
+        let current_amount = current.and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+
+        let new_amount = (current_amount - amount).max(0.0);
+
+        let now = Utc::now().timestamp();
+
+        let _: () = conn
+            .hset_multiple(
+                &key,
+                &[
+                    ("current_amount", &new_amount.to_string()),
+                    ("updated_at", &now.to_string()),
+                ],
+            )
+            .await
+            .map_err(AppError::RedisCommandError)?;
+
+        Ok(())
+    }
 }

@@ -11,6 +11,7 @@ use crate::db::lobby_state::LobbyStateRepository;
 use crate::db::player_state::PlayerStateRepository;
 use crate::db::user::UserRepository;
 use crate::http::handlers::stacks::has_joined;
+use crate::models::player_state::ClaimState;
 use crate::models::{LobbyStatus, PlayerState, WalletAddress};
 use crate::state::{AppState, ConnectionInfo};
 use crate::ws::room::{
@@ -993,6 +994,84 @@ pub async fn handle_room_message(
                     let _ = manager::send_to_connection(conn, &msg).await;
                 }
             }
+        }
+
+        RoomClientMessage::ClaimReward { tx_id } => {
+            let user_id = match require_auth(conn, auth_user_id).await {
+                Ok(uid) => uid,
+                Err(_) => return,
+            };
+
+            // Get player state
+            let player_state = match player_repo.get_state(lobby_id, user_id).await {
+                Ok(ps) => ps,
+                Err(_) => {
+                    let _ = manager::send_to_connection(
+                        conn,
+                        &RoomServerMessage::from(RoomError::ClaimFailed(
+                            "Player not found in lobby".to_string(),
+                        )),
+                    )
+                    .await;
+                    return;
+                }
+            };
+
+            // Check if has prize and not claimed
+            if player_state.prize.is_none()
+                || player_state.prize.unwrap() <= 0.0
+                || player_state.has_claimed()
+            {
+                let _ = manager::send_to_connection(
+                    conn,
+                    &RoomServerMessage::from(RoomError::ClaimFailed(
+                        "No prize available to claim".to_string(),
+                    )),
+                )
+                .await;
+                return;
+            }
+
+            let prize = player_state.prize.unwrap();
+
+            // Update claim state
+            if let Err(_) = player_repo
+                .update_claim_state(
+                    lobby_id,
+                    user_id,
+                    ClaimState::Claimed {
+                        tx_id: tx_id.clone(),
+                    },
+                )
+                .await
+            {
+                let _ = manager::send_to_connection(
+                    conn,
+                    &RoomServerMessage::from(RoomError::ClaimFailed(
+                        "Failed to update claim state".to_string(),
+                    )),
+                )
+                .await;
+                return;
+            }
+
+            // Subtract from lobby current_amount
+            if let Err(_) = lobby_state_repo
+                .subtract_current_amount(lobby_id, prize)
+                .await
+            {
+                let _ = manager::send_to_connection(
+                    conn,
+                    &RoomServerMessage::from(RoomError::ClaimFailed(
+                        "Failed to update lobby amount".to_string(),
+                    )),
+                )
+                .await;
+                return;
+            }
+
+            // Send success
+            let _ = manager::send_to_connection(conn, &RoomServerMessage::ClaimSuccess).await;
         }
     }
 }
