@@ -9,7 +9,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { LobbyStatus } from "@/lib/definitions";
 import type { CreateLobbyRequest, Lobby } from "@/lib/definitions";
-import { ApiClient } from "@/lib/api/client";
+import { ApiClient, type ApiResponse } from "@/lib/api/client";
 import { waitForTxConfirmed } from "@/lib/contract-utils/waitForTxConfirmed";
 import {
 	joinNormalContract,
@@ -17,7 +17,6 @@ import {
 } from "@/lib/contract-utils/join";
 import { toast } from "sonner";
 import type { ContractIdString, AssetString } from "@stacks/transactions";
-import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 interface LobbyCreationProgress {
 	contractAddress: string;
@@ -31,10 +30,7 @@ interface AppActions {
 	setLobbyOffset: (offset: number) => void;
 	setLobbyCreationProgress: (progress: LobbyCreationProgress) => void;
 	clearLobbyCreationProgress: () => void;
-	handleContinue: (
-		userWalletAddress: string,
-		router: AppRouterInstance
-	) => Promise<void>;
+	handleContinue: (userWalletAddress: string) => Promise<ApiResponse<Lobby>>;
 }
 
 interface AppStore {
@@ -70,12 +66,14 @@ const useAppStore = create<AppStore>()(
 				},
 				clearLobbyCreationProgress: () =>
 					set({ lobbyCreationProgress: null }),
-				handleContinue: async (
-					userWalletAddress: string,
-					router: AppRouterInstance
-				) => {
+				handleContinue: async (userWalletAddress: string) => {
 					const progress = get().lobbyCreationProgress;
-					if (!progress) return;
+					if (!progress) {
+						return {
+							status: 400,
+							error: "No lobby creation progress found",
+						};
+					}
 
 					try {
 						if (progress.step === "deployed") {
@@ -104,9 +102,10 @@ const useAppStore = create<AppStore>()(
 								toast.error("Failed to join contract", {
 									description: "Please try again later.",
 								});
-								throw new Error(
-									"Failed to join contract: No transaction ID returned"
-								);
+								return {
+									status: 500,
+									error: "Failed to join contract: No transaction ID returned",
+								};
 							}
 
 							await waitForTxConfirmed(txId);
@@ -123,20 +122,14 @@ const useAppStore = create<AppStore>()(
 							"/api/lobby",
 							progress.payload
 						);
-						if (response.error) {
-							toast.error("Failed to create lobby", {
-								description: "Please try again later.",
-							});
-							console.error("API error:", response.error);
-							return;
-						}
-						if (response.data) {
-							set({ lobbyCreationProgress: null });
-							router.push(`/room/${response.data.path}`);
-						}
+						return response;
 					} catch (err) {
 						toast.error("Failed to continue lobby creation");
 						console.error(err);
+						return {
+							status: 500,
+							error: "Failed to continue lobby creation",
+						};
 					}
 				},
 			},
