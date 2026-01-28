@@ -10,11 +10,11 @@ import { persist } from "zustand/middleware";
 import type { LobbyStatus } from "@/lib/definitions";
 import type { CreateLobbyRequest, Lobby } from "@/lib/definitions";
 import { ApiClient } from "@/lib/api/client";
-import { waitForTxConfirmed } from "@/lib/contracts-utils/waitForTxConfirmed";
+import { waitForTxConfirmed } from "@/lib/contract-utils/waitForTxConfirmed";
 import {
 	joinNormalContract,
 	joinSponsoredContract,
-} from "@/lib/contracts-utils/join";
+} from "@/lib/contract-utils/join";
 import { toast } from "sonner";
 import type { ContractIdString, AssetString } from "@stacks/transactions";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
@@ -89,10 +89,7 @@ const useAppStore = create<AppStore>()(
 											progress.payload.currentAmount || 0,
 										isCreator: true,
 										tokenId:
-											progress.payload.tokenContractId &&
-											progress.payload.tokenSymbol
-												? (`${progress.payload.tokenContractId}::${progress.payload.tokenSymbol}` as AssetString)
-												: undefined,
+											`${progress.payload.tokenContractId}::${progress.payload.tokenSymbol}` as AssetString,
 										address: userWalletAddress,
 									})
 								: await joinNormalContract({

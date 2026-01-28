@@ -39,12 +39,12 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { useLobbyCreationProgress, useAppActions } from "@/lib/stores/app";
-import { deployStacksContract } from "@/lib/contracts-utils/deploy";
-import { waitForTxConfirmed } from "@/lib/contracts-utils/waitForTxConfirmed";
+import { deployStacksContract } from "@/lib/contract-utils/deploy";
+import { waitForTxConfirmed } from "@/lib/contract-utils/waitForTxConfirmed";
 import {
 	joinNormalContract,
 	joinSponsoredContract,
-} from "@/lib/contracts-utils/join";
+} from "@/lib/contract-utils/join";
 import type {
 	AssetString,
 	ContractIdString,

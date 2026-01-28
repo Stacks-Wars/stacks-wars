@@ -5,63 +5,77 @@ import type {
 	FungiblePostCondition,
 	StxPostCondition,
 } from "@stacks/transactions";
+import { ClarityType } from "@stacks/transactions";
+import { generateSignature } from "./signature";
 
 /**
- * Join a normal lobby contract
+ * Leave a normal lobby contract
  */
-export async function joinNormalContract(params: {
+export async function leaveNormalContract(params: {
 	contract: ContractIdString;
 	amount: number;
-	address: string;
+	walletAddress: string;
 }) {
 	const network = process.env.NEXT_PUBLIC_NETWORK || "mainnet";
+	const signature = await generateSignature(
+		params.amount,
+		params.walletAddress,
+		params.contract
+	);
 
 	const stxPostCondition: StxPostCondition = {
 		type: "stx-postcondition",
-		address: params.address,
+		address: params.contract,
 		condition: "eq",
 		amount: params.amount * 1_000_000,
 	};
 
 	const response = await request("stx_callContract", {
 		contract: params.contract,
-		functionName: "join",
-		functionArgs: [],
+		functionName: "leave",
+		functionArgs: [{ type: ClarityType.Buffer, value: signature }],
 		network,
 		postConditionMode: "deny",
 		postConditions: [stxPostCondition],
 	});
-
 	return response.txid;
 }
 
 /**
- * Join a sponsored lobby contract
+ * Leave a sponsored lobby contract
  */
-export async function joinSponsoredContract(params: {
+export async function leaveSponsoredContract(params: {
 	contract: ContractIdString;
 	amount: number;
+	walletAddress: string;
 	isCreator: boolean;
-	tokenId?: AssetString;
-	address: string;
+	tokenId: AssetString;
 }) {
 	const network = process.env.NEXT_PUBLIC_NETWORK || "mainnet";
 
+	const signature = await generateSignature(
+		params.amount,
+		params.walletAddress,
+		params.contract
+	);
+
 	let postConditions: (StxPostCondition | FungiblePostCondition)[] = [];
 
-	if (params.isCreator) {
-		if (params.contract.endsWith("-stacks-wars-stx-vault")) {
+	if (params.contract.endsWith("-stacks-wars-stx-vault")) {
+		if (params.isCreator) {
 			const stxPostCondition: StxPostCondition = {
 				type: "stx-postcondition",
-				address: params.address,
+				address: params.contract,
 				condition: "eq",
 				amount: params.amount * 1_000_000,
 			};
 			postConditions = [stxPostCondition];
-		} else if (params.tokenId) {
+		}
+	} else {
+		if (params.isCreator && params.tokenId) {
 			const ftPostCondition: FungiblePostCondition = {
 				type: "ft-postcondition",
-				address: params.address,
+				address: params.contract,
 				condition: "eq",
 				asset: params.tokenId,
 				amount: params.amount * 1_000_000,
@@ -72,12 +86,11 @@ export async function joinSponsoredContract(params: {
 
 	const response = await request("stx_callContract", {
 		contract: params.contract,
-		functionName: "join",
-		functionArgs: [],
+		functionName: "leave",
+		functionArgs: [{ type: ClarityType.Buffer, value: signature }],
 		network,
 		postConditionMode: "deny",
 		postConditions,
 	});
-
 	return response.txid;
 }
