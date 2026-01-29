@@ -8,25 +8,25 @@ const FooterText = "/images/footer-text.svg";
 
 export default function Footer() {
 	return (
-		<footer className="w-full py-8 mt-16 md:mt-32">
-			<div className="container mx-auto flex flex-col w-full items-center justify-between gap-2 md:gap-8">
-				<div className="w-full mb-12 md:mb-38">
+		<footer className="mt-16 w-full py-8 md:mt-32">
+			<div className="container mx-auto flex w-full flex-col items-center justify-between gap-2 md:gap-8">
+				<div className="mb-12 w-full md:mb-38">
 					<Image
 						src={FooterImg}
 						alt="Footer Illustration"
 						width={1920}
 						height={120}
-						className="w-full h-12 md:h-auto object-cover"
+						className="h-12 w-full object-cover md:h-auto"
 						priority
 					/>
 				</div>
-				<h2 className="text-center text-3xl md:text-5xl font-bold text-foreground mb-2 md:mb-4">
+				<h2 className="text-foreground mb-2 text-center text-3xl font-bold md:mb-4 md:text-5xl">
 					Every stack counts. Every move matters. Are you ready?
 				</h2>
-				<p className="text-center text-2xl md:text-3xl text-foreground font-medium">
+				<p className="text-foreground text-center text-2xl font-medium md:text-3xl">
 					Join the community
 				</p>
-				<div className="flex flex-row md:flex-row gap-4 md:w-auto justify-center items-center">
+				<div className="flex flex-row items-center justify-center gap-4 md:w-auto md:flex-row">
 					<Button
 						asChild
 						variant="outline"
@@ -63,7 +63,7 @@ export default function Footer() {
 						alt="Footer Text"
 						width={1920}
 						height={120}
-						className="hidden md:block w-full h-auto object-cover mt-28 bottom-0"
+						className="bottom-0 mt-28 hidden h-auto w-full object-cover md:block"
 						priority
 					/>
 				</div>
