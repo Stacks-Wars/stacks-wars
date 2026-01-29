@@ -6,12 +6,10 @@
  */
 
 import type { GamePlugin, PluginRegistry } from "@/lib/definitions";
-import { CoinFlipPlugin } from "./coin-flip/plugin";
 import { LexiWarsPlugin } from "./lexi-wars/plugin";
 
 // Registry maps game path to plugin
 export const gamePlugins: PluginRegistry = {
-	[CoinFlipPlugin.path]: CoinFlipPlugin as GamePlugin,
 	[LexiWarsPlugin.path]: LexiWarsPlugin as GamePlugin,
 };
 
