@@ -35,7 +35,7 @@ export default function GameCard({
 
 	return (
 		<div className="flex w-full flex-col items-center">
-			<div className="bg-card flex w-full flex-col-reverse justify-between rounded-3xl border p-4 sm:flex-row sm:items-center sm:p-6 lg:p-8">
+			<div className="bg-gradient-primary flex w-full flex-col-reverse justify-between rounded-3xl border p-4 sm:flex-row sm:items-center sm:p-6 lg:p-8">
 				<div className="space-y-2 sm:w-1/2 lg:space-y-4">
 					<h3 className="w-full truncate text-2xl font-bold lg:text-[40px]">
 						{game.name}
@@ -77,7 +77,7 @@ export default function GameCard({
 			</div>
 			{action && (
 				<Button
-					className="-mb-4 h-8 w-full max-w-48 -translate-y-1/2 rounded-full py-3 text-sm font-medium shadow-sm sm:-mb-6 sm:h-12 sm:max-w-52 sm:py-3.5 sm:text-base lg:-mb-8 lg:h-16 lg:max-w-80 lg:py-4 lg:text-xl"
+					className="bg-muted-gradient -mb-4 h-8 w-full max-w-48 -translate-y-1/2 rounded-full py-3 text-sm font-medium shadow-sm transition hover:opacity-90 sm:-mb-6 sm:h-12 sm:max-w-52 sm:py-3.5 sm:text-base lg:-mb-8 lg:h-16 lg:max-w-80 lg:py-4 lg:text-xl"
 					variant={isInLobby ? "destructive" : "default"}
 					asChild={action !== "joinLobby" || !isAuthenticated}
 					onClick={

@@ -12,7 +12,7 @@ export default function LobbyCard({ lobbyInfo }: { lobbyInfo: LobbyInfo }) {
 	const { lobby, game, creator } = lobbyInfo;
 
 	return (
-		<div className="bg-card w-full space-y-4 rounded-3xl border p-4 sm:space-y-6 sm:p-6 lg:p-8">
+		<div className="bg-gradient-primary-2 w-full space-y-4 rounded-3xl border p-4 sm:space-y-6 sm:p-6 lg:p-8">
 			<div className="space-y-3 sm:space-y-4">
 				<div className="flex items-center justify-between gap-2">
 					<div className="min-w-0">
@@ -91,7 +91,7 @@ export default function LobbyCard({ lobbyInfo }: { lobbyInfo: LobbyInfo }) {
 			<Button
 				asChild
 				variant={"secondary"}
-				className="w-full rounded-full py-2.5 text-sm font-medium sm:py-3.5 sm:text-base lg:py-4 lg:text-lg"
+				className="bg-gradient-secondary-1 hover:bg-gradient-secondary-2 w-full rounded-full py-2.5 text-sm font-medium sm:py-3.5 sm:text-base lg:py-4 lg:text-lg"
 			>
 				<Link href={`/room/${lobby.path}`}>Open Room</Link>
 			</Button>

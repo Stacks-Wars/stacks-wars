@@ -4,6 +4,13 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+	--background-image-gradient-primary: var(--gradient-primary);
+	--background-image-muted-gradient: var(--muted-gradient);
+	--background-image-gradient-primary-2: var(--gradient-primary-2);
+	--background-image-gradient-secondary-1: var(--gradient-secondary-1);
+	--background-image-gradient-secondary-2: var(--gradient-secondary-2);
+	--background-image-muted-gradient-2: var(--muted-gradient-2);
+
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--font-sans: var(--font-geist-sans);
@@ -76,6 +83,13 @@
 	--sidebar-accent-foreground: oklch(0.205 0 0);
 	--sidebar-border: oklch(0.922 0 0);
 	--sidebar-ring: oklch(0.708 0 0);
+
+	--gradient-primary: linear-gradient(to bottom, #2c61b8, #000000);
+	--muted-gradient: linear-gradient(to bottom, var(--border), var(--background));
+	--gradient-primary-2: linear-gradient(to bottom right, var(--primary), var(--background), var(--background), var(--background));
+	--gradient-secondary-1: linear-gradient(to bottom, var(--chart-4), var(--secondary));
+	--gradient-secondary-2: linear-gradient(to bottom, var(--secondary), var(--chart-4));
+	--muted-gradient-2: linear-gradient(to bottom, var(--background), var(--border));
 }
 
 .dark {
@@ -110,6 +124,13 @@
 	--sidebar-accent-foreground: oklch(0.205 0 0);
 	--sidebar-border: oklch(0.922 0 0);
 	--sidebar-ring: oklch(0.708 0 0);
+	
+	--gradient-primary: linear-gradient(to bottom, #2c61b8, #000000);
+	--muted-gradient: linear-gradient(to bottom, var(--border), var(--background));
+	--gradient-primary-2: linear-gradient(to bottom right, var(--primary), var(--background), var(--background), var(--background));
+	--gradient-secondary-1: linear-gradient(to bottom, var(--chart-4), var(--secondary));
+	--gradient-secondary-2: linear-gradient(to bottom, var(--secondary), var(--chart-4));
+	--muted-gradient-2: linear-gradient(to bottom, var(--background), var(--border));
 }
 
 @layer base {
