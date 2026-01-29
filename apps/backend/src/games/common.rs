@@ -332,29 +332,6 @@ pub async fn save_game_summary(
     Ok(())
 }
 
-/// Load game summary from Redis (for viewing completed games)
-pub async fn load_game_summary(
-    redis: &RedisClient,
-    lobby_id: Uuid,
-) -> Result<Option<GameSummary>, AppError> {
-    let mut conn = redis
-        .get()
-        .await
-        .map_err(|e| AppError::RedisError(format!("Failed to get Redis connection: {}", e)))?;
-
-    let key = format!("game:{}:state", lobby_id);
-    let json: Option<String> = conn.get(&key).await.map_err(AppError::RedisCommandError)?;
-
-    match json {
-        Some(json) => {
-            let summary: GameSummary =
-                serde_json::from_str(&json).map_err(|e| AppError::Serialization(e.to_string()))?;
-            Ok(Some(summary))
-        }
-        None => Ok(None),
-    }
-}
-
 // ============================================================================
 // Wars Points Calculation
 // ============================================================================
