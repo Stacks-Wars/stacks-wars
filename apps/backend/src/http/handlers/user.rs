@@ -9,6 +9,7 @@ use axum::{
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
+use time::Duration;
 use uuid::Uuid;
 
 use crate::{
@@ -85,8 +86,8 @@ pub async fn create_user(
     // Create httpOnly cookie for the token
     let cookie = Cookie::build(("auth_token", token.clone()))
         .path("/")
-        .max_age(time::Duration::days(7))
-        .same_site(SameSite::Strict)
+        .max_age(Duration::days(14)) // 14 days in seconds
+        .same_site(SameSite::Lax) // More permissive than Strict for cross-domain compatibility
         .http_only(true)
         .secure(state.config.is_production())
         .build();
@@ -267,8 +268,8 @@ pub async fn logout(
     // Create cookie with max-age=0 to clear it
     let cookie = Cookie::build(("auth_token", ""))
         .path("/")
-        .max_age(time::Duration::seconds(0))
-        .same_site(SameSite::Strict)
+        .max_age(Duration::seconds(0))
+        .same_site(SameSite::Lax)
         .http_only(true)
         .secure(state.config.is_production())
         .build();
