@@ -124,7 +124,7 @@
 	--sidebar-accent-foreground: oklch(0.205 0 0);
 	--sidebar-border: oklch(0.922 0 0);
 	--sidebar-ring: oklch(0.708 0 0);
-	
+
 	--gradient-primary: linear-gradient(to bottom, #2c61b8, #000000);
 	--muted-gradient: linear-gradient(to bottom, var(--border), var(--background));
 	--gradient-primary-2: linear-gradient(to bottom right, var(--primary), var(--background), var(--background), var(--background));

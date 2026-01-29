@@ -128,8 +128,8 @@ export default function LeaderboardPage() {
 
 	if (loading) {
 		return (
-			<div className="container mx-auto py-8 px-4">
-				<Card className="bg-transparent border-none shadow-none rounded-none">
+			<div className="container mx-auto px-4 py-8">
+				<Card className="rounded-none border-none bg-transparent shadow-none">
 					<CardContent>
 						<div className="space-y-2">
 							{[...Array(10)].map((_, i) => (
@@ -144,10 +144,10 @@ export default function LeaderboardPage() {
 
 	if (error) {
 		return (
-			<div className="container mx-auto py-8 px-4">
-				<Card className="bg-transparent border-none shadow-none rounded-none">
+			<div className="container mx-auto px-4 py-8">
+				<Card className="rounded-none border-none bg-transparent shadow-none">
 					<CardContent className="pt-6">
-						<div className="text-center py-8">
+						<div className="py-8 text-center">
 							<p className="text-destructive text-lg">
 								Error: {error}
 							</p>
@@ -159,10 +159,10 @@ export default function LeaderboardPage() {
 	}
 
 	return (
-		<div className="container mx-auto py-8 md:py-18 px-4">
-			<Card className="bg-transparent border-none shadow-none rounded-none max-w-full my-8">
+		<div className="container mx-auto px-4 py-8 md:py-18">
+			<Card className="my-8 max-w-full rounded-none border-none bg-transparent shadow-none">
 				<CardHeader className="px-0 pb-6">
-					<div className="flex flex-wrap justify-center items-end gap-6 md:gap-12">
+					<div className="flex flex-wrap items-end justify-center gap-6 md:gap-12">
 						{[topRanked.second, topRanked.first, topRanked.third]
 							.filter((player) => player !== undefined)
 							.map((player, idx) => {
@@ -174,12 +174,12 @@ export default function LeaderboardPage() {
 										key={idx}
 										className={`relative ${isFirst ? "-translate-y-8 sm:-translate-y-12 md:-translate-y-24" : ""}`}
 									>
-										<div className="absolute -top-3 sm:-top-4 md:-top-6 left-1/2 -translate-x-1/2 text-3xl sm:text-4xl md:text-6xl z-10">
+										<div className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 text-3xl sm:-top-4 sm:text-4xl md:-top-6 md:text-6xl">
 											{rankEmoji}
 										</div>
-										<Card className="shadow-md bg-gradient-primary pb-12 sm:pb-16 md:pb-20 border-none rounded-t-full rounded-b-0 overflow-hidden px-2 sm:px-3 pt-2 w-28 sm:w-40 md:w-auto">
-											<CardContent className="flex flex-col items-center gap-2 sm:gap-6 md:gap-12 p-2 sm:p-3 md:p-4">
-												<Avatar className="w-20 h-20 sm:w-36 sm:h-36 md:w-60 md:h-60">
+										<Card className="bg-gradient-primary rounded-b-0 w-28 overflow-hidden rounded-t-full border-none px-2 pt-2 pb-12 shadow-md sm:w-40 sm:px-3 sm:pb-16 md:w-auto md:pb-20">
+											<CardContent className="flex flex-col items-center gap-2 p-2 sm:gap-6 sm:p-3 md:gap-12 md:p-4">
+												<Avatar className="h-20 w-20 sm:h-36 sm:w-36 md:h-60 md:w-60">
 													<AvatarImage
 														alt={`${player?.displayName || player?.username || "Player"}'s avatar`}
 													/>
@@ -195,31 +195,31 @@ export default function LeaderboardPage() {
 													</AvatarFallback>
 												</Avatar>
 												<div className="flex flex-col items-center gap-0">
-													<div className="text-[7px] sm:text-[9px] md:text-sm text-muted-foreground uppercase">
+													<div className="text-muted-foreground text-[7px] uppercase sm:text-[9px] md:text-sm">
 														Player Name
 													</div>
-													<div className="font-semibold text-xs sm:text-xl md:text-3xl text-center">
+													<div className="text-center text-xs font-semibold sm:text-xl md:text-3xl">
 														{player?.displayName ||
 															player?.username ||
 															"Anonymous"}
 													</div>
 												</div>
-												<div className="flex items-center justify-center gap-2 sm:gap-6 md:gap-16 text-center">
+												<div className="flex items-center justify-center gap-2 text-center sm:gap-6 md:gap-16">
 													<div className="flex flex-col">
-														<div className="text-[9px] sm:text-xs md:text-base text-muted-foreground uppercase font-semibold">
+														<div className="text-muted-foreground text-[9px] font-semibold uppercase sm:text-xs md:text-base">
 															Wins
 														</div>
-														<div className="font-medium text-xs sm:text-xl md:text-2xl">
+														<div className="text-xs font-medium sm:text-xl md:text-2xl">
 															{player
 																? player.totalWins
 																: "--"}
 														</div>
 													</div>
 													<div className="flex flex-col">
-														<div className="text-[9px] sm:text-xs md:text-base text-muted-foreground uppercase font-semibold">
+														<div className="text-muted-foreground text-[9px] font-semibold uppercase sm:text-xs md:text-base">
 															PTS
 														</div>
-														<div className="font-medium text-xs sm:text-xl md:text-2xl">
+														<div className="text-xs font-medium sm:text-xl md:text-2xl">
 															{player
 																? `${formatPnL(player.pnl)}`
 																: "--"}
@@ -235,13 +235,13 @@ export default function LeaderboardPage() {
 				</CardHeader>
 				<CardContent>
 					{leaderboard.length === 0 ? (
-						<div className="text-center py-8 text-muted-foreground">
+						<div className="text-muted-foreground py-8 text-center">
 							No leaderboard data available
 						</div>
 					) : (
 						<div>
 							<Table className="[&_td]:border-0 [&_th]:border-0">
-								<TableHeader className="[&_tr]:py-6 md:[&_tr]:py-10 [&_tr]:pb-8 md:[&_tr]:pb-12">
+								<TableHeader className="[&_tr]:py-6 [&_tr]:pb-8 md:[&_tr]:py-10 md:[&_tr]:pb-12">
 									<TableRow>
 										<TableHead className="w-16 text-center text-lg md:text-2xl">
 											Rank
@@ -255,7 +255,7 @@ export default function LeaderboardPage() {
 												onClick={() =>
 													handleSort("warsPoint")
 												}
-												className="h-auto p-0 hover:bg-transparent font-semibold text-lg md:text-2xl"
+												className="h-auto p-0 text-lg font-semibold hover:bg-transparent md:text-2xl"
 											>
 												War Points
 												<ArrowUpDown className="ml-2 h-5 w-5 md:h-6 md:w-6" />
@@ -267,7 +267,7 @@ export default function LeaderboardPage() {
 												onClick={() =>
 													handleSort("winRate")
 												}
-												className="h-auto p-0 hover:bg-transparent font-semibold text-lg md:text-2xl"
+												className="h-auto p-0 text-lg font-semibold hover:bg-transparent md:text-2xl"
 											>
 												Win Rate
 												<ArrowUpDown className="ml-2 h-5 w-5 md:h-6 md:w-6" />
@@ -279,7 +279,7 @@ export default function LeaderboardPage() {
 												onClick={() =>
 													handleSort("totalMatch")
 												}
-												className="h-auto p-0 hover:bg-transparent font-semibold text-lg md:text-2xl"
+												className="h-auto p-0 text-lg font-semibold hover:bg-transparent md:text-2xl"
 											>
 												Matches
 												<ArrowUpDown className="ml-2 h-5 w-5 md:h-6 md:w-6" />
@@ -291,7 +291,7 @@ export default function LeaderboardPage() {
 												onClick={() =>
 													handleSort("pnl")
 												}
-												className="h-auto p-0 hover:bg-transparent font-semibold ml-auto flex text-lg md:text-2xl"
+												className="ml-auto flex h-auto p-0 text-lg font-semibold hover:bg-transparent md:text-2xl"
 											>
 												P&L
 												<ArrowUpDown className="ml-2 h-5 w-5 md:h-6 md:w-6" />
@@ -302,14 +302,14 @@ export default function LeaderboardPage() {
 								<TableBody className="[&_tr]:border-0">
 									{paginatedLeaderboard.map((entry) => (
 										<TableRow key={entry.userId}>
-											<TableCell className="font-bold text-center text-lg md:text-2xl">
+											<TableCell className="text-center text-lg font-bold md:text-2xl">
 												{entry.rank === 1 && "🥇"}
 												{entry.rank === 2 && "🥈"}
 												{entry.rank === 3 && "🥉"}
 												{entry.rank > 3 && entry.rank}
 											</TableCell>
 											<TableCell
-												className="cursor-pointer hover:bg-muted/50 transition-colors"
+												className="hover:bg-muted/50 cursor-pointer transition-colors"
 												onClick={() =>
 													router.push(
 														`/u/${entry.username || entry.walletAddress}`
@@ -332,12 +332,12 @@ export default function LeaderboardPage() {
 														</AvatarFallback>
 													</Avatar>
 													<div className="flex flex-col">
-														<div className="font-semibold text-base md:text-lg">
+														<div className="text-base font-semibold md:text-lg">
 															{entry.displayName ||
 																entry.username ||
 																"Anonymous"}
 														</div>
-														<div className="text-sm md:text-base text-muted-foreground font-mono">
+														<div className="text-muted-foreground font-mono text-sm md:text-base">
 															{formatWallet(
 																entry.walletAddress
 															)}
@@ -345,7 +345,7 @@ export default function LeaderboardPage() {
 													</div>
 												</div>
 											</TableCell>
-											<TableCell className="text-center font-semibold text-base md:text-lg">
+											<TableCell className="text-center text-base font-semibold md:text-lg">
 												{entry.warsPoint.toFixed(1)}
 											</TableCell>
 											<TableCell className="text-center text-base md:text-lg">
@@ -353,14 +353,14 @@ export default function LeaderboardPage() {
 											</TableCell>
 											<TableCell className="text-center">
 												<div className="flex flex-col">
-													<span className="font-medium text-base md:text-lg">
+													<span className="text-base font-medium md:text-lg">
 														{entry.totalWins}/
 														{entry.totalMatch}
 													</span>
 												</div>
 											</TableCell>
 											<TableCell
-												className={`text-right font-semibold text-base md:text-lg ${
+												className={`text-right text-base font-semibold md:text-lg ${
 													entry.pnl > 0
 														? "text-green-600 dark:text-green-400"
 														: entry.pnl < 0
@@ -387,8 +387,8 @@ export default function LeaderboardPage() {
 						</div>
 					)}
 					{leaderboard.length > 0 && (
-						<div className="flex items-center justify-between mt-4">
-							<div className="text-base md:text-xl text-foreground font-medium">
+						<div className="mt-4 flex items-center justify-between">
+							<div className="text-foreground text-base font-medium md:text-xl">
 								Page {currentPage} of {totalPages}
 							</div>
 							<div className="flex gap-2">
@@ -397,7 +397,7 @@ export default function LeaderboardPage() {
 									size="icon"
 									onClick={goToPreviousPage}
 									disabled={currentPage === 1}
-									className="rounded-full h-10 w-10 md:h-12 md:w-12"
+									className="h-10 w-10 rounded-full md:h-12 md:w-12"
 								>
 									<ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
 								</Button>
@@ -406,7 +406,7 @@ export default function LeaderboardPage() {
 									size="icon"
 									onClick={goToNextPage}
 									disabled={currentPage === totalPages}
-									className="rounded-full h-10 w-10 md:h-12 md:w-12"
+									className="h-10 w-10 rounded-full md:h-12 md:w-12"
 								>
 									<ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
 								</Button>
