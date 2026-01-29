@@ -38,6 +38,10 @@ pub fn create_http_routes(state: AppState) -> Router {
                 .layer(SetResponseHeaderLayer::overriding(
                     axum::http::header::CACHE_CONTROL,
                     axum::http::HeaderValue::from_static("no-cache, no-store, max-age=0, must-revalidate"),
+                ))
+                .layer(SetResponseHeaderLayer::overriding(
+                    axum::http::header::HeaderName::from_static("permissions-policy"),
+                    axum::http::HeaderValue::from_static("attribution-reporting=(), private-aggregation=(), private-state-token-issuance=(), private-state-token-redemption=(), join-ad-interest-group=(), run-ad-auction=(), browsing-topics=()"),
                 )),
         )
         .with_state(state)
