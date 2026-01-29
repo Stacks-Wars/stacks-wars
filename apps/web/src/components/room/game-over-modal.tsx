@@ -8,7 +8,12 @@ import {
 	DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useGameOverData, useLobby, useLobbyActions } from "@/lib/stores/room";
+import {
+	useGameOverData,
+	useIsActionLoading,
+	useLobby,
+	useLobbyActions,
+} from "@/lib/stores/room";
 import { useUser } from "@/lib/stores/user";
 import { claimRewardContract } from "@/lib/contract-utils/claim";
 import { waitForTxConfirmed } from "@/lib/contract-utils/waitForTxConfirmed";
@@ -19,7 +24,7 @@ import type {
 import { toast } from "sonner";
 import { Trophy, Sparkles, Coins, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useRoom } from "@/lib/contexts/room-context";
 
 const rankLabels: Record<number, string> = {
 	1: "1st Place",
@@ -38,7 +43,8 @@ export default function GameOverModal() {
 	const lobbyActions = useLobbyActions();
 	const lobby = useLobby();
 	const user = useUser();
-	const [isClaiming, setIsClaiming] = useState(false);
+	const { sendLobbyMessage } = useRoom();
+	const isClaiming = useIsActionLoading("claimReward");
 
 	const handleClose = () => {
 		lobbyActions.setGameOver(null);
@@ -49,7 +55,6 @@ export default function GameOverModal() {
 			toast.error("Missing data for claim.");
 			return;
 		}
-		setIsClaiming(true);
 		try {
 			const contract = lobby.contractAddress as ContractIdString;
 			const tokenId =
@@ -64,17 +69,13 @@ export default function GameOverModal() {
 				toast.error("Failed to claim reward", {
 					description: "Please try again later.",
 				});
-				setIsClaiming(false);
 				return;
 			}
 			await waitForTxConfirmed(txId);
-			toast.success("Reward claimed!");
-			handleClose();
+			sendLobbyMessage({ type: "claimReward", txId });
 		} catch (err) {
 			toast.error("Contract transaction failed. Please try again.");
 			console.error("Claim contract failed", err);
-		} finally {
-			setIsClaiming(false);
 		}
 	};
 
