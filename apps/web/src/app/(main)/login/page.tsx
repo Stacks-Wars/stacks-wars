@@ -1,9 +1,3 @@
-"use client";
-
-import { Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import {
 	Card,
 	CardContent,
@@ -11,61 +5,11 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { ApiClient } from "@/lib/api/client";
-import type { User } from "@/lib/definitions";
-import { useUser, useUserActions } from "@/lib/stores/user";
+import HandleConnect from "@/components/main/handle-connect";
 
-let connect: typeof import("@stacks/connect").connect;
-let disconnect: typeof import("@stacks/connect").disconnect;
-let isConnected: typeof import("@stacks/connect").isConnected;
-if (typeof window !== "undefined") {
-	const stacksConnect = require("@stacks/connect");
-	connect = stacksConnect.connect;
-	disconnect = stacksConnect.disconnect;
-	isConnected = stacksConnect.isConnected;
-}
+export const runtime = "edge";
 
-export default function LoginModal() {
-	const router = useRouter();
-	const [isLoading, setIsLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-	const { setUser, clearUser } = useUserActions();
-	const user = useUser();
-
-	const handleConnect = async () => {
-		setIsLoading(true);
-		setError(null);
-
-		// Check if already connected
-		if (isConnected() || user != null) {
-			disconnect();
-			clearUser();
-		}
-
-		try {
-			const walletAddress = (await connect()).addresses[2].address;
-
-			// Authenticate with backend
-			const authResponse = await ApiClient.post<User>("/api/user", {
-				walletAddress,
-			});
-
-			if (authResponse.error || !authResponse.data) {
-				throw new Error(authResponse.error || "Authentication failed");
-			}
-
-			setUser(authResponse.data);
-
-			router.back();
-		} catch (err) {
-			setError(
-				err instanceof Error ? err.message : "Failed to connect wallet"
-			);
-		} finally {
-			setIsLoading(false);
-		}
-	};
-
+export default function LoginPage() {
 	return (
 		<div className="flex min-h-screen items-center justify-center p-4">
 			<Card>
@@ -78,26 +22,7 @@ export default function LoginModal() {
 						</CardDescription>
 					</CardHeader>
 					<div className="flex flex-col gap-4">
-						{error && (
-							<div className="bg-destructive/10 text-destructive rounded-md p-3 text-sm">
-								{error}
-							</div>
-						)}
-						<Button
-							onClick={handleConnect}
-							disabled={isLoading}
-							className="w-full"
-							size="lg"
-						>
-							{isLoading ? (
-								<>
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									Connecting...
-								</>
-							) : (
-								"Connect with Stacks Wallet"
-							)}
-						</Button>
+						<HandleConnect />
 						<p className="text-muted-foreground text-center text-xs">
 							By connecting your wallet, you agree to our Terms of
 							Service and Privacy Policy.

@@ -1,3 +1,5 @@
+export const runtime = "edge";
+
 import CreateGameForm from "@/components/main/create-game-form";
 
 export default function CreateGamePage() {
