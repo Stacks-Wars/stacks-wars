@@ -15,12 +15,16 @@ export class ApiClient {
 		};
 	}
 
-	static async get<T>(endpoint: string): Promise<ApiResponse<T>> {
+	static async get<T>(
+		endpoint: string,
+		cache: RequestCache = "no-store"
+	): Promise<ApiResponse<T>> {
 		try {
 			const response = await fetch(`${API_BASE_URL}${endpoint}`, {
 				method: "GET",
 				headers: this.getHeaders(),
 				credentials: "include",
+				cache,
 			});
 
 			const data = await response.json();
@@ -46,7 +50,8 @@ export class ApiClient {
 
 	static async post<T>(
 		endpoint: string,
-		body?: any
+		body?: any,
+		cache: RequestCache = "no-store"
 	): Promise<ApiResponse<T>> {
 		try {
 			const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -54,6 +59,7 @@ export class ApiClient {
 				headers: this.getHeaders(),
 				credentials: "include",
 				body: body ? JSON.stringify(body) : undefined,
+				cache,
 			});
 
 			const data = await response.json();
@@ -77,13 +83,18 @@ export class ApiClient {
 		}
 	}
 
-	static async put<T>(endpoint: string, body?: any): Promise<ApiResponse<T>> {
+	static async put<T>(
+		endpoint: string,
+		body?: any,
+		cache: RequestCache = "no-store"
+	): Promise<ApiResponse<T>> {
 		try {
 			const response = await fetch(`${API_BASE_URL}${endpoint}`, {
 				method: "PUT",
 				headers: this.getHeaders(),
 				credentials: "include",
 				body: body ? JSON.stringify(body) : undefined,
+				cache,
 			});
 
 			const data = await response.json();
@@ -109,7 +120,8 @@ export class ApiClient {
 
 	static async patch<T>(
 		endpoint: string,
-		body?: any
+		body?: any,
+		cache: RequestCache = "no-store"
 	): Promise<ApiResponse<T>> {
 		try {
 			const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -117,6 +129,7 @@ export class ApiClient {
 				headers: this.getHeaders(),
 				credentials: "include",
 				body: body ? JSON.stringify(body) : undefined,
+				cache,
 			});
 
 			const data = await response.json();
@@ -140,12 +153,16 @@ export class ApiClient {
 		}
 	}
 
-	static async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
+	static async delete<T>(
+		endpoint: string,
+		cache: RequestCache = "no-store"
+	): Promise<ApiResponse<T>> {
 		try {
 			const response = await fetch(`${API_BASE_URL}${endpoint}`, {
 				method: "DELETE",
 				headers: this.getHeaders(),
 				credentials: "include",
+				cache,
 			});
 
 			const data = await response.json();
