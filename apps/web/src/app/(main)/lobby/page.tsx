@@ -1,5 +1,7 @@
 "use client";
 
+export const runtime = "edge";
+
 import LobbyCard, { LobbyCardSkeleton } from "@/components/main/lobby-card";
 import { LobbyFilter } from "@/app/(main)/lobby/_components/lobby-filter";
 import {
