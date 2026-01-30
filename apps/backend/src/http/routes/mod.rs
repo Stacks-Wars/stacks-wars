@@ -1,6 +1,7 @@
 // Main HTTP routing: compose and mount sub-routers under `/api`.
 use crate::state::AppState;
 use axum::Router;
+use tower_http::set_header::SetResponseHeaderLayer;
 
 pub mod admin;
 pub mod api;
@@ -33,7 +34,11 @@ pub fn create_http_routes(state: AppState) -> Router {
                 .merge(api_router)
                 .merge(auth_router)
                 .merge(strict_router)
-                .merge(admin_router),
+                .merge(admin_router)
+                .layer(SetResponseHeaderLayer::overriding(
+                    axum::http::header::CACHE_CONTROL,
+                    axum::http::HeaderValue::from_static("no-cache, no-store, max-age=0, must-revalidate"),
+                )),
         )
         .with_state(state)
 }
