@@ -1,5 +1,5 @@
 use crate::{
-    db::season::SeasonRepository, errors::AppError, http::handlers::player_stats::{LeaderboardSortBy, SortOrder}, models::user_wars_point::{LeaderBoard, PlayerStats, UserWarsPoints}
+    db::season::SeasonRepository, errors::AppError, http::handlers::player_stats::{LeaderboardSortBy, SortOrder}, models::user_wars_point::{LeaderBoard,  UserWarsPoints}
 };
 use uuid::Uuid;
 
@@ -27,40 +27,6 @@ impl UserWarsPointsRepository {
         Ok(wars_points)
     }
 
-
-    /// Get player statistics from PostgreSQL for the current season
-    pub async fn get_player_stats(&self, user_id: Uuid) -> Result<PlayerStats, AppError> {
-        // Get current season ID
-        let season_repo = SeasonRepository::new(self.pool.clone());
-        let season_id = season_repo.get_current_season_id().await?;
-
-        // Get user wars points for current season
-        let wars_points = sqlx::query_as::<_, UserWarsPoints>(
-            "SELECT id, user_id, season_id, points, rank_badge, total_matches, total_wins, total_pnl, win_rate, created_at, updated_at
-            FROM user_wars_points
-            WHERE user_id = $1 AND season_id = $2",
-        )
-        .bind(user_id)
-        .bind(season_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to get player stats: {}", e)))?;
-
-        match wars_points {
-            Some(points) => Ok(PlayerStats {
-                total_matches: points.total_matches,
-                total_wins: points.total_wins,
-                total_pnl: points.total_pnl,
-                win_rate: points.win_rate,
-            }),
-            None => Ok(PlayerStats {
-                total_matches: 0,
-                total_wins: 0,
-                total_pnl: 0.0,
-                win_rate: 0.0,
-            }),
-        }
-    }
 
     /// Get the leaderboard (top users by wars points) for a season, and total count (for pagination).
     pub async fn get_leaderboard(
@@ -97,7 +63,7 @@ impl UserWarsPointsRepository {
         let query = format!(
             "SELECT uwp.id, uwp.season_id, uwp.points, uwp.rank_badge,
                     u.id as user_id, u.wallet_address, u.username, u.display_name,
-                    u.email, u.email_verified, u.trust_rating,
+                    u.email, u.email_verified, u.trust_rating, u.profile_image,
                     uwp.total_matches, uwp.total_wins, uwp.total_pnl, uwp.win_rate,
                     uwp.created_at, uwp.updated_at
             FROM user_wars_points uwp
@@ -147,7 +113,7 @@ impl UserWarsPointsRepository {
         let leaderboard_entry = sqlx::query_as::<_, LeaderBoard>(
             "SELECT uwp.id, uwp.season_id, uwp.points, uwp.rank_badge,
                     u.id as user_id, u.wallet_address, u.username, u.display_name,
-                    u.email, u.email_verified, u.trust_rating,
+                    u.email, u.email_verified, u.trust_rating, u.profile_image,
                     uwp.total_matches, uwp.total_wins, uwp.total_pnl, uwp.win_rate,
                     uwp.created_at, uwp.updated_at
             FROM user_wars_points uwp
