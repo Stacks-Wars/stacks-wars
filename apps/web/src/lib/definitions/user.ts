@@ -3,6 +3,8 @@ export interface User {
 	walletAddress: string;
 	username?: string;
 	displayName?: string;
+	email: string;
+	emailVerified: boolean;
 	profileImage?: string;
 	trustRating: number;
 	createdAt: string;

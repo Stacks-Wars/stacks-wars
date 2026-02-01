@@ -90,7 +90,7 @@ export default function Header() {
 							href={`/u/${user.username || user.walletAddress}`}
 							className="flex w-full max-w-75 items-center gap-3 truncate"
 						>
-							<Avatar className="size-12.5">
+							<Avatar className="size-12.5 border">
 								<AvatarImage
 									//src={"/images/avatar.svg"}
 									alt="profile photo"
@@ -187,7 +187,7 @@ export default function Header() {
 									onClick={() => setOpen(false)}
 									className="mx-7 flex w-full max-w-75 items-center gap-3 truncate"
 								>
-									<Avatar className="size-12">
+									<Avatar className="size-12 border">
 										<AvatarImage
 											//src={"/images/avatar.svg"}
 											alt="profile photo"

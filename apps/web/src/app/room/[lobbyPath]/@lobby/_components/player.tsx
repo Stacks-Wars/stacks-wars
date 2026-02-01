@@ -44,7 +44,7 @@ export default function Player({
 				href={`/u/${player.username || player.walletAddress}`}
 				className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3"
 			>
-				<Avatar className="size-10 shrink-0 uppercase sm:size-12 lg:size-15">
+				<Avatar className="size-10 shrink-0 border uppercase sm:size-12 lg:size-15">
 					<AvatarImage src={""} alt="player profile picture" />
 					<AvatarFallback>
 						{(

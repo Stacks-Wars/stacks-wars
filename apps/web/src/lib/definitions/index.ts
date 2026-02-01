@@ -7,3 +7,4 @@ export * from "./chat-message";
 export * from "./room";
 export * from "./room-message";
 export * from "./stacks";
+export * from "./player-stats";
