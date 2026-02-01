@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
+use crate::models::WalletAddress;
+
 /// Tracks player progression, ranks, and rewards across seasons
 /// Maps to `user_wars_points` table in PostgreSQL
 ///
@@ -18,6 +20,46 @@ pub struct UserWarsPoints {
     pub season_id: i32,
     pub points: f64,
     pub rank_badge: Option<String>,
+    pub total_matches: i32,
+    pub total_wins: i32,
+    pub total_pnl: f64,
+    pub win_rate: f64,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct LeaderBoard {
+    pub id: Uuid,
+    pub season_id: i32,
+    pub points: f64,
+    pub rank_badge: Option<String>,
+    pub user_id: Uuid,
+    pub wallet_address: WalletAddress,
+    pub username: Option<String>,
+    pub display_name: Option<String>,
+    pub email: String,
+    pub email_verified: bool,
+    pub trust_rating: f64,
+    pub total_matches: i32,
+    pub total_wins: i32,
+    pub total_pnl: f64,
+    pub win_rate: f64,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+}
+
+/// Player statistics stored in Redis for cumulative tracking
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerStats {
+    /// Total matches played
+    pub total_matches: i32,
+    /// Total first place finishes
+    pub total_wins: i32,
+    /// Total PnL across all matches
+    pub total_pnl: f64,
+    /// Win rate as percentage (total_wins / total_matches * 100)
+    pub win_rate: f64,
 }

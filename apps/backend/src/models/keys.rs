@@ -166,6 +166,16 @@ impl RedisKey {
         ])
     }
 
+    /// Key for player statistics (pattern: `player:{user_id}:stats`).
+    /// Stores cumulative stats like total matches, wins, and PnL.
+    pub fn player_stats(user_id: impl Into<KeyPart>) -> String {
+        Self::build(&[
+            KeyPart::Str("player".to_string()),
+            user_id.into(),
+            KeyPart::Str("stats".to_string()),
+        ])
+    }
+
     /// Revoked token key for JWT token revocation (pattern: `revoked_token:{jti}`).
     pub fn revoked_token(jti: &str) -> String {
         Self::build(&[

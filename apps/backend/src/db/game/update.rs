@@ -115,7 +115,7 @@ impl GameRepository {
     pub async fn update_category(
         &self,
         game_id: Uuid,
-        category: Option<&str>,
+        category: Option<&[String]>,
     ) -> Result<Game, AppError> {
         let game = sqlx::query_as::<_, Game>(
             "UPDATE games
@@ -165,7 +165,7 @@ impl GameRepository {
         image_url: Option<&str>,
         min_players: Option<i16>,
         max_players: Option<i16>,
-        category: Option<&str>,
+        category: Option<&[String]>,
         is_active: Option<bool>,
     ) -> Result<Game, AppError> {
         // Fetch current game
@@ -176,7 +176,7 @@ impl GameRepository {
         let new_image_url = image_url.unwrap_or(&current.image_url);
         let new_min = min_players.unwrap_or(current.min_players);
         let new_max = max_players.unwrap_or(current.max_players);
-        let new_category = category.or(current.category.as_deref());
+        let new_category = category.unwrap_or(&current.category);
         let new_active = is_active.unwrap_or(current.is_active);
 
         // Validate player limits

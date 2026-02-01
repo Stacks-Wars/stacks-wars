@@ -102,6 +102,7 @@ pub struct PlayerState {
 
     /// Unix timestamp of last update
     pub updated_at: i64,
+
     /// Whether this player is the lobby creator
     pub is_creator: bool,
 }

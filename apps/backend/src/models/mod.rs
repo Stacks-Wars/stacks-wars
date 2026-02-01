@@ -19,6 +19,7 @@ pub use platform_rating::PlatformRating;
 pub use season::Season;
 pub use user::User;
 pub use user_wars_point::UserWarsPoints;
+pub use user_wars_point::LeaderBoard;
 pub use username::Username;
 pub use wallet_address::WalletAddress;
 

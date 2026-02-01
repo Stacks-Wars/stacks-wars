@@ -7,3 +7,4 @@ pub mod platform_rating;
 pub mod season;
 pub mod stacks;
 pub mod user;
+pub mod player_stats;
