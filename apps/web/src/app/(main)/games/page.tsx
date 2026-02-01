@@ -1,22 +1,9 @@
 import GameCard from "@/components/main/game-card";
 import { ApiClient } from "@/lib/api/client";
 import type { Game } from "@/lib/definitions";
-import { toast } from "sonner";
 
 export default async function GamesPage() {
 	const games = await ApiClient.get<Game[]>("/api/games");
-
-	if (games.error) {
-		toast.error("Failed to load games", {
-			description: games.error,
-			action: {
-				label: "Retry",
-				onClick: () => {
-					window.location.reload();
-				},
-			},
-		});
-	}
 
 	return (
 		<div className="container mx-auto px-4">
