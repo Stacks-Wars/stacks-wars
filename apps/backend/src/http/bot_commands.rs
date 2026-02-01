@@ -4,7 +4,7 @@ use teloxide::{
     utils::command::BotCommands,
 };
 
-use crate::{db::leaderboard::get::get_leaderboard, state::RedisClient};
+use crate::{db::user_wars_points::UserWarsPointsRepository, state::AppState};
 
 #[derive(BotCommands, Clone)]
 #[command(
@@ -20,21 +20,22 @@ pub async fn handle_command(
     bot: Bot,
     msg: Message,
     cmd: Command,
-    redis: RedisClient,
+    state: AppState,
 ) -> ResponseResult<()> {
     match cmd {
-        Command::Leaderboard => handle_leaderboard_command(bot, msg, redis).await,
+        Command::Leaderboard => handle_leaderboard_command(bot, msg, state).await,
     }
 }
 
 async fn handle_leaderboard_command(
     bot: Bot,
     msg: Message,
-    redis: RedisClient,
+    state: AppState,
 ) -> ResponseResult<()> {
     tracing::debug!("Processing /leaderboard command from chat {}", msg.chat.id);
 
-    let leaderboard = match get_leaderboard(Some(10), redis).await {
+    let repo = UserWarsPointsRepository::new(state.postgres.clone());
+    let leaderboard = match repo.get_leaderboard(None, 10, 0).await {
         Ok(data) => data,
         Err(e) => {
             tracing::error!("Failed to get leaderboard: {}", e);
@@ -53,21 +54,13 @@ async fn handle_leaderboard_command(
     let mut response = "🏆 <b>Top 10 Leaderboard</b>\n\n".to_string();
 
     for (index, entry) in leaderboard.iter().enumerate().take(10) {
-        //let rank_emoji = match index + 1 {
-        //    1 => "🥇",
-        //    2 => "🥈",
-        //    3 => "🥉",
-        //    _ => "🏅",
-        //};
-
         let display_name = entry
-            .user
             .display_name
             .as_ref()
-            .or(entry.user.username.as_ref())
+            .or(entry.username.as_ref())
             .map(|name| html_escape::encode_text(name).to_string())
             .unwrap_or_else(|| {
-                let wallet = &entry.user.wallet_address;
+                let wallet = &entry.wallet_address.0;
                 format!("{}...{}", &wallet[0..4], &wallet[wallet.len() - 4..])
             });
 
@@ -75,20 +68,11 @@ async fn handle_leaderboard_command(
 
         response.push_str(&format!(
             "   📈 Wars Points: <code>{:.1}</code>\n",
-            entry.user.wars_point
+            entry.points
         ));
 
-        response.push_str(&format!(
-            "   🎯 Win Rate: <code>{:.1}%</code> ({}/{})\n",
-            entry.win_rate, entry.total_wins, entry.total_match
-        ));
-
-        if entry.pnl != 0.0 {
-            let pnl_emoji = if entry.pnl > 0.0 { "💰" } else { "💸" };
-            response.push_str(&format!(
-                "   {} P&L: <code>{:.2} STX</code>\n",
-                pnl_emoji, entry.pnl
-            ));
+        if let Some(ref badge) = entry.rank_badge {
+            response.push_str(&format!("   🏅 Rank: <code>{}</code>\n", badge));
         }
 
         response.push('\n');

@@ -1,4 +1,6 @@
-use crate::{errors::AppError, models::UserWarsPoints};
+use crate::{
+    db::season::SeasonRepository, errors::AppError, http::handlers::player_stats::{LeaderboardSortBy, SortOrder}, models::user_wars_point::{LeaderBoard,  UserWarsPoints}
+};
 use uuid::Uuid;
 
 use super::UserWarsPointsRepository;
@@ -25,6 +27,108 @@ impl UserWarsPointsRepository {
         Ok(wars_points)
     }
 
+
+    /// Get the leaderboard (top users by wars points) for a season, and total count (for pagination).
+    pub async fn get_leaderboard(
+        &self,
+        season_id: Option<i32>,
+        limit: i64,
+        offset: i64,
+        sort_by: Option<LeaderboardSortBy>,
+        order: Option<SortOrder>,
+    ) -> Result<(Vec<LeaderBoard>, i64), AppError> {
+        // Get current season ID if not provided
+        let season_id = match season_id {
+            Some(id) => id,
+            None => {
+                let season_repo = SeasonRepository::new(self.pool.clone());
+                season_repo.get_current_season_id().await?
+            }
+        };
+
+        // Build ORDER BY clause based on requested sort and order.
+        let sort_col = match sort_by.unwrap_or(LeaderboardSortBy::WarsPoints) {
+            LeaderboardSortBy::WarsPoints => "uwp.points",
+            LeaderboardSortBy::TotalMatches => "uwp.total_matches",
+            LeaderboardSortBy::WinRate => "uwp.win_rate",
+            LeaderboardSortBy::TotalPnl => "uwp.total_pnl",
+        };
+
+        let order_str = match order.unwrap_or(SortOrder::Desc) {
+            SortOrder::Asc => "ASC",
+            SortOrder::Desc => "DESC",
+        };
+
+        // Query for leaderboard page
+        let query = format!(
+            "SELECT uwp.id, uwp.season_id, uwp.points, uwp.rank_badge,
+                    u.id as user_id, u.wallet_address, u.username, u.display_name,
+                    u.email, u.email_verified, u.trust_rating, u.profile_image,
+                    uwp.total_matches, uwp.total_wins, uwp.total_pnl, uwp.win_rate,
+                    uwp.created_at, uwp.updated_at
+            FROM user_wars_points uwp
+            JOIN users u ON uwp.user_id = u.id
+            WHERE uwp.season_id = $1
+            ORDER BY {} {}
+            LIMIT $2 OFFSET $3",
+            sort_col, order_str
+        );
+
+        let leaderboard = sqlx::query_as::<_, LeaderBoard>(&query)
+            .bind(season_id)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| AppError::DatabaseError(format!("Failed to get leaderboard: {}", e)))?;
+
+        // Query for total count
+        let total: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM user_wars_points WHERE season_id = $1"
+        )
+        .bind(season_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| AppError::DatabaseError(format!("Failed to get leaderboard total: {}", e)))?;
+
+        Ok((leaderboard, total))
+    }
+
+    /// Get a single player's leaderboard entry for a season.
+    pub async fn get_player_leaderboard(
+        &self,
+        user_id: Uuid,
+        season_id: Option<i32>,
+    ) -> Result<LeaderBoard, AppError> {
+        // Get current season ID if not provided
+        let season_id = match season_id {
+            Some(id) => id,
+            None => {
+                let season_repo = SeasonRepository::new(self.pool.clone());
+                season_repo.get_current_season_id().await?
+            }
+        };
+
+        // Get the leaderboard data from database for this specific user
+        let leaderboard_entry = sqlx::query_as::<_, LeaderBoard>(
+            "SELECT uwp.id, uwp.season_id, uwp.points, uwp.rank_badge,
+                    u.id as user_id, u.wallet_address, u.username, u.display_name,
+                    u.email, u.email_verified, u.trust_rating, u.profile_image,
+                    uwp.total_matches, uwp.total_wins, uwp.total_pnl, uwp.win_rate,
+                    uwp.created_at, uwp.updated_at
+            FROM user_wars_points uwp
+            JOIN users u ON uwp.user_id = u.id
+            WHERE uwp.user_id = $1 AND uwp.season_id = $2",
+        )
+        .bind(user_id)
+        .bind(season_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| AppError::DatabaseError(format!("Failed to get player leaderboard entry: {}", e)))?
+        .ok_or_else(|| AppError::NotFound("Player not found in this season".into()))?;
+        Ok(leaderboard_entry)
+    }
+
     /// Get all wars points for a user across all seasons.
     pub async fn get_all_wars_points(
         &self,
@@ -44,61 +148,6 @@ impl UserWarsPointsRepository {
         Ok(wars_points)
     }
 
-    /// Get the leaderboard (top users by wars points) for a season.
-    pub async fn get_leaderboard(
-        &self,
-        season_id: i32,
-        limit: i64,
-    ) -> Result<Vec<(UserWarsPoints, String)>, AppError> {
-        let results = sqlx::query_as::<
-            _,
-            (
-                Uuid,
-                Uuid,
-                i32,
-                f64,
-                Option<String>,
-                chrono::NaiveDateTime,
-                chrono::NaiveDateTime,
-                String,
-            ),
-        >(
-            "SELECT uwp.id, uwp.user_id, uwp.season_id, uwp.points, uwp.rank_badge,
-                    uwp.created_at, uwp.updated_at, u.wallet_address
-            FROM user_wars_points uwp
-            JOIN users u ON uwp.user_id = u.id
-            WHERE uwp.season_id = $1
-            ORDER BY uwp.points DESC
-            LIMIT $2",
-        )
-        .bind(season_id)
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to get leaderboard: {}", e)))?;
-
-        let leaderboard: Vec<(UserWarsPoints, String)> = results
-            .into_iter()
-            .map(
-                |(id, user_id, season_id, points, rank_badge, created_at, updated_at, wallet)| {
-                    (
-                        UserWarsPoints {
-                            id,
-                            user_id,
-                            season_id,
-                            points,
-                            rank_badge,
-                            created_at,
-                            updated_at,
-                        },
-                        wallet,
-                    )
-                },
-            )
-            .collect();
-
-        Ok(leaderboard)
-    }
 
     /// Get all users' wars points for a specific season.
     pub async fn get_season_wars_points(

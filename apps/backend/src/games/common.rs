@@ -281,13 +281,23 @@ pub async fn save_player_result(
         .set_result(lobby_id, ctx.user_id, ctx.rank, ctx.prize, wars_point)
         .await?;
 
-    // Save wars_point to PostgreSQL user_wars_points for current season
+    // Save wars_point and update player statistics (points, matches, wins, pnl)
     let season_repo = SeasonRepository::new(state.postgres.clone());
     if let Ok(season_id) = season_repo.get_current_season_id().await {
         let wars_points_repo = UserWarsPointsRepository::new(state.postgres.clone());
-        let _ = wars_points_repo
-            .upsert_wars_points(ctx.user_id, season_id, wars_point)
-            .await;
+        // Pass season_id and wars_point so the repository will upsert points and
+        // also update match/win/pnl statistics in a single call.
+        let is_winner = ctx.rank == 1;
+        wars_points_repo
+            .update_player_stats(
+                ctx.user_id,
+                Some(season_id),
+                Some(wars_point),
+                ctx.entry_amount,
+                ctx.prize,
+                is_winner,
+            )
+            .await?;
     }
 
     Ok(PlayerResult {
@@ -332,70 +342,28 @@ pub async fn save_game_summary(
     Ok(())
 }
 
-// ============================================================================
-// Wars Points Calculation
-// ============================================================================
-
-/// Context for calculating wars points and saving player results
-///
-/// Pass this to `save_player_result` to calculate wars points and persist results.
+/// Context for calculating wars points for a player result
 #[derive(Debug, Clone)]
 pub struct WarsPointContext {
-    /// The user being calculated for
     pub user_id: Uuid,
-    /// Player's final rank (1 = winner)
     pub rank: usize,
-    /// Prize amount won (calculated by game)
     pub prize: Option<f64>,
-    /// Total number of participants in the game
     pub participants: usize,
-    /// Entry amount per player (if any)
     pub entry_amount: Option<f64>,
-    /// Total prize pool
     pub current_amount: Option<f64>,
-    /// Whether this is a sponsored lobby
     pub is_sponsored: bool,
-    /// The creator's user ID (for sponsor bonus)
     pub creator_id: Option<Uuid>,
-    /// Number of active players remaining (for sponsor bonus calculation)
     pub active_players: usize,
 }
 
-/// Calculate wars points for a player
+/// Calculate wars points based on game result context
 ///
-/// This is the standard formula used across all games:
-/// - Base points: (participants - rank + 1) * 2
-/// - Pool bonus (non-sponsored): (current_amount / participants) + (entry_amount / 5)
-/// - Sponsor bonus (sponsored + creator): 2.5 * active_players
-/// - Maximum cap: 50 points
+/// Formula: (participants - rank + 1) * 2, capped at 50 points
 pub fn calculate_wars_point(ctx: &WarsPointContext) -> f64 {
-    // Base points: higher rank = more points
-    let base_point = (ctx.participants.saturating_sub(ctx.rank).saturating_add(1) * 2) as f64;
-    let mut total_point = base_point;
-
-    // Pool bonus for non-sponsored games
-    if !ctx.is_sponsored {
-        if let (Some(entry_amount), Some(current_amount)) = (ctx.entry_amount, ctx.current_amount) {
-            if entry_amount > 0.0 {
-                let pool_bonus = (current_amount / ctx.participants as f64) + (entry_amount / 5.0);
-                total_point += pool_bonus;
-            }
-        }
-    }
-
-    // Sponsor bonus if this is a sponsored lobby and the player is the creator
-    if ctx.is_sponsored {
-        if let Some(creator_id) = ctx.creator_id {
-            if ctx.user_id == creator_id {
-                let sponsor_bonus = 2.5 * ctx.active_players as f64;
-                total_point += sponsor_bonus;
-            }
-        }
-    }
-
-    // Cap at 50 points maximum
-    total_point.min(50.0)
+    let base_points = (ctx.participants as f64 - ctx.rank as f64 + 1.0) * 2.0;
+    base_points.min(50.0).max(0.0)
 }
+
 
 // ============================================================================
 // Tests
