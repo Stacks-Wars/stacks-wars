@@ -5,8 +5,6 @@ use uuid::Uuid;
 
 use super::UserWarsPointsRepository;
 
-
-
 impl UserWarsPointsRepository {
     /// Get a user's wars points for a specific season.
     pub async fn get_wars_points(
@@ -64,7 +62,7 @@ impl UserWarsPointsRepository {
         }
     }
 
-    /// Get the leaderboard (top users by wars points) for a season.
+    /// Get the leaderboard (top users by wars points) for a season, and total count (for pagination).
     pub async fn get_leaderboard(
         &self,
         season_id: Option<i32>,
@@ -72,7 +70,7 @@ impl UserWarsPointsRepository {
         offset: i64,
         sort_by: Option<LeaderboardSortBy>,
         order: Option<SortOrder>,
-    ) -> Result<Vec<LeaderBoard>, AppError> {
+    ) -> Result<(Vec<LeaderBoard>, i64), AppError> {
         // Get current season ID if not provided
         let season_id = match season_id {
             Some(id) => id,
@@ -95,6 +93,7 @@ impl UserWarsPointsRepository {
             SortOrder::Desc => "DESC",
         };
 
+        // Query for leaderboard page
         let query = format!(
             "SELECT uwp.id, uwp.season_id, uwp.points, uwp.rank_badge,
                     u.id as user_id, u.wallet_address, u.username, u.display_name,
@@ -117,7 +116,16 @@ impl UserWarsPointsRepository {
             .await
             .map_err(|e| AppError::DatabaseError(format!("Failed to get leaderboard: {}", e)))?;
 
-        Ok(leaderboard)
+        // Query for total count
+        let total: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM user_wars_points WHERE season_id = $1"
+        )
+        .bind(season_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| AppError::DatabaseError(format!("Failed to get leaderboard total: {}", e)))?;
+
+        Ok((leaderboard, total))
     }
 
     /// Get a single player's leaderboard entry for a season.

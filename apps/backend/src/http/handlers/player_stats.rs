@@ -8,7 +8,7 @@ use axum::{
 use serde::Deserialize;
 
 use crate::{
-    db::user_wars_points::UserWarsPointsRepository,
+    db::user_wars_points::{UserWarsPointsRepository, },
     models::user_wars_point::LeaderBoard,
     state::AppState,
 };
@@ -54,9 +54,16 @@ pub enum SortOrder {
 // Handlers
 // ============================================================================
 
+/// Response type for leaderboard with total count (for pagination)
+#[derive(Debug, serde::Serialize)]
+pub struct LeaderboardResponse {
+    pub total: i64,
+    pub leaderboard: Vec<LeaderBoard>,
+}
+
 /// Get the leaderboard rankings for a season.
 ///
-/// Public endpoint returning paginated leaderboard data.
+/// Public endpoint returning paginated leaderboard data and total count for pagination.
 /// Supports optional season filtering and pagination via query parameters.
 ///
 /// Query parameters:
@@ -64,11 +71,11 @@ pub enum SortOrder {
 /// - `limit`: Maximum results to return (default: 10, max: 100)
 /// - `offset`: Number of results to skip (default: 0)
 ///
-/// Returns a vector of `LeaderBoard` entries sorted by points descending.
-pub async fn get_leaderboard(
+/// Returns a struct with leaderboard entries and total count.
+pub async fn get_leaderboard_handler(
     State(state): State<AppState>,
     Query(query): Query<LeaderboardQuery>,
-) -> Result<Json<Vec<LeaderBoard>>, (StatusCode, String)> {
+) -> Result<Json<LeaderboardResponse>, (StatusCode, String)> {
     let limit = query.limit.unwrap_or(10).min(100).max(1);
     let offset = query.offset.unwrap_or(0).max(0);
 
@@ -88,12 +95,12 @@ pub async fn get_leaderboard(
         None => Some(SortOrder::Desc),
     };
 
-    let leaderboard = repo
+    let (leaderboard, total) = repo
         .get_leaderboard(query.season_id, limit, offset, sort_by_enum, order_enum)
         .await
         .map_err(|e| e.to_response())?;
 
-    Ok(Json(leaderboard))
+    Ok(Json(LeaderboardResponse { leaderboard, total }))
 }
 
 /// Get a single player's leaderboard entry for a season.
