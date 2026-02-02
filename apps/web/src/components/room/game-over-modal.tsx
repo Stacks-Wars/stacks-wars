@@ -16,7 +16,10 @@ import {
 } from "@/lib/stores/room";
 import { useUser } from "@/lib/stores/user";
 import { claimRewardContract } from "@/lib/contract-utils/claim";
-import { waitForTxConfirmed } from "@/lib/contract-utils/waitForTxConfirmed";
+import {
+	ExpectedError,
+	waitForTxConfirmed,
+} from "@/lib/contract-utils/waitForTxConfirmed";
 import type { AssetString, ContractIdString } from "@stacks/transactions";
 import { toast } from "sonner";
 import { Trophy, Sparkles, Coins, Loader2 } from "lucide-react";
@@ -56,20 +59,23 @@ export default function GameOverModal() {
 			const contract = lobby.contractAddress as ContractIdString;
 			const tokenId =
 				`${lobby.tokenContractId}::${lobby.tokenSymbol}` as AssetString;
-			const txId = await claimRewardContract({
+			const claimTxId = await claimRewardContract({
 				contract,
 				amount: gameOverData.prize,
 				walletAddress: user.walletAddress,
 				tokenId,
 			});
-			if (!txId) {
+			if (!claimTxId) {
 				toast.error("Failed to claim reward", {
 					description: "Please try again later.",
 				});
 				return;
 			}
-			await waitForTxConfirmed(txId);
-			sendLobbyMessage({ type: "claimReward", txId });
+			await waitForTxConfirmed(
+				claimTxId,
+				ExpectedError.ERR_ALREADY_CLAIMED
+			);
+			sendLobbyMessage({ type: "claimReward", txId: claimTxId });
 		} catch (err) {
 			toast.error("Contract transaction failed. Please try again.");
 			console.error("Claim contract failed", err);

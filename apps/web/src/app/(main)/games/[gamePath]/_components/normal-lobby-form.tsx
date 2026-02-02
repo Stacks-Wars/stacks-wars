@@ -25,7 +25,10 @@ import Link from "next/link";
 import { ApiClient } from "@/lib/api/client";
 import { toast } from "sonner";
 import type { Lobby, CreateLobbyRequest, Game } from "@/lib/definitions";
-import { waitForTxConfirmed } from "@/lib/contract-utils/waitForTxConfirmed";
+import {
+	ExpectedError,
+	waitForTxConfirmed,
+} from "@/lib/contract-utils/waitForTxConfirmed";
 import { deployStacksContract } from "@/lib/contract-utils/deploy";
 import { joinNormalContract } from "@/lib/contract-utils/join";
 import { useState } from "react";
@@ -157,7 +160,10 @@ export default function NormalLobbyForm({
 						);
 					}
 					setProgress("Adding you to the contract");
-					await waitForTxConfirmed(joinTxId);
+					await waitForTxConfirmed(
+						joinTxId,
+						ExpectedError.ERR_ALREADY_JOINED
+					);
 					setLobbyCreationProgress({
 						contractAddress,
 						step: "joined",

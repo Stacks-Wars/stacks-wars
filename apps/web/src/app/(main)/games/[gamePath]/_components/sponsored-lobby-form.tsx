@@ -26,7 +26,10 @@ import { formatAmount } from "@/lib/utils";
 import { ApiClient } from "@/lib/api/client";
 import { toast } from "sonner";
 import type { Lobby, CreateLobbyRequest, Game, Token } from "@/lib/definitions";
-import { waitForTxConfirmed } from "@/lib/contract-utils/waitForTxConfirmed";
+import {
+	ExpectedError,
+	waitForTxConfirmed,
+} from "@/lib/contract-utils/waitForTxConfirmed";
 import { deployStacksContract } from "@/lib/contract-utils/deploy";
 import { joinSponsoredContract } from "@/lib/contract-utils/join";
 import type { AssetString, ContractIdString } from "@stacks/transactions";
@@ -169,7 +172,10 @@ export default function SponsoredLobbyForm({
 					);
 				}
 				setProgress("Adding you to the contract");
-				await waitForTxConfirmed(joinTxId);
+				await waitForTxConfirmed(
+					joinTxId,
+					ExpectedError.ERR_ALREADY_JOINED
+				);
 				setLobbyCreationProgress({
 					contractAddress,
 					step: "joined",

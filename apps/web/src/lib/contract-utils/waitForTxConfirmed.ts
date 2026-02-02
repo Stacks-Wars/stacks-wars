@@ -1,9 +1,21 @@
 import { connectWebSocketClient } from "@stacks/blockchain-api-client";
 
 /**
+ * Expected error codes that should be treated as success
+ */
+export enum ExpectedError {
+	ERR_ALREADY_JOINED = "u100",
+	ERR_NOT_JOINED = "u105",
+	ERR_ALREADY_CLAIMED = "u107",
+}
+
+/**
  * Wait for transaction to be confirmed
  */
-export const waitForTxConfirmed = async (txId: string): Promise<void> => {
+export const waitForTxConfirmed = async (
+	txId: string,
+	expect?: ExpectedError
+): Promise<void> => {
 	console.log("waiting for tx to confirm → starting");
 	const controller = new AbortController();
 
@@ -19,8 +31,19 @@ export const waitForTxConfirmed = async (txId: string): Promise<void> => {
 	});
 
 	// Helper function to check for specific error codes
-	const isExpectedError = (reason: string | undefined): boolean => {
+	const isExpectedError = (
+		reason: string | undefined,
+		expected?: ExpectedError
+	): boolean => {
 		if (!reason) return false;
+
+		// If an expected error is specified, check if it matches
+		if (expected) {
+			return (
+				reason.includes(`(err ${expected})`) ||
+				reason.includes(`u${expected.slice(1)}`)
+			);
+		}
 
 		const errorPatterns = [
 			/\bu1\b/i, // insufficient funds
@@ -78,6 +101,18 @@ export const waitForTxConfirmed = async (txId: string): Promise<void> => {
 			) {
 				const reason = data.tx_result?.repr;
 				console.log("📋 Transaction aborted, reason:", reason);
+
+				// Check if this is an expected error that should be treated as success
+				if (expect && isExpectedError(reason, expect)) {
+					console.log(
+						"📋 Expected error treated as success:",
+						reason
+					);
+					resolvePromise();
+					controller.abort();
+					wsUnsub();
+					return true;
+				}
 
 				if (isExpectedError(reason)) {
 					rejectPromise(
@@ -138,6 +173,18 @@ export const waitForTxConfirmed = async (txId: string): Promise<void> => {
 					"📋 WebSocket: Transaction aborted, reason:",
 					reason
 				);
+
+				// Check if this is an expected error that should be treated as success
+				if (expect && isExpectedError(reason, expect)) {
+					console.log(
+						"📡 WebSocket: Expected error treated as success:",
+						reason
+					);
+					sub.unsubscribe();
+					controller.abort();
+					resolvePromise();
+					return;
+				}
 
 				if (isExpectedError(reason)) {
 					rejectPromise(

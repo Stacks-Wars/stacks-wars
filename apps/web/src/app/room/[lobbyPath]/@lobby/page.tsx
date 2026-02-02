@@ -29,7 +29,10 @@ import {
 } from "@/lib/contract-utils/leave";
 import type { AssetString, ContractIdString } from "@stacks/transactions";
 import { toast } from "sonner";
-import { waitForTxConfirmed } from "@/lib/contract-utils/waitForTxConfirmed";
+import {
+	ExpectedError,
+	waitForTxConfirmed,
+} from "@/lib/contract-utils/waitForTxConfirmed";
 
 export default function LobbySlot() {
 	const { sendLobbyMessage } = useRoom();
@@ -114,7 +117,10 @@ export default function LobbySlot() {
 						});
 						return;
 					}
-					await waitForTxConfirmed(leaveTxId);
+					await waitForTxConfirmed(
+						leaveTxId,
+						ExpectedError.ERR_NOT_JOINED
+					);
 				} catch (err) {
 					toast.error(
 						"Contract transaction failed. Please try again."
@@ -178,7 +184,10 @@ export default function LobbySlot() {
 					});
 					return;
 				}
-				await waitForTxConfirmed(joinTxId);
+				await waitForTxConfirmed(
+					joinTxId,
+					ExpectedError.ERR_ALREADY_JOINED
+				);
 			} catch (err) {
 				toast.error("Contract transaction failed. Please try again.");
 				console.error("Join contract failed", err);
