@@ -2,7 +2,7 @@
 
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{StatusCode, header},
     response::{IntoResponse, Response},
 };
@@ -16,7 +16,7 @@ use crate::{
     auth::AuthClaims,
     db::user::UserRepository,
     errors::AppError,
-    models::{User, keys::RedisKey},
+    models::{User, LobbyInfo, LobbyStatus, keys::RedisKey},
     state::AppState,
 };
 
@@ -59,6 +59,26 @@ pub struct UpdateProfileRequest {
     /// Optional new display name
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
+}
+
+/// Response for unclaimed rewards
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnclaimedReward {
+    pub lobby_info: LobbyInfo,
+    pub prize: f64,
+}
+
+/// Query parameters for player lobbies
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerLobbiesQuery {
+    /// Optional comma-separated lobby statuses to filter by
+    pub status: Option<String>,
+    /// Maximum number of lobbies to return (default: 6)
+    pub limit: Option<i64>,
+    /// Number of lobbies to skip (default: 0)
+    pub offset: Option<i64>,
 }
 
 // ============================================================================
@@ -145,6 +165,42 @@ pub async fn get_user(
     Ok(Json(user))
 }
 
+/// Get all lobbies a player is part of, filtered by status.
+///
+/// Public endpoint returning `(Vec<LobbyInfo>, total_count)` or `404` if user not found.
+/// Defaults to active lobbies (waiting, starting, in_progress) if no status filter provided.
+/// Supports pagination with limit (default: 6) and offset (default: 0).
+pub async fn get_player_lobbies(
+    State(state): State<AppState>,
+    Path(user_id_str): Path<String>,
+    Query(params): Query<PlayerLobbiesQuery>,
+) -> Result<Json<(Vec<LobbyInfo>, i64)>, (StatusCode, String)> {
+    // Parse user ID
+    let user_id = Uuid::parse_str(&user_id_str).map_err(|_| {
+        AppError::BadRequest("Invalid user ID format".into()).to_response()
+    })?;
+
+    // Parse status filter
+    let status_filter = params.status.as_ref().map(|s| {
+        s.split(',')
+            .filter_map(|status_str| status_str.trim().parse::<LobbyStatus>().ok())
+            .collect::<Vec<_>>()
+    }).unwrap_or_else(|| vec![LobbyStatus::Waiting, LobbyStatus::Starting, LobbyStatus::InProgress, LobbyStatus::Finished]);
+
+    // Get pagination params
+    let limit = params.limit.unwrap_or(6);
+    let offset = params.offset.unwrap_or(0);
+
+    let repo = UserRepository::new(state.postgres.clone());
+
+    let (lobbies, total) = repo
+        .get_player_lobbies(user_id, &state.redis, &status_filter, limit, offset)
+        .await
+        .map_err(|e| e.to_response())?;
+
+    Ok(Json((lobbies, total)))
+}
+
 // ============================================================================
 // User Updates
 // ============================================================================
@@ -227,6 +283,37 @@ pub async fn update_profile(
         .map_err(|e| e.to_response())?;
 
     Ok(Json(user))
+}
+
+// ============================================================================
+// Unclaimed Rewards
+// ============================================================================
+
+/// Get the authenticated user's unclaimed rewards.
+///
+/// Requires a valid JWT. Returns a list of unclaimed rewards with lobby info and prize amounts.
+pub async fn get_unclaimed_rewards(
+    State(state): State<AppState>,
+    AuthClaims(claims): AuthClaims,
+) -> Result<Json<Vec<UnclaimedReward>>, (StatusCode, String)> {
+    let user_id = Uuid::parse_str(&claims.sub).map_err(|_| {
+        tracing::error!("Invalid user ID in JWT token");
+        AppError::Unauthorized("Invalid token".into()).to_response()
+    })?;
+
+    let repo = UserRepository::new(state.postgres.clone());
+
+    let rewards = repo
+        .get_unclaimed_rewards(user_id, &state.redis)
+        .await
+        .map_err(|e| e.to_response())?;
+
+    let response = rewards
+        .into_iter()
+        .map(|(lobby_info, prize)| UnclaimedReward { lobby_info, prize })
+        .collect();
+
+    Ok(Json(response))
 }
 
 // ============================================================================

@@ -12,7 +12,7 @@ use crate::{
         platform_rating::{get_rating, list_ratings},
         season::{get_current_season, list_seasons},
         stacks::{get_balance, get_token_info},
-        user::get_user,
+        user::{get_player_lobbies, get_user},
         player_stats::{get_leaderboard_handler, get_player_leaderboard},
     },
     middleware::{ApiRateLimit, rate_limit_with_state},
@@ -22,6 +22,7 @@ use crate::{
 pub fn routes(state_for_layer: AppState) -> Router<AppState> {
     Router::new()
         .route("/user/{user_id}", get(get_user))
+        .route("/player-lobby/{user_id}", get(get_player_lobbies))
         .route("/leaderboard", get(get_leaderboard_handler))
         .route("/leaderboard/{user_id}", get(get_player_leaderboard))
         .route("/platform-rating", get(list_ratings))

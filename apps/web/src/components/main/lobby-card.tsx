@@ -2,13 +2,23 @@ import type { LobbyInfo } from "@/lib/definitions";
 import { Button } from "../ui/button";
 import Image from "next/image";
 import { Badge } from "../ui/badge";
-import { Lock, LockOpen, Users } from "lucide-react";
+import { Lock, LockOpen, Users, Trophy } from "lucide-react";
 import { BiCoinStack } from "react-icons/bi";
 import Link from "next/link";
 import { displayUserIdentifier } from "@/lib/utils";
 import { Skeleton } from "../ui/skeleton";
 
-export default function LobbyCard({ lobbyInfo }: { lobbyInfo: LobbyInfo }) {
+interface LobbyCardProps {
+	lobbyInfo: LobbyInfo;
+	buttonText?: string;
+	prize?: number;
+}
+
+export default function LobbyCard({
+	lobbyInfo,
+	buttonText,
+	prize,
+}: LobbyCardProps) {
 	const { lobby, game, creator } = lobbyInfo;
 
 	return (
@@ -70,6 +80,14 @@ export default function LobbyCard({ lobbyInfo }: { lobbyInfo: LobbyInfo }) {
 							</span>
 						</p>
 					)}
+					{prize && (
+						<p className="flex items-center gap-1.5">
+							<Trophy className="size-4 lg:size-5" />
+							<span>
+								Prize: {prize} {lobby.tokenSymbol}
+							</span>
+						</p>
+					)}
 				</div>
 
 				<Image
@@ -93,7 +111,9 @@ export default function LobbyCard({ lobbyInfo }: { lobbyInfo: LobbyInfo }) {
 				variant={"secondary"}
 				className="bg-gradient-secondary-1 hover:bg-gradient-secondary-2 w-full rounded-full py-2.5 text-sm font-medium sm:py-3.5 sm:text-base lg:py-4 lg:text-lg"
 			>
-				<Link href={`/room/${lobby.path}`}>Open Room</Link>
+				<Link href={`/room/${lobby.path}`}>
+					{buttonText || "Open Room"}
+				</Link>
 			</Button>
 		</div>
 	);

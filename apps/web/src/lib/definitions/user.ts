@@ -53,3 +53,10 @@ export interface JoinRequest {
 	state: joinState;
 	isCreator: boolean;
 }
+
+import type { LobbyInfo } from "./lobby";
+
+export interface UnclaimedReward {
+	lobbyInfo: LobbyInfo;
+	prize: number;
+}

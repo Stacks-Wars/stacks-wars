@@ -6,7 +6,7 @@ use axum::{
     },
     response::IntoResponse,
 };
-use futures::stream::StreamExt;
+use futures::{future::join_all, stream::StreamExt};
 use serde::Deserialize;
 use std::{
     collections::{HashMap, HashSet},
@@ -188,7 +188,6 @@ async fn send_lobby_list(
     }
 }
 
-// TODO: Optimize
 async fn fetch_lobbies(
     lobby_repo: &LobbyRepository,
     lobby_state_repo: &LobbyStateRepository,
@@ -234,17 +233,21 @@ async fn fetch_lobbies(
     let mut games = HashMap::new();
     let mut users = HashMap::new();
 
-    // Fetch all games
-    for game_id in game_ids {
-        if let Ok(game) = game_repo.find_by_id(game_id).await {
-            games.insert(game_id, game);
+    // Parallel fetch all games
+    let game_futures: Vec<_> = game_ids.iter().map(|&game_id| game_repo.find_by_id(game_id)).collect();
+    let game_results = join_all(game_futures).await;
+    for (game_id, result) in game_ids.iter().zip(game_results) {
+        if let Ok(game) = result {
+            games.insert(*game_id, game);
         }
     }
 
-    // Fetch all users
-    for user_id in creator_ids {
-        if let Ok(user) = user_repo.find_by_id(user_id).await {
-            users.insert(user_id, user);
+    // Parallel fetch all users
+    let user_futures: Vec<_> = creator_ids.iter().map(|&user_id| user_repo.find_by_id(user_id)).collect();
+    let user_results = join_all(user_futures).await;
+    for (user_id, result) in creator_ids.iter().zip(user_results) {
+        if let Ok(user) = result {
+            users.insert(*user_id, user);
         }
     }
 

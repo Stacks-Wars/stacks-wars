@@ -1,17 +1,19 @@
 import NotFound from "@/app/not-found";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ApiClient } from "@/lib/api/client";
-import type { User, Game } from "@/lib/definitions";
+import type { User, Game, LeaderBoard, LobbyInfo } from "@/lib/definitions";
 import { formatAddress } from "@/lib/utils";
 import Image from "next/image";
 import EditProfile from "./_components/edit-profile";
-import GameCard from "@/components/main/game-card";
-import CreateGameButton from "./_components/create-game-button";
 import dynamic from "next/dynamic";
+import PlayerStats from "./_components/player-stats";
+import UnclaimedRewards from "./_components/unclaimed-rewards";
+import PlayerLobbies from "./_components/player-lobbies";
+import CreatedGames from "./_components/created-games";
 
 const LogoutButton = dynamic(() => import("./_components/logout-button"));
 
-export default async function page({
+export default async function UserProfile({
 	params,
 }: {
 	params: Promise<{ id: string }>;
@@ -25,11 +27,27 @@ export default async function page({
 	}
 	const user = response.data;
 
-	// Fetch user's created games
-	const gamesResponse = await ApiClient.get<Game[]>(
-		`/api/game/by-creator/${user.id}`
-	);
-	const games = gamesResponse.data || [];
+	// Run remaining requests in parallel
+	const [gamesResult, statsResult, lobbiesResult] = await Promise.allSettled([
+		ApiClient.get<Game[]>(`/api/game/by-creator/${user.id}`),
+		ApiClient.get<LeaderBoard>(`/api/leaderboard/${user.id}`),
+		ApiClient.get<{ 0: LobbyInfo[]; 1: number }>(
+			`/api/player-lobby/${user.id}?status=waiting,starting,inProgress&limit=6&offset=0`
+		),
+	]);
+
+	const games =
+		gamesResult.status === "fulfilled" ? gamesResult.value.data || [] : [];
+	const playerStats =
+		statsResult.status === "fulfilled" ? statsResult.value.data : null;
+	const initialLobbies =
+		lobbiesResult.status === "fulfilled"
+			? lobbiesResult.value.data?.[0] || []
+			: [];
+	const initialLobbiesTotal =
+		lobbiesResult.status === "fulfilled"
+			? lobbiesResult.value.data?.[1] || 0
+			: 0;
 
 	return (
 		<div className="container mx-auto sm:px-4">
@@ -44,7 +62,7 @@ export default async function page({
 				<div className="flex justify-between px-4">
 					<Avatar className="border-background -mb-12.5 size-25 translate-x-10 -translate-y-1/2 rounded-full text-3xl sm:-mb-22.5 sm:size-45 sm:translate-x-20 sm:border-4 sm:text-6xl">
 						<AvatarImage
-							//src={"/images/avatar.svg"}
+							src={user.profileImage}
 							alt="profile photo"
 							width={180}
 							height={180}
@@ -81,30 +99,18 @@ export default async function page({
 					<p className="w-full truncate">{user.walletAddress}</p>
 				)}
 			</div>
-			{/* Player Rank */}
-			{/* Player Active Lobbies */}
-			{/* Private user uncliamed rewards */}
-			<div className="mt-8 px-4 sm:mt-12 sm:px-0">
-				<div className="mb-4 flex items-center justify-between sm:mb-6">
-					<h2 className="text-xl font-bold sm:text-3xl">
-						Created Games
-					</h2>
-					<CreateGameButton userProfile={user} />
+			{playerStats && (
+				<div className="mt-8 px-4 sm:mt-12 sm:px-0">
+					<PlayerStats stats={playerStats} />
 				</div>
-				{games.length > 0 ? (
-					<div className="grid grid-cols-1 gap-4 sm:gap-6">
-						{games.map((game) => (
-							<GameCard key={game.id} game={game} />
-						))}
-					</div>
-				) : (
-					<div className="text-muted-foreground py-8 text-center sm:py-12">
-						<p className="text-sm sm:text-base">
-							No games created yet
-						</p>
-					</div>
-				)}
-			</div>
+			)}
+			<UnclaimedRewards userId={user.id} />
+			<PlayerLobbies
+				userId={user.id}
+				initialLobbies={initialLobbies}
+				initialTotal={initialLobbiesTotal}
+			/>
+			<CreatedGames userId={user.id} games={games} />
 		</div>
 	);
 }

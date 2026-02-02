@@ -79,9 +79,6 @@ pub struct PlayerState {
     /// Join request state (Pending, Accepted, Rejected)
     pub state: JoinRequestState,
 
-    /// Transaction ID for entry payment
-    pub tx_id: Option<String>,
-
     /// Rank in finished game (1st, 2nd, 3rd, etc.)
     pub rank: Option<usize>,
 
@@ -118,7 +115,7 @@ impl PlayerState {
         username: Option<String>,
         display_name: Option<String>,
         trust_rating: f64,
-        tx_id: Option<String>,
+        claim_state: Option<ClaimState>,
         is_creator: bool,
     ) -> Self {
         let now = Utc::now().timestamp();
@@ -131,11 +128,10 @@ impl PlayerState {
             username,
             display_name,
             trust_rating,
-            tx_id,
             rank: None,
             prize: None,
             wars_point: None,
-            claim_state: None,
+            claim_state,
             last_ping: Some(Utc::now().timestamp_millis() as u64),
             joined_at: now,
             updated_at: now,
@@ -164,9 +160,6 @@ impl PlayerState {
             map.insert("display_name".to_string(), display_name.clone());
         }
 
-        if let Some(ref tx_id) = self.tx_id {
-            map.insert("tx_id".to_string(), tx_id.clone());
-        }
         if let Some(rank) = self.rank {
             map.insert("rank".to_string(), rank.to_string());
         }
@@ -229,8 +222,6 @@ impl PlayerState {
             .and_then(|r| r.parse::<f64>().ok())
             .unwrap_or(0.0);
 
-        let tx_id = data.get("tx_id").cloned();
-
         let rank = data.get("rank").and_then(|r| r.parse::<usize>().ok());
 
         let prize = data.get("prize").and_then(|p| p.parse::<f64>().ok());
@@ -267,7 +258,6 @@ impl PlayerState {
             username,
             display_name,
             trust_rating,
-            tx_id,
             rank,
             prize,
             wars_point,
@@ -298,11 +288,11 @@ mod tests {
     fn test_player_state_new() {
         let user_id = Uuid::new_v4();
         let lobby_id = Uuid::new_v4();
-        let tx_id = Some("tx123".to_string());
         let wallet_address = "SP123ABC".to_string();
         let username = Some("player1".to_string());
         let display_name = Some("Player One".to_string());
         let trust_rating = 5.0;
+        let claim_state = Some(ClaimState::NotClaimed);
 
         let state = PlayerState::new(
             user_id,
@@ -311,7 +301,7 @@ mod tests {
             username.clone(),
             display_name.clone(),
             trust_rating,
-            tx_id.clone(),
+            claim_state.clone(),
             false,
         );
 
@@ -323,7 +313,7 @@ mod tests {
         assert_eq!(state.username, username);
         assert_eq!(state.display_name, display_name);
         assert_eq!(state.trust_rating, trust_rating);
-        assert_eq!(state.tx_id, tx_id);
+        assert_eq!(state.claim_state, claim_state);
         assert!(state.rank.is_none());
         assert!(state.prize.is_none());
         assert!(state.last_ping.is_some());
