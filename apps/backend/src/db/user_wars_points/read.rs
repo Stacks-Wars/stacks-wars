@@ -59,7 +59,6 @@ impl UserWarsPointsRepository {
             SortOrder::Desc => "DESC",
         };
 
-        // Query for leaderboard page
         let query = format!(
             "SELECT uwp.id, uwp.season_id, uwp.points, uwp.rank_badge,
                     u.id as user_id, u.wallet_address, u.username, u.display_name,
@@ -74,22 +73,24 @@ impl UserWarsPointsRepository {
             sort_col, order_str
         );
 
-        let leaderboard = sqlx::query_as::<_, LeaderBoard>(&query)
+        // Query for leaderboard page and total count in parallel
+        let (leaderboard_result, total_result) = tokio::join!(
+            sqlx::query_as::<_, LeaderBoard>(&query)
+                .bind(season_id)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool),
+            sqlx::query_scalar::<_, i64>(
+                "SELECT COUNT(*) FROM user_wars_points WHERE season_id = $1"
+            )
             .bind(season_id)
-            .bind(limit)
-            .bind(offset)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| AppError::DatabaseError(format!("Failed to get leaderboard: {}", e)))?;
+            .fetch_one(&self.pool)
+        );
 
-        // Query for total count
-        let total: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM user_wars_points WHERE season_id = $1"
-        )
-        .bind(season_id)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to get leaderboard total: {}", e)))?;
+        let leaderboard = leaderboard_result
+            .map_err(|e| AppError::DatabaseError(format!("Failed to get leaderboard: {}", e)))?;
+        let total = total_result
+            .map_err(|e| AppError::DatabaseError(format!("Failed to get leaderboard total: {}", e)))?;
 
         Ok((leaderboard, total))
     }

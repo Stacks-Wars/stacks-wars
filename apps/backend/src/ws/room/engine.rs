@@ -165,6 +165,11 @@ pub async fn handle_room_message(
                 }
 
                 // Create or upsert player state with user data
+                let claim_state = if contract_address.is_some() {
+                    Some(ClaimState::NotClaimed)
+                } else {
+                    None
+                };
                 let pstate = PlayerState::new(
                     user_id,
                     lobby_id,
@@ -172,7 +177,7 @@ pub async fn handle_room_message(
                     username,
                     display_name,
                     trust_rating,
-                    None,
+                    claim_state,
                     false,
                 );
                 let _ = player_repo

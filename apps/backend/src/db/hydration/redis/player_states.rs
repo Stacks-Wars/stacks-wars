@@ -112,7 +112,6 @@ pub async fn migrate_player_states(
                     lobby_id,
                     status: crate::models::player_state::PlayerStatus::Joined, // All old players mapped as Joined
                     state: crate::db::join_request::JoinRequestState::Accepted,
-                    tx_id: player_data.get("tx_id").map(|s| s.clone()),
                     rank: player_data.get("rank").and_then(|s| s.parse().ok()),
                     prize: player_data.get("prize").and_then(|s| s.parse().ok()),
                     wars_point: player_data.get("wars_point").and_then(|s| s.parse().ok()),
@@ -167,7 +166,6 @@ pub async fn migrate_player_states(
                 PlayerStatus::Joined => crate::models::player_state::PlayerStatus::Joined,
             },
             state: crate::db::join_request::JoinRequestState::Accepted,
-            tx_id: old_player.tx_id,
             rank: old_player.rank,
             prize: old_player.prize,
             wars_point: player_data.get("wars_point").and_then(|s| s.parse().ok()),

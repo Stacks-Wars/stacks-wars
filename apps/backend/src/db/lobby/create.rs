@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::{
     errors::AppError,
-    models::{Lobby, LobbyState, LobbyStatus, PlayerState, WalletAddress},
+    models::{Lobby, LobbyState, LobbyStatus, PlayerState, WalletAddress, player_state::ClaimState},
     state::{AppState, RedisClient},
 };
 
@@ -105,6 +105,12 @@ impl LobbyRepository {
             )));
         }
 
+        let claim_state = if contract_address.is_some() {
+            Some(ClaimState::NotClaimed)
+        } else {
+            None
+        };
+
         let creator_pstate = PlayerState::new(
             creator_id,
             lobby.id(),
@@ -112,7 +118,7 @@ impl LobbyRepository {
             creator.username,
             creator.display_name,
             creator.trust_rating,
-            None,
+            claim_state,
             true,
         );
         if let Err(e) = player_repo.create_state(creator_pstate, None).await {
