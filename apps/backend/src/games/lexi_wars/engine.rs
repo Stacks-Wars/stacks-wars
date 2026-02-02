@@ -612,34 +612,6 @@ impl GameEngine for LexiWarsEngine {
         Ok(vec![])
     }
 
-    async fn get_bootstrap(&self) -> Result<Value, AppError> {
-        let inner = self.inner.read().await;
-
-        let current_player = inner.get_current_player_state();
-        let active_players: Vec<PlayerState> = inner
-            .turn_rotation
-            .active_players()
-            .iter()
-            .filter_map(|id| inner.player_states.get(id).cloned())
-            .collect();
-
-        let bootstrap = serde_json::json!({
-            "gameId": inner.lobby_id,
-            "status": if inner.finished { "finished" } else { "inProgress" },
-            "currentPlayer": current_player,
-            "activePlayers": active_players,
-            "currentRound": inner.current_round,
-            "currentRuleIndex": inner.current_rule_index,
-            "minWordLength": inner.current_min_word_length,
-            "timeoutSecs": TURN_TIMEOUT_SECS,
-            "usedWordsCount": inner.used_words.len(),
-            "totalPlayers": inner.total_players,
-            "remainingPlayers": inner.turn_rotation.active_count(),
-        });
-
-        Ok(bootstrap)
-    }
-
     async fn get_game_state(&self, user_id: Option<Uuid>) -> Result<Value, AppError> {
         let inner = self.inner.read().await;
 
@@ -685,16 +657,6 @@ impl GameEngine for LexiWarsEngine {
         });
 
         Ok(game_state)
-    }
-
-    async fn get_results(&self) -> Result<Option<GameResults>, AppError> {
-        let inner = self.inner.read().await;
-        Ok(inner.results.clone())
-    }
-
-    async fn tick(&mut self) -> Result<Vec<Value>, AppError> {
-        // Tick is handled by the game loop spawned in start_loop
-        Ok(Vec::new())
     }
 
     fn is_finished(&self) -> bool {
