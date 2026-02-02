@@ -10,10 +10,12 @@
 
 use crate::{
     db::{
+        lobby::LobbyRepository, lobby_state::LobbyStateRepository,
         player_state::PlayerStateRepository, season::SeasonRepository,
         user_wars_points::UserWarsPointsRepository,
     },
     errors::AppError,
+    models::LobbyStatus,
     state::{AppState, RedisClient},
 };
 use redis::AsyncCommands;
@@ -307,6 +309,28 @@ pub async fn save_player_result(
     })
 }
 
+/// Finish a lobby after game completion
+///
+/// Updates both Redis LobbyState and PostgreSQL Lobby to mark as finished.
+/// This should be called once per game end, after all player results are saved.
+///
+/// This function:
+/// 1. Updates Redis LobbyState: sets status to Finished and finished_at timestamp
+/// 2. Updates PostgreSQL Lobby: sets status to Finished
+/// 3. Broadcasts the lobby update to connected clients
+pub async fn finish_lobby(state: &AppState, lobby_id: Uuid) -> Result<(), AppError> {
+    // Update Redis LobbyState first
+    let lobby_state_repo = LobbyStateRepository::new(state.redis.clone());
+    lobby_state_repo.mark_finished(lobby_id).await?;
+
+    // Update PostgreSQL Lobby
+    let lobby_repo = LobbyRepository::new(state.postgres.clone());
+    lobby_repo.update_status(lobby_id, LobbyStatus::Finished, state.clone()).await?;
+
+    Ok(())
+}
+
+// TODO: Remove
 /// Save permanent game summary to Redis
 ///
 /// This persists the final game results and metadata so players can view

@@ -383,6 +383,11 @@ impl LexiWarsInner {
         };
         broadcast::broadcast_room(&state, lobby_id, &final_standing).await;
 
+        // Mark lobby as finished in both Redis and PostgreSQL
+        if let Err(e) = finish_lobby(&state, lobby_id).await {
+            tracing::error!("Failed to finish lobby {}: {}", lobby_id, e);
+        }
+
         self.results = Some(results);
     }
 
