@@ -75,7 +75,7 @@ pub struct UnclaimedReward {
 pub struct PlayerLobbiesQuery {
     /// Optional comma-separated lobby statuses to filter by
     pub status: Option<String>,
-    /// Maximum number of lobbies to return (default: 3)
+    /// Maximum number of lobbies to return (default: 6)
     pub limit: Option<i64>,
     /// Number of lobbies to skip (default: 0)
     pub offset: Option<i64>,
@@ -169,7 +169,7 @@ pub async fn get_user(
 ///
 /// Public endpoint returning `(Vec<LobbyInfo>, total_count)` or `404` if user not found.
 /// Defaults to active lobbies (waiting, starting, in_progress) if no status filter provided.
-/// Supports pagination with limit (default: 3) and offset (default: 0).
+/// Supports pagination with limit (default: 6) and offset (default: 0).
 pub async fn get_player_lobbies(
     State(state): State<AppState>,
     Path(user_id_str): Path<String>,
@@ -185,10 +185,10 @@ pub async fn get_player_lobbies(
         s.split(',')
             .filter_map(|status_str| status_str.trim().parse::<LobbyStatus>().ok())
             .collect::<Vec<_>>()
-    }).unwrap_or_else(|| vec![LobbyStatus::Waiting, LobbyStatus::Starting, LobbyStatus::InProgress]);
+    }).unwrap_or_else(|| vec![LobbyStatus::Waiting, LobbyStatus::Starting, LobbyStatus::InProgress, LobbyStatus::Finished]);
 
     // Get pagination params
-    let limit = params.limit.unwrap_or(3);
+    let limit = params.limit.unwrap_or(6);
     let offset = params.offset.unwrap_or(0);
 
     let repo = UserRepository::new(state.postgres.clone());
