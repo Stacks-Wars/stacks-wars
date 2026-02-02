@@ -1,7 +1,7 @@
 import NotFound from "@/app/not-found";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ApiClient } from "@/lib/api/client";
-import type { User, Game, LeaderBoard } from "@/lib/definitions";
+import type { User, Game, LeaderBoard, LobbyInfo } from "@/lib/definitions";
 import { formatAddress } from "@/lib/utils";
 import Image from "next/image";
 import EditProfile from "./_components/edit-profile";
@@ -27,18 +27,27 @@ export default async function UserProfile({
 	}
 	const user = response.data;
 
-	// Fetch user's created games
-	const gamesResponse = await ApiClient.get<Game[]>(
-		`/api/game/by-creator/${user.id}`
-	);
+	// Run remaining requests in parallel
+	const [gamesResult, statsResult, lobbiesResult] = await Promise.allSettled([
+		ApiClient.get<Game[]>(`/api/game/by-creator/${user.id}`),
+		ApiClient.get<LeaderBoard>(`/api/leaderboard/${user.id}`),
+		ApiClient.get<{ 0: LobbyInfo[]; 1: number }>(
+			`/api/player-lobby/${user.id}?status=waiting,starting,inProgress&limit=6&offset=0`
+		),
+	]);
 
-	const games = gamesResponse.data || [];
-
-	// Fetch player stats
-	const statsResponse = await ApiClient.get<LeaderBoard>(
-		`/api/leaderboard/${user.id}`
-	);
-	const playerStats = statsResponse.data;
+	const games =
+		gamesResult.status === "fulfilled" ? gamesResult.value.data || [] : [];
+	const playerStats =
+		statsResult.status === "fulfilled" ? statsResult.value.data : null;
+	const initialLobbies =
+		lobbiesResult.status === "fulfilled"
+			? lobbiesResult.value.data?.[0] || []
+			: [];
+	const initialLobbiesTotal =
+		lobbiesResult.status === "fulfilled"
+			? lobbiesResult.value.data?.[1] || 0
+			: 0;
 
 	return (
 		<div className="container mx-auto sm:px-4">
@@ -96,7 +105,11 @@ export default async function UserProfile({
 				</div>
 			)}
 			<UnclaimedRewards userId={user.id} />
-			<PlayerLobbies userId={user.id} />
+			<PlayerLobbies
+				userId={user.id}
+				initialLobbies={initialLobbies}
+				initialTotal={initialLobbiesTotal}
+			/>
 			<CreatedGames userId={user.id} games={games} />
 		</div>
 	);

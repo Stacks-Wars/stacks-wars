@@ -1,45 +1,41 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ApiClient } from "@/lib/api/client";
+import { useEffect } from "react";
 import LobbyCard, { LobbyCardSkeleton } from "@/components/main/lobby-card";
 import type { LobbyInfo } from "@/lib/definitions";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+	usePlayerLobbies,
+	usePlayerLobbiesTotal,
+	usePlayerLobbiesLoading,
+	usePlayerLobbiesPage,
+	usePlayerLobbiesActions,
+} from "@/lib/stores/player-lobbies";
 
 const PAGE_SIZE = 6;
 
 interface PlayerLobbiesProps {
 	userId: string;
+	initialLobbies: LobbyInfo[];
+	initialTotal: number;
 }
 
-export default function PlayerLobbies({ userId }: PlayerLobbiesProps) {
-	const [lobbies, setLobbies] = useState<LobbyInfo[]>([]);
-	const [loading, setLoading] = useState(false);
-	const [page, setPage] = useState(1);
-	const [total, setTotal] = useState(0);
+export default function PlayerLobbies({
+	userId,
+	initialLobbies,
+	initialTotal,
+}: PlayerLobbiesProps) {
+	const lobbies = usePlayerLobbies();
+	const total = usePlayerLobbiesTotal();
+	const loading = usePlayerLobbiesLoading();
+	const page = usePlayerLobbiesPage();
+	const actions = usePlayerLobbiesActions();
 
 	useEffect(() => {
-		const fetchLobbies = async () => {
-			setLoading(true);
-			try {
-				const offset = (page - 1) * PAGE_SIZE;
-				const res = await ApiClient.get<{ 0: LobbyInfo[]; 1: number }>(
-					`/api/player-lobby/${userId}?status=waiting,starting,inProgress&limit=${PAGE_SIZE}&offset=${offset}`
-				);
-				if (res.data) {
-					setLobbies(res.data[0]);
-					setTotal(res.data[1]);
-				}
-			} catch (error) {
-				console.error("Failed to fetch player lobbies:", error);
-			} finally {
-				setLoading(false);
-			}
-		};
-
-		fetchLobbies();
-	}, [userId, page]);
+		actions.setInitialData(initialLobbies, initialTotal);
+		actions.setUserId(userId);
+	}, [initialLobbies, initialTotal, userId, actions]);
 
 	const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -82,7 +78,7 @@ export default function PlayerLobbies({ userId }: PlayerLobbiesProps) {
 							size="icon"
 							className="size-10 cursor-pointer rounded-full border"
 							disabled={page === 1 || loading}
-							onClick={() => setPage(page - 1)}
+							onClick={() => actions.setPage(page - 1)}
 						>
 							<ChevronLeft className="size-5" />
 						</Button>
@@ -91,7 +87,7 @@ export default function PlayerLobbies({ userId }: PlayerLobbiesProps) {
 							size="icon"
 							className="size-10 cursor-pointer rounded-full border"
 							disabled={page === totalPages || loading}
-							onClick={() => setPage(page + 1)}
+							onClick={() => actions.setPage(page + 1)}
 						>
 							<ChevronRight className="size-5" />
 						</Button>
