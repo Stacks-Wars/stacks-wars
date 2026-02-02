@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 
+use futures::future::join_all;
+
 use crate::{
     errors::AppError,
-    models::{LobbyInfo, User, Username, WalletAddress, keys::KeyPart, player_state::{ClaimState, PlayerState}}, state::RedisClient,
+    models::{LobbyInfo, User, Username, WalletAddress, keys::KeyPart, player_state::{ClaimState, PlayerState}, LobbyStatus}, state::RedisClient,
 };
-use crate::db::{game::GameRepository, lobby::LobbyRepository};
+use crate::db::{game::GameRepository, lobby::LobbyRepository, lobby_state::LobbyStateRepository};
 use crate::models::{LobbyExtended, LobbyState, keys::RedisKey};
 use redis::AsyncCommands;
 use uuid::Uuid;
@@ -186,5 +188,128 @@ impl UserRepository {
         }
 
         Ok(unclaimed)
+    }
+
+    /// Get all lobbies a player is part of, filtered by status.
+    /// Returns a list of LobbyInfo for lobbies where the user is a player and status matches the filter.
+    pub async fn get_player_lobbies(
+        &self,
+        user_id: Uuid,
+        redis: &RedisClient,
+        status_filter: &[LobbyStatus],
+    ) -> Result<Vec<LobbyInfo>, AppError> {
+        let mut conn = redis.get().await.map_err(|e| {
+            AppError::RedisError(format!("Failed to get Redis connection: {}", e))
+        })?;
+
+        // Scan for player state keys matching lobbies:*:players:{user_id}
+        let pattern = RedisKey::lobby_player(KeyPart::Wildcard, KeyPart::Id(user_id));
+        let keys: Vec<String> = conn.keys(&pattern).await.map_err(|e| {
+            AppError::RedisError(format!("Failed to scan player keys: {}", e))
+        })?;
+
+        // Collect all lobby IDs where user is a player
+        let mut lobby_ids = Vec::new();
+        for key in keys {
+            let player_data: HashMap<String, String> = conn.hgetall(&key).await.map_err(|e| {
+                AppError::RedisError(format!("Failed to get player state: {}", e))
+            })?;
+
+            let player_state = PlayerState::from_redis_hash(&player_data)?;
+            lobby_ids.push(player_state.lobby_id);
+        }
+
+        if lobby_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Batch fetch lobby states
+        let lobby_state_repo = LobbyStateRepository::new(redis.clone());
+        let states_batch = lobby_state_repo
+            .get_states_batch(&lobby_ids)
+            .await
+            .map_err(|e| AppError::RedisError(format!("Failed to batch fetch lobby states: {}", e)))?;
+
+        // Filter lobby IDs by status
+        let mut filtered_lobby_ids = Vec::new();
+        for (lobby_id, state_opt) in &states_batch {
+            let status = state_opt.as_ref().map(|s| s.status).unwrap_or(LobbyStatus::Waiting);
+            if status_filter.contains(&status) {
+                filtered_lobby_ids.push(*lobby_id);
+            }
+        }
+
+        if filtered_lobby_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Fetch lobbies in parallel
+        let lobby_repo = LobbyRepository::new(self.pool.clone());
+        let game_repo = GameRepository::new(self.pool.clone());
+
+        // Get unique game and creator IDs
+        let lobbies_futures: Vec<_> = filtered_lobby_ids.iter().map(|&id| lobby_repo.find_by_id(id)).collect();
+        let lobbies_results = join_all(lobbies_futures).await;
+
+        let mut lobbies = Vec::new();
+        let mut game_ids = std::collections::HashSet::new();
+        let mut creator_ids = std::collections::HashSet::new();
+
+        for result in lobbies_results {
+            if let Ok(lobby) = result {
+                game_ids.insert(lobby.game_id);
+                creator_ids.insert(lobby.creator_id);
+                lobbies.push(lobby);
+            }
+        }
+
+        // Parallel fetch games and users
+        let game_futures: Vec<_> = game_ids.iter().map(|&id| game_repo.find_by_id(id)).collect();
+        let user_futures: Vec<_> = creator_ids.iter().map(|&id| self.find_by_id(id)).collect();
+
+        let (game_results, user_results) = tokio::join!(
+            join_all(game_futures),
+            join_all(user_futures)
+        );
+
+        let mut games = HashMap::new();
+        for (game_id, result) in game_ids.iter().zip(game_results) {
+            if let Ok(game) = result {
+                games.insert(*game_id, game);
+            }
+        }
+
+        let mut users = HashMap::new();
+        for (user_id, result) in creator_ids.iter().zip(user_results) {
+            if let Ok(user) = result {
+                users.insert(*user_id, user);
+            }
+        }
+
+        // Construct LobbyInfo objects
+        let mut lobby_info_list = Vec::new();
+        for lobby in lobbies {
+            let state_opt = states_batch.iter().find(|(id, _)| *id == lobby.id).map(|(_, s)| s.clone()).flatten();
+            let state = state_opt.unwrap_or_else(|| LobbyState::new(lobby.id));
+
+            let extended = LobbyExtended::from_parts(lobby, state);
+
+            let game = games.get(&extended.game_id).ok_or_else(|| {
+                AppError::NotFound(format!("Game {} not found", extended.game_id))
+            })?;
+            let creator = users.get(&extended.creator_id).ok_or_else(|| {
+                AppError::NotFound(format!("User {} not found", extended.creator_id))
+            })?;
+
+            let lobby_info = LobbyInfo {
+                lobby: extended,
+                game: game.clone(),
+                creator: creator.clone(),
+            };
+
+            lobby_info_list.push(lobby_info);
+        }
+
+        Ok(lobby_info_list)
     }
 }
