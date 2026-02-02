@@ -10,11 +10,6 @@ interface PodiumPlayer {
 	image?: string;
 }
 
-const testPlayers: PodiumPlayer[] = [
-	{ rank: 1, name: "Test One", wins: 100, pts: 500 },
-	{ rank: 2, name: "Test Two", wins: 80, pts: 400 },
-	{ rank: 3, name: "Test Three", wins: 60, pts: 300 },
-];
 export default function LeaderBoardPodium({
 	leaderboard,
 }: {

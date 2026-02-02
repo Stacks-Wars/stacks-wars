@@ -242,16 +242,16 @@ export default function LeaderBoardTable({
 						disabled={page === 1 || loading}
 						onClick={() => actions.setPage(page - 1)}
 					>
-						<ChevronLeft className="h-5 w-5" />
+						<ChevronLeft className="size-5" />
 					</Button>
 					<Button
-						//variant="ghost"
+						variant="ghost"
 						size="icon"
 						className="size-10 cursor-pointer rounded-full border"
 						disabled={page === totalPages || loading}
 						onClick={() => actions.setPage(page + 1)}
 					>
-						<ChevronRight className="h-5 w-5" />
+						<ChevronRight className="size-5" />
 					</Button>
 				</div>
 			</div>

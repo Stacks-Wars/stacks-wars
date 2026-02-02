@@ -5,15 +5,15 @@ import type { User, Game, LeaderBoard } from "@/lib/definitions";
 import { formatAddress } from "@/lib/utils";
 import Image from "next/image";
 import EditProfile from "./_components/edit-profile";
-import GameCard from "@/components/main/game-card";
-import CreateGameButton from "./_components/create-game-button";
 import dynamic from "next/dynamic";
 import PlayerStats from "./_components/player-stats";
 import UnclaimedRewards from "./_components/unclaimed-rewards";
+import PlayerLobbies from "./_components/player-lobbies";
+import CreatedGames from "./_components/created-games";
 
 const LogoutButton = dynamic(() => import("./_components/logout-button"));
 
-export default async function page({
+export default async function UserProfile({
 	params,
 }: {
 	params: Promise<{ id: string }>;
@@ -31,6 +31,7 @@ export default async function page({
 	const gamesResponse = await ApiClient.get<Game[]>(
 		`/api/game/by-creator/${user.id}`
 	);
+
 	const games = gamesResponse.data || [];
 
 	// Fetch player stats
@@ -89,35 +90,14 @@ export default async function page({
 					<p className="w-full truncate">{user.walletAddress}</p>
 				)}
 			</div>
-			{/* Player Stats */}
 			{playerStats && (
 				<div className="mt-8 px-4 sm:mt-12 sm:px-0">
 					<PlayerStats stats={playerStats} />
 				</div>
 			)}
 			<UnclaimedRewards userId={user.id} />
-			{/* Player Active Lobbies */}
-			<div className="mt-8 px-4 sm:mt-12 sm:px-0">
-				<div className="mb-4 flex items-center justify-between sm:mb-6">
-					<h2 className="text-xl font-bold sm:text-3xl">
-						Created Games
-					</h2>
-					<CreateGameButton userProfile={user} />
-				</div>
-				{games.length > 0 ? (
-					<div className="grid grid-cols-1 gap-4 sm:gap-6">
-						{games.map((game) => (
-							<GameCard key={game.id} game={game} />
-						))}
-					</div>
-				) : (
-					<div className="text-muted-foreground py-8 text-center sm:py-12">
-						<p className="text-sm sm:text-base">
-							No games created yet
-						</p>
-					</div>
-				)}
-			</div>
+			<PlayerLobbies userId={user.id} />
+			<CreatedGames userId={user.id} games={games} />
 		</div>
 	);
 }

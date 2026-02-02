@@ -109,48 +109,41 @@ export default function LobbyPage() {
 					</div>
 
 					{totalPages > 1 && (
-						<div className="flex items-center justify-center gap-4 py-8">
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={handlePrevious}
-								disabled={!hasPrevious || isLoadingMore}
-							>
-								{isLoadingMore && hasPrevious ? (
-									<>
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-										Loading...
-									</>
-								) : (
-									<>
-										<ChevronLeft className="mr-2 h-4 w-4" />
-										Previous
-									</>
-								)}
-							</Button>
-
-							<span className="text-muted-foreground text-sm">
+						<div className="mt-8 flex w-full items-center justify-between">
+							{/* Page Indicator */}
+							<div className="text-sm font-medium text-gray-400">
 								Page {currentPage} of {totalPages}
-							</span>
+							</div>
 
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={handleNext}
-								disabled={!hasNext || isLoadingMore}
-							>
-								{isLoadingMore && hasNext ? (
-									<>
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-										Loading...
-									</>
-								) : (
-									<>
-										Next
-										<ChevronRight className="ml-2 h-4 w-4" />
-									</>
-								)}
-							</Button>
+							{/* Navigation Buttons */}
+							<div className="flex gap-4">
+								<Button
+									variant="ghost"
+									size="icon"
+									className="size-10 cursor-pointer rounded-full border"
+									disabled={!hasPrevious || isLoadingMore}
+									onClick={handlePrevious}
+								>
+									{isLoadingMore && hasPrevious ? (
+										<Loader2 className="size-5 animate-spin" />
+									) : (
+										<ChevronLeft className="size-5" />
+									)}
+								</Button>
+								<Button
+									variant="ghost"
+									size="icon"
+									className="size-10 cursor-pointer rounded-full border"
+									disabled={!hasNext || isLoadingMore}
+									onClick={handleNext}
+								>
+									{isLoadingMore && hasNext ? (
+										<Loader2 className="size-5 animate-spin" />
+									) : (
+										<ChevronRight className="size-5" />
+									)}
+								</Button>
+							</div>
 						</div>
 					)}
 				</>
