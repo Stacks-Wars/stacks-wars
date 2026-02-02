@@ -1,13 +1,14 @@
 import NotFound from "@/app/not-found";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ApiClient } from "@/lib/api/client";
-import type { User, Game } from "@/lib/definitions";
+import type { User, Game, LeaderBoard } from "@/lib/definitions";
 import { formatAddress } from "@/lib/utils";
 import Image from "next/image";
 import EditProfile from "./_components/edit-profile";
 import GameCard from "@/components/main/game-card";
 import CreateGameButton from "./_components/create-game-button";
 import dynamic from "next/dynamic";
+import PlayerStats from "./_components/player-stats";
 
 const LogoutButton = dynamic(() => import("./_components/logout-button"));
 
@@ -31,6 +32,12 @@ export default async function page({
 	);
 	const games = gamesResponse.data || [];
 
+	// Fetch player stats
+	const statsResponse = await ApiClient.get<LeaderBoard>(
+		`/api/leaderboard/${user.id}`
+	);
+	const playerStats = statsResponse.data;
+
 	return (
 		<div className="container mx-auto sm:px-4">
 			<div className="flex flex-col">
@@ -44,7 +51,7 @@ export default async function page({
 				<div className="flex justify-between px-4">
 					<Avatar className="border-background -mb-12.5 size-25 translate-x-10 -translate-y-1/2 rounded-full text-3xl sm:-mb-22.5 sm:size-45 sm:translate-x-20 sm:border-4 sm:text-6xl">
 						<AvatarImage
-							//src={"/images/avatar.svg"}
+							src={user.profileImage}
 							alt="profile photo"
 							width={180}
 							height={180}
@@ -81,7 +88,12 @@ export default async function page({
 					<p className="w-full truncate">{user.walletAddress}</p>
 				)}
 			</div>
-			{/* Player Rank */}
+			{/* Player Stats */}
+			{playerStats && (
+				<div className="mt-8 px-4 sm:mt-12 sm:px-0">
+					<PlayerStats stats={playerStats} />
+				</div>
+			)}
 			{/* Player Active Lobbies */}
 			{/* Private user uncliamed rewards */}
 			<div className="mt-8 px-4 sm:mt-12 sm:px-0">
