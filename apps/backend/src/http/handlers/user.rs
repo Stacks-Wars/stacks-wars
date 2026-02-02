@@ -75,6 +75,10 @@ pub struct UnclaimedReward {
 pub struct PlayerLobbiesQuery {
     /// Optional comma-separated lobby statuses to filter by
     pub status: Option<String>,
+    /// Maximum number of lobbies to return (default: 3)
+    pub limit: Option<i64>,
+    /// Number of lobbies to skip (default: 0)
+    pub offset: Option<i64>,
 }
 
 // ============================================================================
@@ -163,13 +167,14 @@ pub async fn get_user(
 
 /// Get all lobbies a player is part of, filtered by status.
 ///
-/// Public endpoint returning `Vec<LobbyInfo>` or `404` if user not found.
+/// Public endpoint returning `(Vec<LobbyInfo>, total_count)` or `404` if user not found.
 /// Defaults to active lobbies (waiting, starting, in_progress) if no status filter provided.
+/// Supports pagination with limit (default: 3) and offset (default: 0).
 pub async fn get_player_lobbies(
     State(state): State<AppState>,
     Path(user_id_str): Path<String>,
     Query(params): Query<PlayerLobbiesQuery>,
-) -> Result<Json<Vec<LobbyInfo>>, (StatusCode, String)> {
+) -> Result<Json<(Vec<LobbyInfo>, i64)>, (StatusCode, String)> {
     // Parse user ID
     let user_id = Uuid::parse_str(&user_id_str).map_err(|_| {
         AppError::BadRequest("Invalid user ID format".into()).to_response()
@@ -182,14 +187,18 @@ pub async fn get_player_lobbies(
             .collect::<Vec<_>>()
     }).unwrap_or_else(|| vec![LobbyStatus::Waiting, LobbyStatus::Starting, LobbyStatus::InProgress]);
 
+    // Get pagination params
+    let limit = params.limit.unwrap_or(3);
+    let offset = params.offset.unwrap_or(0);
+
     let repo = UserRepository::new(state.postgres.clone());
 
-    let lobbies = repo
-        .get_player_lobbies(user_id, &state.redis, &status_filter)
+    let (lobbies, total) = repo
+        .get_player_lobbies(user_id, &state.redis, &status_filter, limit, offset)
         .await
         .map_err(|e| e.to_response())?;
 
-    Ok(Json(lobbies))
+    Ok(Json((lobbies, total)))
 }
 
 // ============================================================================

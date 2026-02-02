@@ -191,13 +191,15 @@ impl UserRepository {
     }
 
     /// Get all lobbies a player is part of, filtered by status.
-    /// Returns a list of LobbyInfo for lobbies where the user is a player and status matches the filter.
+    /// Returns a paginated list of (Vec<LobbyInfo>, total_count) for lobbies where the user is a player and status matches the filter.
     pub async fn get_player_lobbies(
         &self,
         user_id: Uuid,
         redis: &RedisClient,
         status_filter: &[LobbyStatus],
-    ) -> Result<Vec<LobbyInfo>, AppError> {
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<LobbyInfo>, i64), AppError> {
         let mut conn = redis.get().await.map_err(|e| {
             AppError::RedisError(format!("Failed to get Redis connection: {}", e))
         })?;
@@ -220,7 +222,7 @@ impl UserRepository {
         }
 
         if lobby_ids.is_empty() {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), 0));
         }
 
         // Batch fetch lobby states
@@ -239,8 +241,17 @@ impl UserRepository {
             }
         }
 
-        if filtered_lobby_ids.is_empty() {
-            return Ok(Vec::new());
+        let total = filtered_lobby_ids.len() as i64;
+
+        // Apply pagination
+        let paginated_lobby_ids: Vec<Uuid> = filtered_lobby_ids
+            .into_iter()
+            .skip(offset as usize)
+            .take(limit as usize)
+            .collect();
+
+        if paginated_lobby_ids.is_empty() {
+            return Ok((Vec::new(), total));
         }
 
         // Fetch lobbies in parallel
@@ -248,7 +259,7 @@ impl UserRepository {
         let game_repo = GameRepository::new(self.pool.clone());
 
         // Get unique game and creator IDs
-        let lobbies_futures: Vec<_> = filtered_lobby_ids.iter().map(|&id| lobby_repo.find_by_id(id)).collect();
+        let lobbies_futures: Vec<_> = paginated_lobby_ids.iter().map(|&id| lobby_repo.find_by_id(id)).collect();
         let lobbies_results = join_all(lobbies_futures).await;
 
         let mut lobbies = Vec::new();
@@ -310,6 +321,6 @@ impl UserRepository {
             lobby_info_list.push(lobby_info);
         }
 
-        Ok(lobby_info_list)
+        Ok((lobby_info_list, total))
     }
 }
