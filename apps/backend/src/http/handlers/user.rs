@@ -16,7 +16,7 @@ use crate::{
     auth::AuthClaims,
     db::user::UserRepository,
     errors::AppError,
-    models::{User, keys::RedisKey},
+    models::{User, LobbyInfo, keys::RedisKey},
     state::AppState,
 };
 
@@ -59,6 +59,14 @@ pub struct UpdateProfileRequest {
     /// Optional new display name
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
+}
+
+/// Response for unclaimed rewards
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnclaimedReward {
+    pub lobby_info: LobbyInfo,
+    pub prize: f64,
 }
 
 // ============================================================================
@@ -227,6 +235,37 @@ pub async fn update_profile(
         .map_err(|e| e.to_response())?;
 
     Ok(Json(user))
+}
+
+// ============================================================================
+// Unclaimed Rewards
+// ============================================================================
+
+/// Get the authenticated user's unclaimed rewards.
+///
+/// Requires a valid JWT. Returns a list of unclaimed rewards with lobby info and prize amounts.
+pub async fn get_unclaimed_rewards(
+    State(state): State<AppState>,
+    AuthClaims(claims): AuthClaims,
+) -> Result<Json<Vec<UnclaimedReward>>, (StatusCode, String)> {
+    let user_id = Uuid::parse_str(&claims.sub).map_err(|_| {
+        tracing::error!("Invalid user ID in JWT token");
+        AppError::Unauthorized("Invalid token".into()).to_response()
+    })?;
+
+    let repo = UserRepository::new(state.postgres.clone());
+
+    let rewards = repo
+        .get_unclaimed_rewards(user_id, &state.redis)
+        .await
+        .map_err(|e| e.to_response())?;
+
+    let response = rewards
+        .into_iter()
+        .map(|(lobby_info, prize)| UnclaimedReward { lobby_info, prize })
+        .collect();
+
+    Ok(Json(response))
 }
 
 // ============================================================================

@@ -1,7 +1,12 @@
+use std::collections::HashMap;
+
 use crate::{
     errors::AppError,
-    models::{User, Username, WalletAddress},
+    models::{LobbyInfo, User, Username, WalletAddress, keys::KeyPart, player_state::{ClaimState, PlayerState}}, state::RedisClient,
 };
+use crate::db::{game::GameRepository, lobby::LobbyRepository};
+use crate::models::{LobbyExtended, LobbyState, keys::RedisKey};
+use redis::AsyncCommands;
 use uuid::Uuid;
 
 use super::UserRepository;
@@ -116,5 +121,70 @@ impl UserRepository {
                 })?;
 
         Ok(exists)
+    }
+
+    /// Get unclaimed rewards for a user.
+    /// Returns a list of (LobbyInfo, prize) for lobbies where the user has unclaimed prizes.
+    pub async fn get_unclaimed_rewards(
+        &self,
+        user_id: Uuid,
+        redis: &RedisClient,
+    ) -> Result<Vec<(LobbyInfo, f64)>, AppError> {
+        let mut conn = redis.get().await.map_err(|e| {
+            AppError::RedisError(format!("Failed to get Redis connection: {}", e))
+        })?;
+
+        // Scan for player state keys matching lobbies:*:players:{user_id}
+        let pattern = RedisKey::lobby_player(KeyPart::Wildcard, KeyPart::Id(user_id));
+        let keys: Vec<String> = conn.keys(&pattern).await.map_err(|e| {
+            AppError::RedisError(format!("Failed to scan player keys: {}", e))
+        })?;
+
+        let mut unclaimed = Vec::new();
+
+        for key in keys {
+            // Get player state
+            let player_data: HashMap<String, String> = conn.hgetall(&key).await.map_err(|e| {
+                AppError::RedisError(format!("Failed to get player state: {}", e))
+            })?;
+
+            let player_state = PlayerState::from_redis_hash(&player_data)?;
+
+            // Check if unclaimed and has prize
+            if matches!(player_state.claim_state, Some(ClaimState::NotClaimed))
+                && player_state.prize.unwrap_or(0.0) > 0.0 {
+
+                let lobby_id = player_state.lobby_id;
+
+                // Fetch lobby info in parallel
+                let lobby_repo = LobbyRepository::new(self.pool.clone());
+                let game_repo = GameRepository::new(self.pool.clone());
+
+                let lobby = lobby_repo.find_by_id(lobby_id).await?;
+                let lobby_state_key = RedisKey::lobby_state(lobby_id);
+                let (game, creator, state_data) = tokio::join!(
+                    game_repo.find_by_id(lobby.game_id),
+                    self.find_by_id(lobby.creator_id),
+                    async { conn.hgetall(&lobby_state_key).await.ok() }
+                );
+
+                let game = game?;
+                let creator = creator?;
+
+                let state = state_data.map(|data| LobbyState::from_redis_hash(&data).unwrap_or_else(|_| LobbyState::new(lobby_id)))
+                    .unwrap_or_else(|| LobbyState::new(lobby_id));
+
+                let extended = LobbyExtended::from_parts(lobby, state);
+                let lobby_info = LobbyInfo {
+                    lobby: extended,
+                    game,
+                    creator,
+                };
+
+                unclaimed.push((lobby_info, player_state.prize.unwrap()));
+            }
+        }
+
+        Ok(unclaimed)
     }
 }
