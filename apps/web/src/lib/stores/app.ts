@@ -10,7 +10,10 @@ import { persist } from "zustand/middleware";
 import type { LobbyStatus } from "@/lib/definitions";
 import type { CreateLobbyRequest, Lobby } from "@/lib/definitions";
 import { ApiClient, type ApiResponse } from "@/lib/api/client";
-import { waitForTxConfirmed } from "@/lib/contract-utils/waitForTxConfirmed";
+import {
+	ExpectedError,
+	waitForTxConfirmed,
+} from "@/lib/contract-utils/waitForTxConfirmed";
 import {
 	joinNormalContract,
 	joinSponsoredContract,
@@ -79,7 +82,7 @@ const useAppStore = create<AppStore>()(
 						if (progress.step === "deployed") {
 							// Continue by joining the contract
 							const isSponsored = progress.payload?.isSponsored;
-							const txId = isSponsored
+							const joinTxId = isSponsored
 								? await joinSponsoredContract({
 										contract:
 											progress.contractAddress as ContractIdString,
@@ -98,7 +101,7 @@ const useAppStore = create<AppStore>()(
 										address: userWalletAddress,
 									});
 
-							if (!txId) {
+							if (!joinTxId) {
 								toast.error("Failed to join contract", {
 									description: "Please try again later.",
 								});
@@ -108,7 +111,10 @@ const useAppStore = create<AppStore>()(
 								};
 							}
 
-							await waitForTxConfirmed(txId);
+							await waitForTxConfirmed(
+								joinTxId,
+								ExpectedError.ERR_ALREADY_JOINED
+							);
 							set({
 								lobbyCreationProgress: {
 									...progress,
