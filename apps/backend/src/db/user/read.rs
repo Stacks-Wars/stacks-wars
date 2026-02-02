@@ -27,7 +27,7 @@ impl UserRepository {
             AppError::DatabaseError(format!("Failed to query user: {}", e))})?
         .ok_or_else(|| AppError::NotFound("User not found".into()))?;
 
-        tracing::info!("Found user by id: {}", user.id);
+        tracing::debug!("Found user by id: {}", user.id);
 
         Ok(user)
     }
@@ -48,7 +48,7 @@ impl UserRepository {
         })?
         .ok_or_else(|| AppError::NotFound("User not found".into()))?;
 
-        tracing::info!("Found user by wallet: {}", user.id);
+        tracing::debug!("Found user by wallet: {}", user.id);
 
         Ok(user)
     }
@@ -71,7 +71,7 @@ impl UserRepository {
         })?
         .ok_or_else(|| AppError::NotFound("User not found".into()))?;
 
-        tracing::info!("Found user by username: {}", user.id);
+        tracing::debug!("Found user by username: {}", user.id);
 
         Ok(user)
     }
