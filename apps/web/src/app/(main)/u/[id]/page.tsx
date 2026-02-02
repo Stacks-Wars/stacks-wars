@@ -9,6 +9,7 @@ import GameCard from "@/components/main/game-card";
 import CreateGameButton from "./_components/create-game-button";
 import dynamic from "next/dynamic";
 import PlayerStats from "./_components/player-stats";
+import UnclaimedRewards from "./_components/unclaimed-rewards";
 
 const LogoutButton = dynamic(() => import("./_components/logout-button"));
 
@@ -94,8 +95,8 @@ export default async function page({
 					<PlayerStats stats={playerStats} />
 				</div>
 			)}
+			<UnclaimedRewards userId={user.id} />
 			{/* Player Active Lobbies */}
-			{/* Private user uncliamed rewards */}
 			<div className="mt-8 px-4 sm:mt-12 sm:px-0">
 				<div className="mb-4 flex items-center justify-between sm:mb-6">
 					<h2 className="text-xl font-bold sm:text-3xl">
