@@ -439,13 +439,12 @@ impl LexiWarsInner {
         .await;
     }
 
-    /// Handle word submission
-    fn handle_submit_word(
+    /// Returns true if a valid word was submitted (should advance turn)
+    async fn handle_submit_word(
         &mut self,
         user_id: Uuid,
         word: String,
-    ) -> Result<Vec<LexiWarsEvent>, GameError> {
-        let mut events = Vec::new();
+    ) -> Result<bool, GameError> {
         let word_lower = word.to_lowercase().trim().to_string();
 
         // Verify it's this player's turn
@@ -469,23 +468,41 @@ impl LexiWarsInner {
 
         // Check if word has been used - send only to submitting user
         if self.is_word_used(&word_lower) {
-            events.push(LexiWarsEvent::UsedWord { word: word_lower });
-            return Ok(events);
+            let event = LexiWarsEvent::UsedWord { word: word_lower };
+            broadcast::broadcast_game_message_to_user(
+                &self.state,
+                user_id,
+                serde_json::to_value(&event).unwrap_or_default(),
+            )
+            .await;
+            return Ok(false);
         }
 
         // Validate against dictionary - send only to submitting user
         if !self.is_valid_dictionary_word(&word_lower) {
-            events.push(LexiWarsEvent::Invalid {
+            let event = LexiWarsEvent::Invalid {
                 reason: format!("'{}' is not in the dictionary", word),
-            });
-            return Ok(events);
+            };
+            broadcast::broadcast_game_message_to_user(
+                &self.state,
+                user_id,
+                serde_json::to_value(&event).unwrap_or_default(),
+            )
+            .await;
+            return Ok(false);
         }
 
         // Validate against current rule - send only to submitting user
         if let (Some(rule), Some(ctx)) = (&self.current_rule, &self.current_rule_context) {
             if let Err(reason) = (rule.validate)(&word_lower, ctx) {
-                events.push(LexiWarsEvent::Invalid { reason });
-                return Ok(events);
+                let event = LexiWarsEvent::Invalid { reason };
+                broadcast::broadcast_game_message_to_user(
+                    &self.state,
+                    user_id,
+                    serde_json::to_value(&event).unwrap_or_default(),
+                )
+                .await;
+                return Ok(false);
             }
         }
 
@@ -496,13 +513,19 @@ impl LexiWarsInner {
         let player_state = self.get_player_state(user_id);
 
         if let Some(player) = player_state {
-            events.push(LexiWarsEvent::WordEntry {
+            let event = LexiWarsEvent::WordEntry {
                 word: word_lower,
                 player,
-            });
+            };
+            broadcast::broadcast_game_message(
+                &self.state,
+                self.lobby_id,
+                serde_json::to_value(&event).unwrap_or_default(),
+            )
+            .await;
         }
 
-        Ok(events)
+        Ok(true)
     }
 }
 
@@ -546,12 +569,14 @@ impl GameEngine for LexiWarsEngine {
         inner.init_first_rule();
 
         // Send GameStarted event (room-level, no game-specific fields)
-        let events = vec![
-            serde_json::to_value(RoomServerMessage::GameStarted)
-                .map_err(|e| AppError::Serialization(e.to_string()))?,
-        ];
+        broadcast::broadcast_room(
+            &inner.state,
+            inner.lobby_id,
+            &RoomServerMessage::GameStarted,
+        )
+        .await;
 
-        Ok(events)
+        Ok(Vec::new())
     }
 
     async fn handle_action(
@@ -572,29 +597,19 @@ impl GameEngine for LexiWarsEngine {
 
         tracing::debug!("LexiWars action from {}: {:?}", user_id, action);
 
-        let game_events = match action {
+        match action {
             LexiWarsAction::SubmitWord { word } => {
-                let events = inner.handle_submit_word(user_id, word)?;
+                let is_valid = inner.handle_submit_word(user_id, word).await?;
 
-                // Check if we got a valid WordEntry (not UsedWord or Invalid)
-                let has_valid_word = events
-                    .iter()
-                    .any(|e| matches!(e, LexiWarsEvent::WordEntry { .. }));
-
-                if has_valid_word {
+                if is_valid {
                     // Signal the game loop to advance turn
                     inner.turn_advance_notify.notify_one();
                 }
-
-                events
             }
         };
 
-        // Convert to JSON
-        game_events
-            .into_iter()
-            .map(|e| serde_json::to_value(e).map_err(|e| AppError::Serialization(e.to_string())))
-            .collect()
+        // No events to return, all broadcasting done internally
+        Ok(vec![])
     }
 
     async fn get_bootstrap(&self) -> Result<Value, AppError> {
