@@ -48,24 +48,11 @@ pub trait GameEngine: Send + Sync {
         // Default: no-op for games without background loops
     }
 
-    /// Get game bootstrap state (for players joining mid-game or reconnecting)
-    /// Returns JSON representation of current game state
-    async fn get_bootstrap(&self) -> Result<Value, AppError>;
-
     /// Get game state for a specific user reconnecting mid-game
     /// This returns game-specific state that the client needs to restore the UI
     /// The user_id is optional - if provided, games can include user-specific info (e.g., current rule if it's their turn)
     /// Spectators (unauthenticated users) will receive the generic state without user-specific info
-    async fn get_game_state(&self, _user_id: Option<Uuid>) -> Result<Value, AppError> {
-        // Default: return the generic bootstrap
-        self.get_bootstrap().await
-    }
-
-    /// Get final results if game is finished
-    async fn get_results(&self) -> Result<Option<GameResults>, AppError>;
-
-    /// Game tick for time-based events (called periodically), returns events (as JSON)
-    async fn tick(&mut self) -> Result<Vec<Value>, AppError>;
+    async fn get_game_state(&self, user_id: Option<Uuid>) -> Result<Value, AppError>;
 
     /// Check if game is finished
     fn is_finished(&self) -> bool;

@@ -383,6 +383,11 @@ impl LexiWarsInner {
         };
         broadcast::broadcast_room(&state, lobby_id, &final_standing).await;
 
+        // Mark lobby as finished in both Redis and PostgreSQL
+        if let Err(e) = finish_lobby(&state, lobby_id).await {
+            tracing::error!("Failed to finish lobby {}: {}", lobby_id, e);
+        }
+
         self.results = Some(results);
     }
 
@@ -434,13 +439,12 @@ impl LexiWarsInner {
         .await;
     }
 
-    /// Handle word submission
-    fn handle_submit_word(
+    /// Returns true if a valid word was submitted (should advance turn)
+    async fn handle_submit_word(
         &mut self,
         user_id: Uuid,
         word: String,
-    ) -> Result<Vec<LexiWarsEvent>, GameError> {
-        let mut events = Vec::new();
+    ) -> Result<bool, GameError> {
         let word_lower = word.to_lowercase().trim().to_string();
 
         // Verify it's this player's turn
@@ -464,23 +468,41 @@ impl LexiWarsInner {
 
         // Check if word has been used - send only to submitting user
         if self.is_word_used(&word_lower) {
-            events.push(LexiWarsEvent::UsedWord { word: word_lower });
-            return Ok(events);
+            let event = LexiWarsEvent::UsedWord { word: word_lower };
+            broadcast::broadcast_game_message_to_user(
+                &self.state,
+                user_id,
+                serde_json::to_value(&event).unwrap_or_default(),
+            )
+            .await;
+            return Ok(false);
         }
 
         // Validate against dictionary - send only to submitting user
         if !self.is_valid_dictionary_word(&word_lower) {
-            events.push(LexiWarsEvent::Invalid {
+            let event = LexiWarsEvent::Invalid {
                 reason: format!("'{}' is not in the dictionary", word),
-            });
-            return Ok(events);
+            };
+            broadcast::broadcast_game_message_to_user(
+                &self.state,
+                user_id,
+                serde_json::to_value(&event).unwrap_or_default(),
+            )
+            .await;
+            return Ok(false);
         }
 
         // Validate against current rule - send only to submitting user
         if let (Some(rule), Some(ctx)) = (&self.current_rule, &self.current_rule_context) {
             if let Err(reason) = (rule.validate)(&word_lower, ctx) {
-                events.push(LexiWarsEvent::Invalid { reason });
-                return Ok(events);
+                let event = LexiWarsEvent::Invalid { reason };
+                broadcast::broadcast_game_message_to_user(
+                    &self.state,
+                    user_id,
+                    serde_json::to_value(&event).unwrap_or_default(),
+                )
+                .await;
+                return Ok(false);
             }
         }
 
@@ -491,13 +513,19 @@ impl LexiWarsInner {
         let player_state = self.get_player_state(user_id);
 
         if let Some(player) = player_state {
-            events.push(LexiWarsEvent::WordEntry {
+            let event = LexiWarsEvent::WordEntry {
                 word: word_lower,
                 player,
-            });
+            };
+            broadcast::broadcast_game_message(
+                &self.state,
+                self.lobby_id,
+                serde_json::to_value(&event).unwrap_or_default(),
+            )
+            .await;
         }
 
-        Ok(events)
+        Ok(true)
     }
 }
 
@@ -541,12 +569,14 @@ impl GameEngine for LexiWarsEngine {
         inner.init_first_rule();
 
         // Send GameStarted event (room-level, no game-specific fields)
-        let events = vec![
-            serde_json::to_value(RoomServerMessage::GameStarted)
-                .map_err(|e| AppError::Serialization(e.to_string()))?,
-        ];
+        broadcast::broadcast_room(
+            &inner.state,
+            inner.lobby_id,
+            &RoomServerMessage::GameStarted,
+        )
+        .await;
 
-        Ok(events)
+        Ok(Vec::new())
     }
 
     async fn handle_action(
@@ -567,57 +597,19 @@ impl GameEngine for LexiWarsEngine {
 
         tracing::debug!("LexiWars action from {}: {:?}", user_id, action);
 
-        let game_events = match action {
+        match action {
             LexiWarsAction::SubmitWord { word } => {
-                let events = inner.handle_submit_word(user_id, word)?;
+                let is_valid = inner.handle_submit_word(user_id, word).await?;
 
-                // Check if we got a valid WordEntry (not UsedWord or Invalid)
-                let has_valid_word = events
-                    .iter()
-                    .any(|e| matches!(e, LexiWarsEvent::WordEntry { .. }));
-
-                if has_valid_word {
+                if is_valid {
                     // Signal the game loop to advance turn
                     inner.turn_advance_notify.notify_one();
                 }
-
-                events
             }
         };
 
-        // Convert to JSON
-        game_events
-            .into_iter()
-            .map(|e| serde_json::to_value(e).map_err(|e| AppError::Serialization(e.to_string())))
-            .collect()
-    }
-
-    async fn get_bootstrap(&self) -> Result<Value, AppError> {
-        let inner = self.inner.read().await;
-
-        let current_player = inner.get_current_player_state();
-        let active_players: Vec<PlayerState> = inner
-            .turn_rotation
-            .active_players()
-            .iter()
-            .filter_map(|id| inner.player_states.get(id).cloned())
-            .collect();
-
-        let bootstrap = serde_json::json!({
-            "gameId": inner.lobby_id,
-            "status": if inner.finished { "finished" } else { "inProgress" },
-            "currentPlayer": current_player,
-            "activePlayers": active_players,
-            "currentRound": inner.current_round,
-            "currentRuleIndex": inner.current_rule_index,
-            "minWordLength": inner.current_min_word_length,
-            "timeoutSecs": TURN_TIMEOUT_SECS,
-            "usedWordsCount": inner.used_words.len(),
-            "totalPlayers": inner.total_players,
-            "remainingPlayers": inner.turn_rotation.active_count(),
-        });
-
-        Ok(bootstrap)
+        // No events to return, all broadcasting done internally
+        Ok(vec![])
     }
 
     async fn get_game_state(&self, user_id: Option<Uuid>) -> Result<Value, AppError> {
@@ -665,16 +657,6 @@ impl GameEngine for LexiWarsEngine {
         });
 
         Ok(game_state)
-    }
-
-    async fn get_results(&self) -> Result<Option<GameResults>, AppError> {
-        let inner = self.inner.read().await;
-        Ok(inner.results.clone())
-    }
-
-    async fn tick(&mut self) -> Result<Vec<Value>, AppError> {
-        // Tick is handled by the game loop spawned in start_loop
-        Ok(Vec::new())
     }
 
     fn is_finished(&self) -> bool {

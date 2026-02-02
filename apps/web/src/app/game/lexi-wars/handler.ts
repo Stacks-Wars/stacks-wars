@@ -39,10 +39,8 @@ export const handleLexiWarsMessage = (
 		}
 
 		case "wordEntry": {
-			const isCurrentUser =
-				message.player.userId === state.currentPlayer?.userId;
 			toast.info(
-				`${isCurrentUser ? "You" : displayUserIdentifier(message.player)} entered: ${message.word}`
+				`${displayUserIdentifier(message.player)} entered: ${message.word}`
 			);
 			return state;
 		}
@@ -66,9 +64,12 @@ export const handleLexiWarsMessage = (
 		}
 
 		case "eliminated": {
-			toast.error(`${message.player.username} was eliminated`, {
-				description: `${message.reason}`,
-			});
+			toast.error(
+				`${displayUserIdentifier(message.player)} was eliminated`,
+				{
+					description: `${message.reason}`,
+				}
+			);
 			return state;
 		}
 
