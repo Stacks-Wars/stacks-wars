@@ -168,7 +168,7 @@ pub async fn get_user(
 /// Get all lobbies a player is part of, filtered by status.
 ///
 /// Public endpoint returning `(Vec<LobbyInfo>, total_count)` or `404` if user not found.
-/// Defaults to active lobbies (waiting, starting, in_progress) if no status filter provided.
+/// Defaults to all statuses if no status filter provided.
 /// Supports pagination with limit (default: 6) and offset (default: 0).
 pub async fn get_player_lobbies(
     State(state): State<AppState>,

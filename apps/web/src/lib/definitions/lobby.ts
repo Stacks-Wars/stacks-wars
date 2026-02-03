@@ -49,3 +49,10 @@ export interface CreateLobbyRequest {
 	isPrivate: boolean;
 	isSponsored: boolean;
 }
+
+export interface PaginatedLobbiesResponse {
+	data: LobbyInfo[];
+	total: number;
+	limit: number;
+	offset: number;
+}
