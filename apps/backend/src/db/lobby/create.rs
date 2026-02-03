@@ -3,7 +3,8 @@ use uuid::Uuid;
 
 use crate::{
     errors::AppError,
-    models::{Lobby, LobbyState, LobbyStatus, PlayerState, WalletAddress, player_state::ClaimState},
+    http::bot::broadcasts::broadcast_lobby_creation_to_tg,
+    models::{BotNewLobbyPayload, Lobby, LobbyState, LobbyStatus, PlayerState, WalletAddress, player_state::ClaimState},
     state::{AppState, RedisClient},
 };
 
@@ -111,6 +112,9 @@ impl LobbyRepository {
             None
         };
 
+        let creator_username = creator.username.clone();
+        let creator_display_name = creator.display_name.clone();
+
         let creator_pstate = PlayerState::new(
             creator_id,
             lobby.id(),
@@ -133,8 +137,16 @@ impl LobbyRepository {
         tracing::info!("Created lobby: {} (path: {})", lobby.name, lobby.path);
 
         // Broadcast lobby creation to lobby list subscribers
-        crate::ws::broadcast::broadcast_lobby_creation(state, lobby.id(), game_id, creator_id)
+        crate::ws::broadcast::broadcast_lobby_creation(state.clone(), lobby.id(), game_id, creator_id)
             .await;
+
+        // Broadcast lobby creation to Telegram
+        let payload = BotNewLobbyPayload {
+            lobby: lobby.clone(),
+            creator_name: creator_display_name.or(creator_username),
+            wallet_address: creator.wallet_address.as_ref().to_string(),
+        };
+        broadcast_lobby_creation_to_tg(state, payload).await;
 
         Ok(lobby)
     }

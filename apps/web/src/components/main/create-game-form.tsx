@@ -70,7 +70,7 @@ const createGameSchema = z
 				ctx.addIssue({
 					code: "custom",
 					message:
-						"Must be a valid URL or relative path (e.g., /images/game.svg)",
+						"Must be a valid URL or relative path (e.g., /images/game.png)",
 					path: ["imageUrl"],
 				});
 			}
@@ -212,13 +212,14 @@ export default function CreateGameForm({ onSuccess }: CreateGameFormProps) {
 							</FormLabel>
 							<FormControl>
 								<Input
-									placeholder="/images/game.svg or https://..."
+									placeholder="/images/game.png or https://..."
 									className="h-10 text-sm sm:h-12 sm:text-base"
 									{...field}
 								/>
 							</FormControl>
 							<FormDescription className="text-xs sm:text-sm">
-								Provide a valid URL or relative path
+								Provide a valid URL or relative path in stacks
+								wars public folder
 							</FormDescription>
 							<FormMessage />
 						</FormItem>

@@ -15,6 +15,7 @@ use crate::{
         user_wars_points::UserWarsPointsRepository,
     },
     errors::AppError,
+    http::bot::broadcasts::broadcast_lobby_winner_to_tg,
     models::LobbyStatus,
     state::{AppState, RedisClient},
 };
@@ -318,6 +319,7 @@ pub async fn save_player_result(
 /// 1. Updates Redis LobbyState: sets status to Finished and finished_at timestamp
 /// 2. Updates PostgreSQL Lobby: sets status to Finished
 /// 3. Broadcasts the lobby update to connected clients
+/// 4. Broadcasts winner announcement to Telegram
 pub async fn finish_lobby(state: &AppState, lobby_id: Uuid) -> Result<(), AppError> {
     // Update Redis LobbyState first
     let lobby_state_repo = LobbyStateRepository::new(state.redis.clone());
@@ -326,6 +328,9 @@ pub async fn finish_lobby(state: &AppState, lobby_id: Uuid) -> Result<(), AppErr
     // Update PostgreSQL Lobby
     let lobby_repo = LobbyRepository::new(state.postgres.clone());
     lobby_repo.update_status(lobby_id, LobbyStatus::Finished, state.clone()).await?;
+
+    // Broadcast winner to Telegram
+    broadcast_lobby_winner_to_tg(state.clone(), lobby_id).await;
 
     Ok(())
 }
