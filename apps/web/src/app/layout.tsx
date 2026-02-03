@@ -1,19 +1,29 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@/components/ui/sonner";
+import localFont from "next/font/local";
 import { Provider } from "@/app/provider";
+import { Toaster } from "@/components/ui/sonner";
 
-const geistSans = Geist({
-	variable: "--font-geist-sans",
-	subsets: ["latin"],
+const neueMontreal = localFont({
+	src: [
+		{
+			path: "./fonts/NeueMontreal-Regular.woff2",
+			weight: "400",
+			style: "normal",
+		},
+		{
+			path: "./fonts/NeueMontreal-Medium.woff2",
+			weight: "500",
+			style: "normal",
+		},
+		{
+			path: "./fonts/NeueMontreal-Bold.woff2",
+			weight: "700",
+			style: "normal",
+		},
+	],
+	variable: "--font-neue-montreal",
 });
-
-const geistMono = Geist_Mono({
-	variable: "--font-geist-mono",
-	subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
 	metadataBase: new URL("https://stackswars.com"),
 	title: {
@@ -95,9 +105,7 @@ export default function RootLayout({
 }>) {
 	return (
 		<html lang="en">
-			<body
-				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-			>
+			<body className={`${neueMontreal.variable} font-neue antialiased`}>
 				<Provider>
 					<Toaster position="top-center" />
 					{children}
