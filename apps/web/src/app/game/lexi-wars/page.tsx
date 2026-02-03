@@ -55,7 +55,7 @@ export default async function LexiWarsPage() {
 	]);
 
 	return (
-		<div className="container mx-auto px-4 py-8">
+		<div>
 			{/* Game Header */}
 			<div className="mb-8 text-center sm:mb-12">
 				<div className="mx-auto mb-6 w-full max-w-md sm:max-w-lg">

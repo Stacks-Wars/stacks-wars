@@ -10,6 +10,7 @@
 	--background-image-gradient-secondary-1: var(--gradient-secondary-1);
 	--background-image-gradient-secondary-2: var(--gradient-secondary-2);
 	--background-image-muted-gradient-2: var(--muted-gradient-2);
+	--background-image-app-spotlight: var(--app-spotlight);
 
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
@@ -83,6 +84,7 @@
 	--sidebar-accent-foreground: oklch(0.205 0 0);
 	--sidebar-border: oklch(0.922 0 0);
 	--sidebar-ring: oklch(0.708 0 0);
+	--app-spotlight: radial-gradient(circle at center, #1e2245 0%, #050505 70%, #000000 100%);
 
 	--gradient-primary: linear-gradient(to bottom, #2c61b8, #000000);
 	--muted-gradient: linear-gradient(to bottom, var(--border), var(--background));
@@ -124,6 +126,7 @@
 	--sidebar-accent-foreground: oklch(0.205 0 0);
 	--sidebar-border: oklch(0.922 0 0);
 	--sidebar-ring: oklch(0.708 0 0);
+	--app-spotlight: radial-gradient(circle at center, #1e2245 0%, #050505 70%, #000000 100%);
 
 	--gradient-primary: linear-gradient(to bottom, #2c61b8, #000000);
 	--muted-gradient: linear-gradient(to bottom, var(--border), var(--background));
