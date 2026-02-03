@@ -36,10 +36,10 @@ pub async fn start_server() {
     tracing::info!("PostgreSQL and Redis connection pools established");
 
     // Start the Telegram bot
-    let bot_state = state.clone();
-    tokio::spawn(async move {
-        http::bot::start_bot(bot_state).await;
-    });
+    //let bot_state = state.clone();
+    //tokio::spawn(async move {
+    //    http::bot::start_bot(bot_state).await;
+    //});
 
     // Build HTTP router
     let app = Router::new()
