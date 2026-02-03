@@ -7,8 +7,6 @@ import {
 } from "@/components/ui/card";
 import HandleConnect from "@/components/main/handle-connect";
 
-export const runtime = "edge";
-
 export default function SignupPage() {
 	return (
 		<div className="flex min-h-screen items-center justify-center p-4">
