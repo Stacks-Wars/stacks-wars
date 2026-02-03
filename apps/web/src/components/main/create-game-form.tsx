@@ -27,6 +27,8 @@ import type { CreateGameRequest, Game } from "@/lib/definitions";
 const GAME_CATEGORIES = [
 	"Word Games",
 	"Strategy",
+	"Competitive",
+	"Trivia",
 	"Card Games",
 	"Puzzle",
 	"Action",
@@ -295,23 +297,36 @@ export default function CreateGameForm({ onSuccess }: CreateGameFormProps) {
 											return (
 												<FormItem
 													key={category}
-													className="flex flex-row items-start space-x-3 space-y-0"
+													className="flex flex-row items-start space-y-0 space-x-3"
 												>
 													<FormControl>
 														<Checkbox
-															checked={field.value?.includes(category)}
-															onCheckedChange={(checked) => {
+															checked={field.value?.includes(
+																category
+															)}
+															onCheckedChange={(
+																checked
+															) => {
 																return checked
-																	? field.onChange([...field.value, category])
+																	? field.onChange(
+																			[
+																				...field.value,
+																				category,
+																			]
+																		)
 																	: field.onChange(
 																			field.value?.filter(
-																				(value) => value !== category
+																				(
+																					value
+																				) =>
+																					value !==
+																					category
 																			)
 																		);
 															}}
 														/>
 													</FormControl>
-													<FormLabel className="text-sm font-normal cursor-pointer">
+													<FormLabel className="cursor-pointer text-sm font-normal">
 														{category}
 													</FormLabel>
 												</FormItem>
