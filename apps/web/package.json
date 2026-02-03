@@ -23,7 +23,6 @@
 		"@radix-ui/react-slot": "^1.2.4",
 		"@radix-ui/react-tabs": "^1.1.13",
 		"@radix-ui/react-tooltip": "^1.2.8",
-		"@stacks-wars/shared": "workspace:*",
 		"@stacks/blockchain-api-client": "^8.13.6",
 		"@stacks/connect": "^8.2.3",
 		"@stacks/transactions": "^7.3.1",
@@ -55,7 +54,6 @@
 		"zustand": "^5.0.9"
 	},
 	"devDependencies": {
-		"@stacks-wars/config": "workspace:*",
 		"@tailwindcss/postcss": "^4.1.10",
 		"@tanstack/react-query-devtools": "^5.91.1",
 		"@types/node": "^20",
