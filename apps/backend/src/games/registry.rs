@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 // Game IDs - randomly generated UUIDs
-pub const LEXI_WARS_GAME_ID: Uuid = uuid::uuid!("97f19daa-b6b4-455b-a21e-f225884767d5");
+pub const LEXI_WARS_GAME_ID: Uuid = uuid::uuid!("5eb61ff4-8f9f-48bd-ae61-dfd6d95052eb");
 
 /// Initialize and return the game registry with all registered games
 ///
