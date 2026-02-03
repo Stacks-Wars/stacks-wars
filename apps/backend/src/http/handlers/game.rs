@@ -36,8 +36,8 @@ pub struct CreateGameRequest {
     pub min_players: u8,
     /// Maximum players allowed
     pub max_players: u8,
-    /// Game category/genre (e.g., "Word Games", "Strategy")
-    pub category: Option<String>,
+    /// Game categories/genres (array of strings)
+    pub category: Vec<String>,
 }
 
 /// Query parameters for listing games
@@ -64,10 +64,10 @@ fn default_limit() -> u32 {
 }
 
 // ============================================================================
-// Game Creation (Admin)
+// Game Creation
 // ============================================================================
 
-/// Create a new game type (admin only).
+/// Create a new game type.
 ///
 /// Requires a valid admin JWT; returns the created `Game` on success.
 pub async fn create_game(
@@ -90,7 +90,7 @@ pub async fn create_game(
             &payload.image_url,
             payload.min_players as i16,
             payload.max_players as i16,
-            payload.category.as_deref(),
+            payload.category,
             creator_id,
         )
         .await

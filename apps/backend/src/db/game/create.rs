@@ -13,7 +13,7 @@ impl GameRepository {
         image_url: &str,
         min_players: i16,
         max_players: i16,
-        category: Option<&str>,
+        category: Vec<String>,
         creator_id: Uuid,
     ) -> Result<Game, AppError> {
         // Validate player counts

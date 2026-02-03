@@ -17,13 +17,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { ApiClient } from "@/lib/api/client";
 import { useRouter } from "next/navigation";
@@ -59,7 +53,10 @@ const createGameSchema = z
 			.string()
 			.min(1, "Maximum players is required")
 			.max(100, "Maximum players cannot exceed 100"),
-		category: z.string().min(1, "Category is required"),
+		category: z
+			.array(z.string())
+			.min(1, "At least one category is required")
+			.max(3, "Maximum 3 categories allowed"),
 	})
 	.superRefine((data, ctx) => {
 		// Validate imageUrl
@@ -108,7 +105,7 @@ export default function CreateGameForm({ onSuccess }: CreateGameFormProps) {
 			imageUrl: "",
 			minPlayers: "2",
 			maxPlayers: "10",
-			category: "",
+			category: [],
 		},
 	});
 
@@ -283,34 +280,48 @@ export default function CreateGameForm({ onSuccess }: CreateGameFormProps) {
 				<FormField
 					control={form.control}
 					name="category"
-					render={({ field }) => (
+					render={() => (
 						<FormItem>
 							<FormLabel className="text-sm sm:text-base">
-								Category
+								Categories
 							</FormLabel>
-							<Select
-								onValueChange={field.onChange}
-								defaultValue={field.value}
-							>
-								<FormControl>
-									<SelectTrigger className="h-10 w-full text-sm sm:h-12 sm:text-base">
-										<SelectValue placeholder="Select a category" />
-									</SelectTrigger>
-								</FormControl>
-								<SelectContent>
-									{GAME_CATEGORIES.map((category) => (
-										<SelectItem
-											key={category}
-											value={category}
-											className="text-sm sm:text-base"
-										>
-											{category}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
+							<div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+								{GAME_CATEGORIES.map((category) => (
+									<FormField
+										key={category}
+										control={form.control}
+										name="category"
+										render={({ field }) => {
+											return (
+												<FormItem
+													key={category}
+													className="flex flex-row items-start space-x-3 space-y-0"
+												>
+													<FormControl>
+														<Checkbox
+															checked={field.value?.includes(category)}
+															onCheckedChange={(checked) => {
+																return checked
+																	? field.onChange([...field.value, category])
+																	: field.onChange(
+																			field.value?.filter(
+																				(value) => value !== category
+																			)
+																		);
+															}}
+														/>
+													</FormControl>
+													<FormLabel className="text-sm font-normal cursor-pointer">
+														{category}
+													</FormLabel>
+												</FormItem>
+											);
+										}}
+									/>
+								))}
+							</div>
 							<FormDescription className="text-xs sm:text-sm">
-								Choose the game category
+								Select 1-3 categories for your game
 							</FormDescription>
 							<FormMessage />
 						</FormItem>

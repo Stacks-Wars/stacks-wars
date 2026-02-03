@@ -6,7 +6,7 @@ export interface Game {
 	imageUrl: string;
 	minPlayers: number;
 	maxPlayers: number;
-	category?: string;
+	category: string[];
 	creatorId: string;
 	isActive: boolean;
 	createdAt: string;
@@ -20,5 +20,5 @@ export interface CreateGameRequest {
 	imageUrl: string;
 	minPlayers: number;
 	maxPlayers: number;
-	category?: string;
+	category: string[];
 }
