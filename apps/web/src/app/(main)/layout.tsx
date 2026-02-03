@@ -9,11 +9,11 @@ export default function MainLayout({
 	modal: React.ReactNode;
 }) {
 	return (
-		<>
+		<div className="bg-background text-foreground flex min-h-screen flex-col justify-between">
 			<Header />
 			{children}
 			{modal}
 			<Footer />
-		</>
+		</div>
 	);
 }
