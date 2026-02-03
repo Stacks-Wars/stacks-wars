@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::{http::handlers::stacks::has_joined, models::LobbyStatus};
 use crate::models::WalletAddress;
-use crate::{auth::AuthClaims, db::lobby::LobbyRepository, models::Lobby, state::AppState};
+use crate::{auth::AuthClaims, db::lobby::LobbyRepository, models::{Lobby, LobbyInfo}, state::AppState};
 
 // ============================================================================
 // Request/Response Types
@@ -170,7 +170,7 @@ pub async fn list_lobbies_by_game_and_status(
     State(state): State<AppState>,
     Path(game_identifier): Path<String>,
     Query(query): Query<LobbyByGameAndStatusQuery>,
-) -> Result<Json<PaginatedResponse<Lobby>>, (StatusCode, String)> {
+) -> Result<Json<PaginatedResponse<LobbyInfo>>, (StatusCode, String)> {
     let statuses: Vec<LobbyStatus> = if let Some(status_str) = &query.statuses {
         if status_str.trim().is_empty() {
             vec![]
@@ -195,7 +195,7 @@ pub async fn list_lobbies_by_game_and_status(
 
     let repo = LobbyRepository::new(state.postgres);
     let (lobbies, total) = repo
-        .find_by_game_and_status(&game_identifier, &statuses, offset, limit)
+        .find_lobbies_by_game_and_status(&game_identifier, &statuses, offset, limit, &state.redis)
         .await
         .map_err(|e| e.to_response())?;
 
