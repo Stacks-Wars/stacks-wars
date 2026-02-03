@@ -35,6 +35,29 @@ impl LobbyRepository {
         Ok(lobby)
     }
 
+    /// Find a lobby by UUID or path.
+    pub async fn find_by_identifier(&self, identifier: &str) -> Result<Lobby, AppError> {
+        // Try parsing as UUID first
+        if let Ok(lobby_id) = Uuid::parse_str(identifier) {
+            if let Ok(lobby) = self.find_by_id(lobby_id).await {
+                tracing::debug!("Found lobby by UUID: {}", lobby.id);
+                return Ok(lobby);
+            }
+        }
+
+        // Fallback to path lookup
+        if let Ok(lobby) = self.find_by_path(identifier).await {
+            tracing::debug!("Found lobby by path: {}", lobby.id);
+            return Ok(lobby);
+        }
+
+        tracing::debug!("Lobby not found for identifier: {}", identifier);
+        Err(AppError::NotFound(format!(
+            "Lobby not found for identifier: {}",
+            identifier
+        )))
+    }
+
     /// Get all lobbies created by a specific user.
     pub async fn find_by_creator(
         &self,

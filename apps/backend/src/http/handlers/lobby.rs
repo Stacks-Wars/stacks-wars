@@ -129,28 +129,14 @@ pub async fn create_lobby(
     Ok((StatusCode::CREATED, Json(lobby)))
 }
 
-/// Get lobby details by UUID. Public endpoint returning `Lobby`.
+/// Get lobby details by UUID or path. Public endpoint returning `Lobby`.
 pub async fn get_lobby(
     State(state): State<AppState>,
-    Path(lobby_id): Path<Uuid>,
+    Path(identifier): Path<String>,
 ) -> Result<Json<Lobby>, (StatusCode, String)> {
     let repo = LobbyRepository::new(state.postgres);
     let lobby = repo
-        .find_by_id(lobby_id)
-        .await
-        .map_err(|e| e.to_response())?;
-
-    Ok(Json(lobby))
-}
-
-/// Get lobby details by path. Public endpoint returning `Lobby`.
-pub async fn get_lobby_by_path(
-    State(state): State<AppState>,
-    Path(path): Path<String>,
-) -> Result<Json<Lobby>, (StatusCode, String)> {
-    let repo = LobbyRepository::new(state.postgres);
-    let lobby = repo
-        .find_by_path(&path)
+        .find_by_identifier(&identifier)
         .await
         .map_err(|e| e.to_response())?;
 
