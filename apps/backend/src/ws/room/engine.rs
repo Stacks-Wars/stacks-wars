@@ -10,6 +10,7 @@ use crate::db::lobby_chat::LobbyChatRepository;
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::db::player_state::PlayerStateRepository;
 use crate::db::user::UserRepository;
+use crate::http::bot::broadcasts::delete_lobby_creation_message;
 use crate::http::handlers::stacks::has_joined;
 use crate::models::player_state::ClaimState;
 use crate::models::{LobbyStatus, PlayerState, WalletAddress};
@@ -278,8 +279,18 @@ pub async fn handle_room_message(
                 let participant_count = player_repo.count_players(lobby_id).await.unwrap_or(0);
 
                 if participant_count == 1 {
+                    // Get lobby state for tg_msg_id before deletion
+                    let lobby_state = lobby_state_repo.get_state(lobby_id).await.ok();
+
                     // Get player state before deletion for broadcast
                     let player = player_repo.get_state(lobby_id, user_id).await.ok();
+
+                    // Delete Telegram message if exists
+                    if let Some(lobby_state) = &lobby_state {
+                        if let Some(tg_msg_id) = lobby_state.tg_msg_id {
+                            delete_lobby_creation_message(state.clone(), tg_msg_id).await;
+                        }
+                    }
 
                     // Delete the entire lobby
                     let lobby_repo = LobbyRepository::new(state.postgres.clone());

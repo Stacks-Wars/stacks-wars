@@ -18,7 +18,7 @@ use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::signal;
 
-/// Start the HTTP API server
+/// Start the HTTP API server and Telegram bot
 pub async fn start_server() {
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
@@ -35,10 +35,15 @@ pub async fn start_server() {
 
     tracing::info!("PostgreSQL and Redis connection pools established");
 
+    // Start the Telegram bot
+    let bot_state = state.clone();
+    tokio::spawn(async move {
+        http::bot::start_bot(bot_state).await;
+    });
+
     // Build HTTP router
     let app = Router::new()
         .merge(http::create_http_routes(state.clone()))
-        // WebSocket routes (lobbies, games, bots, real-time endpoints)
         .merge(ws::create_ws_routes(state.clone()))
         .layer(cors_layer())
         .fallback(|| async { "404 Not Found" });
