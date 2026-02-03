@@ -7,9 +7,9 @@ export default function GameLayout({
 	children: React.ReactNode;
 }) {
 	return (
-		<div className="bg-background text-foreground flex min-h-screen flex-col justify-between">
+		<div className="bg-app-spotlight text-foreground flex min-h-screen flex-col justify-between bg-fixed">
 			<Header />
-			{children}
+			<main className="container mx-auto px-4 py-8">{children}</main>
 			<Footer />
 		</div>
 	);
