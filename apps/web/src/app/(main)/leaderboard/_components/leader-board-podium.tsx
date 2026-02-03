@@ -34,7 +34,7 @@ export default function LeaderBoardPodium({
 	const third = players.find((p) => p.rank === 3);
 
 	return (
-		<div className="mx-auto flex min-h-100 w-full max-w-5xl items-end justify-center gap-2 bg-black md:min-h-150 md:gap-6">
+		<div className="mx-auto flex min-h-100 w-full max-w-5xl items-end justify-center gap-2 md:min-h-150 md:gap-6">
 			{/* 2nd Place */}
 			{second && (
 				<PodiumCard player={second} height="h-[280px] md:h-[400px]" />
