@@ -43,11 +43,23 @@ export default function GameCard({
 					<p className="line-clamp-2 text-base sm:font-medium lg:text-2xl">
 						{game.description}
 					</p>
-					<div className="flex w-full gap-3 overflow-hidden">
-						{game.category && (
-							<span className="bg-foreground/10 rounded-full px-4 py-2 text-xs md:px-5 md:py-2.5 md:font-medium lg:text-sm">
-								{game.category}
-							</span>
+					<div className="flex w-full flex-wrap gap-3 overflow-hidden">
+						{game.category && game.category.length > 0 && (
+							<>
+								{game.category.slice(0, 2).map((cat) => (
+									<span
+										key={cat}
+										className="bg-foreground/10 rounded-full px-4 py-2 text-xs md:px-5 md:py-2.5 md:font-medium lg:text-sm"
+									>
+										{cat}
+									</span>
+								))}
+								{game.category.length > 2 && (
+									<span className="bg-foreground/10 rounded-full px-4 py-2 text-xs md:px-5 md:py-2.5 md:font-medium lg:text-sm">
+										+{game.category.length - 2}
+									</span>
+								)}
+							</>
 						)}
 					</div>
 					{/*<div className="text-sm lg:text-xl lg:font-medium flex gap-4 w-full truncate">

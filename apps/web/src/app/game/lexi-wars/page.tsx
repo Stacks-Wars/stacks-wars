@@ -182,7 +182,9 @@ export default async function LexiWarsPage() {
 							</p>
 							<p>
 								<span className="font-medium">Category:</span>{" "}
-								{game.category || "Strategy"}
+								{game.category && game.category.length > 0
+									? game.category.join(", ")
+									: "Strategy"}
 							</p>
 						</div>
 					</div>

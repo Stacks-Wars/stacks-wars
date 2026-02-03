@@ -119,7 +119,9 @@ export default async function GamePage({ params }: PageProps) {
 						</p>
 						<p>
 							<span className="font-medium">Category:</span>{" "}
-							{game.category || "Game"}
+							{game.category && game.category.length > 0
+								? game.category.join(", ")
+								: "Game"}
 						</p>
 					</div>
 				</div>
