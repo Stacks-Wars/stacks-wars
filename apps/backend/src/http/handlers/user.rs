@@ -107,7 +107,7 @@ pub async fn create_user(
     let cookie = Cookie::build(("auth_token", token.clone()))
         .path("/")
         .max_age(Duration::days(14)) // 14 days in seconds
-        .same_site(SameSite::Lax) // More permissive than Strict for cross-domain compatibility
+        .same_site(SameSite::None) // Allow cross-site requests
         .http_only(true)
         .secure(state.config.is_production())
         .build();
@@ -356,7 +356,7 @@ pub async fn logout(
     let cookie = Cookie::build(("auth_token", ""))
         .path("/")
         .max_age(Duration::seconds(0))
-        .same_site(SameSite::Lax)
+        .same_site(SameSite::None)
         .http_only(true)
         .secure(state.config.is_production())
         .build();
