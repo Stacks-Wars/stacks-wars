@@ -14,7 +14,7 @@ export default function ShareButton() {
 			size="sm"
 			className="shrink-0 gap-2 rounded-full px-5 py-2.5 has-[>svg]:px-5"
 			onClick={() => {
-				copy(`/room/${lobby?.path}`);
+				copy(`https://www.stackswars.com/room/${lobby?.path}`);
 				toast.info(`Room link copied to clipboard!`);
 			}}
 		>
