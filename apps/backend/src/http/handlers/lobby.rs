@@ -8,7 +8,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::http::handlers::stacks::has_joined;
+use crate::{http::handlers::stacks::has_joined, models::LobbyStatus};
 use crate::models::WalletAddress;
 use crate::{auth::AuthClaims, db::lobby::LobbyRepository, models::Lobby, state::AppState};
 
@@ -35,6 +35,13 @@ pub struct CreateLobbyRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct LobbyQuery {
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LobbyByGameAndStatusQuery {
+    pub statuses: Option<String>,
     pub limit: Option<i64>,
     pub offset: Option<i64>,
 }
@@ -161,6 +168,48 @@ pub async fn list_lobbies_by_game(
     let repo = LobbyRepository::new(state.postgres);
     let (lobbies, total) = repo
         .find_by_game_id(game_id, offset, limit)
+        .await
+        .map_err(|e| e.to_response())?;
+
+    Ok(Json(PaginatedResponse {
+        data: lobbies,
+        total,
+        limit: limit as i64,
+        offset: offset as i64,
+    }))
+}
+
+/// List lobbies for a game and statuses with pagination. Public endpoint.
+pub async fn list_lobbies_by_game_and_status(
+    State(state): State<AppState>,
+    Path(game_identifier): Path<String>,
+    Query(query): Query<LobbyByGameAndStatusQuery>,
+) -> Result<Json<PaginatedResponse<Lobby>>, (StatusCode, String)> {
+    let statuses: Vec<LobbyStatus> = if let Some(status_str) = &query.statuses {
+        if status_str.trim().is_empty() {
+            vec![]
+        } else {
+            status_str.split(',')
+                .map(|s| s.trim().parse::<LobbyStatus>())
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid status".to_string()))?
+        }
+    } else {
+        vec![]
+    };
+
+    let statuses = if statuses.is_empty() {
+        vec![LobbyStatus::Waiting, LobbyStatus::Starting, LobbyStatus::InProgress, LobbyStatus::Finished]
+    } else {
+        statuses
+    };
+
+    let limit = query.limit.unwrap_or(20).min(100) as usize;
+    let offset = query.offset.unwrap_or(0).max(0) as usize;
+
+    let repo = LobbyRepository::new(state.postgres);
+    let (lobbies, total) = repo
+        .find_by_game_and_status(&game_identifier, &statuses, offset, limit)
         .await
         .map_err(|e| e.to_response())?;
 

@@ -106,32 +106,19 @@ pub async fn create_game(
 // Game Retrieval
 // ============================================================================
 
-/// Get a game by UUID. Returns `Game` or `404` if not found.
+/// Get a game by UUID or path. Returns `Game` or `404` if not found.
 pub async fn get_game(
-    Path(game_id): Path<Uuid>,
+    Path(identifier): Path<String>,
     State(state): State<AppState>,
 ) -> Result<Json<Game>, (StatusCode, String)> {
     let repo = GameRepository::new(state.postgres.clone());
 
-    let game = repo
-        .find_by_id(game_id)
-        .await
-        .map_err(|e| e.to_response())?;
-
-    Ok(Json(game))
-}
-
-/// Get a game by path. Returns `Game` or `404` if not found.
-pub async fn get_game_by_path(
-    Path(path): Path<String>,
-    State(state): State<AppState>,
-) -> Result<Json<Game>, (StatusCode, String)> {
-    let repo = GameRepository::new(state.postgres.clone());
-
-    let game = repo
-        .find_by_path(&path)
-        .await
-        .map_err(|e| e.to_response())?;
+    let game = if let Ok(game_id) = Uuid::parse_str(&identifier) {
+        repo.find_by_id(game_id).await
+    } else {
+        repo.find_by_path(&identifier).await
+    }
+    .map_err(|e| e.to_response())?;
 
     Ok(Json(game))
 }
