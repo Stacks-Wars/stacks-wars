@@ -1,9 +1,9 @@
-import NotFound from "@/app/not-found";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ApiClient } from "@/lib/api/client";
 import type { User, Game, LeaderBoard, LobbyInfo } from "@/lib/definitions";
 import { formatAddress } from "@/lib/utils";
 import Image from "next/image";
+import type { Metadata } from "next";
 import EditProfile from "./_components/edit-profile";
 import dynamic from "next/dynamic";
 import PlayerStats from "./_components/player-stats";
@@ -13,6 +13,51 @@ import CreatedGames from "./_components/created-games";
 
 const LogoutButton = dynamic(() => import("./_components/logout-button"));
 
+interface PageProps {
+	params: Promise<{ id: string }>;
+}
+
+async function getUser(id: string): Promise<User> {
+	try {
+		const response = await ApiClient.get<User>(`/api/user/${id}`);
+		if (!response.data) {
+			throw new Error("No user data received");
+		}
+		return response.data;
+	} catch (error) {
+		console.error("Failed to fetch user:", error);
+		throw error;
+	}
+}
+
+export async function generateMetadata({
+	params,
+}: PageProps): Promise<Metadata> {
+	const id = (await params).id;
+
+	try {
+		const user = await getUser(id);
+		const displayName =
+			user.displayName ||
+			user.username ||
+			formatAddress(user.walletAddress);
+		const description = user.username
+			? `View ${displayName}'s profile (@${user.username}) on Stacks Wars - competitive gaming platform`
+			: `View ${displayName}'s profile on Stacks Wars - competitive gaming platform`;
+
+		return {
+			title: `${displayName}`,
+			description,
+		};
+	} catch {
+		return {
+			title: "User Profile",
+			description:
+				"View user profile on Stacks Wars - competitive gaming platform",
+		};
+	}
+}
+
 export default async function UserProfile({
 	params,
 }: {
@@ -20,12 +65,7 @@ export default async function UserProfile({
 }) {
 	const id = (await params).id;
 
-	const response = await ApiClient.get<User>(`/api/user/${id}`);
-
-	if (!response.data) {
-		return <NotFound />;
-	}
-	const user = response.data;
+	const user = await getUser(id);
 
 	// Run remaining requests in parallel
 	const [gamesResult, statsResult, lobbiesResult] = await Promise.allSettled([
