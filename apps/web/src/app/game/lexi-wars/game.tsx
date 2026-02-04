@@ -9,6 +9,7 @@ import { useUser } from "@/lib/stores/user";
 import { cn, displayUserIdentifier } from "@/lib/utils";
 import RoomHeader from "@/components/room/room-header";
 import ChatDialog from "@/components/room/chat";
+import { toast } from "sonner";
 
 export default function LexiWarsGame({
 	state,
@@ -50,6 +51,21 @@ export default function LexiWarsGame({
 			: state.timeRemaining <= 5 && isMyTurn
 				? "text-yellow-500"
 				: "text-primary";
+
+	const handlePaste = (e: React.ClipboardEvent) => {
+		e.preventDefault();
+		toast.error("Pasting is not permited!");
+	};
+
+	const handleCopy = (e: React.ClipboardEvent) => {
+		e.preventDefault();
+		toast.error("Copying is not permited!");
+	};
+
+	const handleCut = (e: React.ClipboardEvent) => {
+		e.preventDefault();
+		toast.error("Cutting is not permited!");
+	};
 
 	return (
 		<>
@@ -128,6 +144,9 @@ export default function LexiWarsGame({
 						type="text"
 						value={word}
 						onChange={(e) => setWord(e.target.value)}
+						onPaste={handlePaste}
+						onCopy={handleCopy}
+						onCut={handleCut}
 						placeholder={
 							isMyTurn
 								? "Type your word..."
@@ -139,6 +158,9 @@ export default function LexiWarsGame({
 						autoCorrect="off"
 						autoCapitalize="off"
 						spellCheck={false}
+						inputMode="text"
+						aria-autocomplete="none"
+						autoFocus={isMyTurn || !isSubmitting}
 					/>
 					<Button
 						type="submit"
