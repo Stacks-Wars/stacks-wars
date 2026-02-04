@@ -19,6 +19,7 @@ import type { LobbyStatus } from "@/lib/definitions";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useLobbyWebSocket } from "@/lib/hooks/useLobbyWebSocket";
+import Link from "next/link";
 
 const ITEMS_PER_PAGE = 6;
 
@@ -95,7 +96,13 @@ export default function LobbyPage() {
 						No lobbies found matching your filters
 					</p>
 					<p className="text-muted-foreground mt-2 text-sm">
-						Try adjusting your filter settings
+						Try adjusting your filter settings or{" "}
+						<Link
+							href="/games"
+							className="text-primary underline hover:no-underline"
+						>
+							create a new lobby
+						</Link>
 					</p>
 				</div>
 			) : (
