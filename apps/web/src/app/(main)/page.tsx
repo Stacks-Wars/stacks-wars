@@ -101,7 +101,7 @@ export default async function HomePage() {
 									size="lg"
 									className="w-full px-8 sm:w-auto"
 								>
-									<Link href="/signup">Get Started Free</Link>
+									<Link href="/signup">Get Started</Link>
 								</Button>
 								<Button
 									asChild
