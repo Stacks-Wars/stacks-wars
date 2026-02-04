@@ -11,15 +11,15 @@ export default function Hero() {
 				your skills, and claim victory!
 			</p>
 			<Image
-				className="absolute -top-6 left-[31.33px] md:w-16 md:h-16 object-contain shrink-0"
-				src={"/images/ruby2.png"}
+				className="absolute scale-x-[-1] -top-6 min-[500px]:-top-16 left-[31.33px]  min-[500px]:w-40 min-[500px]:h-40  md:w-72 md:h-72  object-contain shrink-0"
+				src={"/images/ruby1.png"}
 				width={25.9}
 				height={30.9}
 				sizes="100vw"
 				alt=""
 			/>
 			<Image
-				className="absolute top-[50%] -right-2 md:-right-4 md:w-18 md:h-18 object-cover shrink-0"
+				className="absolute top-[50%] -right-2 md:-right-20 min-[500px]:-right-16 min-[500px]:w-40 min-[500px]:h-40  md:w-72 md:h-72 object-cover shrink-0"
 				width={35}
 				src={"/images/ruby1.png"}
 				height={42}

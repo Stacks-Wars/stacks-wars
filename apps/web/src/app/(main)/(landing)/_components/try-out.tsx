@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 
 export default function TryOut() {
 	return (
-		<div className="py-32 relative px-8 md:px-0 flex items-center justify-center">
+		<div className="py-28 relative px-8 md:px-0 flex items-center justify-center">
 			<Image
 				src={"/images/rings.png"}
 				width={860}
