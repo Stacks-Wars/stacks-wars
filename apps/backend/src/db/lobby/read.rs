@@ -151,13 +151,24 @@ impl LobbyRepository {
     }
 
     /// List lobbies with pagination (limit/offset).
+    /// Returns LobbyInfo including game, creator, and state data.
     pub async fn get_all_lobbies(
         &self,
         limit: i64,
         offset: i64,
-    ) -> Result<(Vec<Lobby>, i64), AppError> {
+        redis: &RedisClient,
+    ) -> Result<(Vec<LobbyInfo>, i64), AppError> {
         let rows = query(
-            "SELECT *, COUNT(*) OVER() as total FROM lobbies ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+            "SELECT
+                l.id, l.path, l.name, l.description, l.game_id, l.game_path, l.creator_id, l.entry_amount, l.current_amount, l.token_symbol, l.token_contract_id, l.contract_address, l.is_private, l.is_sponsored, l.status, l.created_at, l.updated_at,
+                g.id as game_id_col, g.name as game_name, g.path as game_path_col, g.description as game_description, g.image_url, g.min_players, g.max_players, g.category, g.creator_id as game_creator_id, g.is_active, g.updated_at as game_updated_at, g.created_at as game_created_at,
+                u.id as user_id_col, u.wallet_address, u.username, u.display_name, u.email, u.email_verified, u.trust_rating, u.profile_image, u.created_at as user_created_at, u.updated_at as user_updated_at,
+                COUNT(*) OVER() as total
+            FROM lobbies l
+            JOIN games g ON l.game_id = g.id
+            JOIN users u ON l.creator_id = u.id
+            ORDER BY l.created_at DESC
+            LIMIT $1 OFFSET $2",
         )
         .bind(limit)
         .bind(offset)
@@ -169,13 +180,80 @@ impl LobbyRepository {
             .first()
             .map(|row| row.get::<i64, _>("total"))
             .unwrap_or(0);
-        let lobbies = rows
-            .into_iter()
-            .map(|row| Lobby::from_row(&row))
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| AppError::DatabaseError(format!("Failed to parse lobby: {}", e)))?;
 
-        Ok((lobbies, total))
+        if rows.is_empty() {
+            return Ok((vec![], total));
+        }
+
+        // Parse joined data
+        let mut joined_data = Vec::new();
+        for row in rows {
+            let lobby = Lobby::from_row(&row)
+                .map_err(|e| AppError::DatabaseError(format!("Failed to parse lobby: {}", e)))?;
+
+            let game = Game {
+                id: row.get("game_id_col"),
+                name: row.get("game_name"),
+                path: row.get("game_path_col"),
+                description: row.get("game_description"),
+                image_url: row.get("image_url"),
+                min_players: row.get("min_players"),
+                max_players: row.get("max_players"),
+                category: row.get("category"),
+                creator_id: row.get("game_creator_id"),
+                is_active: row.get("is_active"),
+                updated_at: row.get("game_updated_at"),
+                created_at: row.get("game_created_at"),
+            };
+
+            let user = User {
+                id: row.get("user_id_col"),
+                wallet_address: row.get("wallet_address"),
+                username: row.get("username"),
+                display_name: row.get("display_name"),
+                email: row.get("email"),
+                email_verified: row.get("email_verified"),
+                trust_rating: row.get("trust_rating"),
+                profile_image: row.get("profile_image"),
+                created_at: row.get("user_created_at"),
+                updated_at: row.get("user_updated_at"),
+            };
+
+            joined_data.push((lobby, game, user));
+        }
+
+        // Get lobby IDs for state fetching
+        let lobby_ids: Vec<Uuid> = joined_data.iter().map(|(l, _, _)| l.id).collect();
+
+        // Batch fetch lobby states
+        let lobby_state_repo = LobbyStateRepository::new(redis.clone());
+        let states_batch = lobby_state_repo
+            .get_states_batch(&lobby_ids)
+            .await
+            .map_err(|e| AppError::RedisError(format!("Failed to fetch lobby states: {}", e)))?;
+
+        // Construct LobbyInfo objects
+        let mut lobby_info_list = Vec::new();
+        for (lobby, game, creator) in joined_data {
+            let state_opt = states_batch
+                .iter()
+                .find(|(id, _)| *id == lobby.id)
+                .map(|(_, s)| s.clone())
+                .flatten();
+            let state = state_opt.unwrap_or_else(|| LobbyState::new(lobby.id));
+
+            let extended = LobbyExtended::from_parts(lobby, state);
+
+            let lobby_info = LobbyInfo {
+                lobby: extended,
+                game,
+                creator,
+            };
+
+            lobby_info_list.push(lobby_info);
+        }
+
+        Ok((lobby_info_list, total))
     }
 
     /// Get active lobbies (waiting or in-progress).

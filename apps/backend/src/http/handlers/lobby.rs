@@ -237,13 +237,13 @@ pub async fn list_my_lobbies(
 pub async fn get_all_lobbies(
     State(state): State<AppState>,
     Query(query): Query<LobbyQuery>,
-) -> Result<Json<PaginatedResponse<Lobby>>, (StatusCode, String)> {
+) -> Result<Json<PaginatedResponse<LobbyInfo>>, (StatusCode, String)> {
     let limit = query.limit.unwrap_or(20).min(100);
     let offset = query.offset.unwrap_or(0).max(0);
 
-    let repo = LobbyRepository::new(state.postgres);
+    let repo = LobbyRepository::new(state.postgres.clone());
     let (lobbies, total) = repo
-        .get_all_lobbies(limit, offset)
+        .get_all_lobbies(limit, offset, &state.redis)
         .await
         .map_err(|e| e.to_response())?;
 
@@ -253,4 +253,4 @@ pub async fn get_all_lobbies(
         limit,
         offset,
     }))
-}
+    }
