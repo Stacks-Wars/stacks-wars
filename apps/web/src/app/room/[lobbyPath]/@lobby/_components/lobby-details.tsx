@@ -11,7 +11,7 @@ export default function LobbyDetails() {
 
 	return (
 		<div className="flex w-full flex-col items-center">
-			<div className="bg-card w-full space-y-4 rounded-3xl border p-4 sm:space-y-6 sm:p-6 lg:p-8">
+			<div className="w-full space-y-4 rounded-3xl border p-4 sm:space-y-6 sm:p-6 lg:p-8">
 				<div className="space-y-2">
 					<h2 className="text-lg font-semibold sm:text-xl lg:text-2xl">
 						{lobby.name}

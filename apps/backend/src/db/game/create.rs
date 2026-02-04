@@ -37,7 +37,7 @@ impl GameRepository {
 
         let game = sqlx::query_as::<_, Game>(
             "INSERT INTO games (name, path, description, image_url, min_players, max_players, category, creator_id, is_active)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, FALSE)
             RETURNING id, name, path, description, image_url, min_players, max_players, category, creator_id, is_active, updated_at, created_at",
         )
         .bind(name)

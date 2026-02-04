@@ -9,11 +9,12 @@ use uuid::Uuid;
 pub mod common;
 pub mod error;
 pub mod lexi_wars;
+pub mod ludo;
 pub mod registry;
 
 pub use common::*;
 pub use error::GameError;
-pub use registry::{LEXI_WARS_GAME_ID, create_game_registry};
+pub use registry::{LEXI_WARS_GAME_ID, LUDO_GAME_ID, create_game_registry};
 
 /// Base trait for all game actions (client -> server messages)
 /// Each game defines its own action enum that implements this trait
