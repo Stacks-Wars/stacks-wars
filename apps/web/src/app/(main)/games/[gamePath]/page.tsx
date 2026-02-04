@@ -45,7 +45,18 @@ export default async function CreateLobbyPage({
 						</p>
 					</div>
 				</div>
-				<CreateLobbyForm {...game.data} />
+				{game.data.isActive ? (
+					<CreateLobbyForm {...game.data} />
+				) : (
+					<div className="bg-muted/50 rounded-lg border p-6 text-center">
+						<p className="text-muted-foreground text-lg font-medium">
+							This game is currently inactive
+						</p>
+						<p className="text-muted-foreground mt-2 text-sm">
+							Please check back later for updates.
+						</p>
+					</div>
+				)}
 			</div>
 		</div>
 	);

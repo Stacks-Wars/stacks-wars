@@ -114,9 +114,10 @@ impl TurnRotation {
     pub fn eliminate_player(&mut self, player_id: Uuid) {
         self.eliminated.insert(player_id, true);
 
-        // If we eliminated the current player, move to next
-        if self.current_player() == Some(player_id) {
-            self.next_turn();
+        // Wrap current_index if it's now out of bounds after elimination
+        let active_count = self.active_count();
+        if active_count > 0 && self.current_index >= active_count {
+            self.current_index = self.current_index % active_count;
         }
     }
 
