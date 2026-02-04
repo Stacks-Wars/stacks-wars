@@ -9,7 +9,7 @@ export default function MainLayout({
 	modal: React.ReactNode;
 }) {
 	return (
-		<div className="bg-app-spotlight text-foreground flex min-h-screen flex-col justify-between bg-fixed">
+		<div className="flex min-h-screen flex-col justify-between">
 			<Header />
 			{children}
 			{modal}

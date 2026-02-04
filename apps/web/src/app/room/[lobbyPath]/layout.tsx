@@ -55,7 +55,7 @@ export default async function RoomLayout({
 	const lobbyPath = (await params).lobbyPath;
 
 	return (
-		<main className="bg-app-spotlight text-foreground flex min-h-screen flex-col bg-fixed">
+		<main className="flex min-h-screen flex-col">
 			<RoomContent lobby={lobby} game={game} lobbyPath={lobbyPath}>
 				{children}
 			</RoomContent>
