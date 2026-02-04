@@ -4,7 +4,6 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-<<<<<<< HEAD
 	--background-image-gradient-primary: var(--gradient-primary);
 	--background-image-muted-gradient: var(--muted-gradient);
 	--background-image-gradient-primary-2: var(--gradient-primary-2);
@@ -12,10 +11,7 @@
 	--background-image-gradient-secondary-2: var(--gradient-secondary-2);
 	--background-image-muted-gradient-2: var(--muted-gradient-2);
 	--background-image-app-spotlight: var(--app-spotlight);
-=======
-		--font-neue: var(--font-neue-montreal);
-
->>>>>>> 1a0b0b9 (💄 Style(web): add NeueMontreal font)
+		--color-border-secondary: var(--border-secondary);
 
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
@@ -57,6 +53,9 @@
 }
 
 :root {
+
+
+	--border-secondary: #1D2E4E;
 	--radius: 0.5rem;
 	--background: oklch(0.08 0 0);
 	--foreground: oklch(1 0 0);
