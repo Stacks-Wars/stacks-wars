@@ -9,7 +9,6 @@ axum = {version = "0.8.4", features = ["ws", "macros"]}
 axum-extra = {version = "0.10.1", features = ["typed-header", "cookie"]}
 bb8 = "0.9.0"
 bb8-redis = "0.23.0"
-bs58 = "0.4"
 chrono = { version = "0.4.41", features = ["serde"] }
 dotenvy = "0.15.7"
 futures = "0.3.31"

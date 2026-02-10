@@ -137,12 +137,12 @@ export default function NormalLobbyForm({
 					setProgress("Deploying your contract");
 					await waitForTxConfirmed(deployResult.txid);
 					const contractAddress = `${user?.walletAddress}.${deployResult.name}`;
+					payload.contractAddress = contractAddress;
 					setLobbyCreationProgress({
 						contractAddress,
 						step: "deployed",
 						payload: {
 							...payload,
-							contractAddress,
 						},
 					});
 					const joinTxId = await joinNormalContract({
@@ -169,7 +169,6 @@ export default function NormalLobbyForm({
 						step: "joined",
 						payload: {
 							...payload,
-							contractAddress,
 						},
 					});
 				} catch (error) {
