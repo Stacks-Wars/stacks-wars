@@ -160,12 +160,12 @@ export default function SponsoredLobbyForm({
 				setProgress("Deploying your contract");
 				await waitForTxConfirmed(deployResult.txid);
 				const contractAddress = `${user?.walletAddress}.${deployResult.name}`;
+				payload.contractAddress = contractAddress;
 				setLobbyCreationProgress({
 					contractAddress,
 					step: "deployed",
 					payload: {
 						...payload,
-						contractAddress,
 					},
 				});
 				const joinTxId = await joinSponsoredContract({
@@ -195,7 +195,6 @@ export default function SponsoredLobbyForm({
 					step: "joined",
 					payload: {
 						...payload,
-						contractAddress,
 					},
 				});
 			} catch (error) {
