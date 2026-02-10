@@ -141,7 +141,7 @@
 	--muted-gradient-2: linear-gradient(to bottom, var(--background), var(--border));
 }
 @utility container {
-	@apply max-w-[1200px]
+	@apply max-w-300
 }
 
 @layer base {

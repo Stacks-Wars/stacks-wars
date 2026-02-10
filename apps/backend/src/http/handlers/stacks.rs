@@ -112,11 +112,13 @@ pub async fn get_balance(
                 .parse::<f64>()
                 .map_err(|e| AppError::Deserialization(e.to_string()).to_response())?
                 / 1_000_000.0;
-            tokens.push(Token {
-                name,
-                balance,
-                contract_id,
-            });
+            if balance > 0.0 {
+                tokens.push(Token {
+                    name,
+                    balance,
+                    contract_id,
+                });
+            }
         }
     }
 

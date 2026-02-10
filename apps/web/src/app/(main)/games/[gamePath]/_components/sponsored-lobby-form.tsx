@@ -25,7 +25,7 @@ import Link from "next/link";
 import { formatAmount } from "@/lib/utils";
 import { ApiClient } from "@/lib/api/client";
 import { toast } from "sonner";
-import type { Lobby, CreateLobbyRequest, Game, Token } from "@/lib/definitions";
+import type { Lobby, CreateLobbyRequest, Game } from "@/lib/definitions";
 import {
 	ExpectedError,
 	waitForTxConfirmed,
@@ -33,9 +33,15 @@ import {
 import { deployStacksContract } from "@/lib/contract-utils/deploy";
 import { joinSponsoredContract } from "@/lib/contract-utils/join";
 import type { AssetString, ContractIdString } from "@stacks/transactions";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUser, useUserLoading } from "@/lib/stores/user";
+import {
+	useUser,
+	useUserLoading,
+	useTokens,
+	useMinimumAmount,
+	useUserActions,
+} from "@/lib/stores/user";
 import { useAppActions } from "@/lib/stores/app";
 import { Loader2 } from "lucide-react";
 
@@ -61,26 +67,34 @@ const sponsoredLobbySchema = z.object({
 type SponsoredLobbyFormValues = z.infer<typeof sponsoredLobbySchema>;
 
 interface SponsoredLobbyFormProps {
-	tokens: Token[];
-	minimumAmount: number;
 	getDefaultDescription: () => string;
-	setSelectedToken: (value: string) => void;
 	game: Game;
 }
 
 export default function SponsoredLobbyForm({
-	tokens,
-	minimumAmount,
 	getDefaultDescription,
-	setSelectedToken,
 	game,
 }: SponsoredLobbyFormProps) {
 	const router = useRouter();
 	const user = useUser();
+	const tokens = useTokens();
+	const minimumAmount = useMinimumAmount();
+	const { setSelectedToken, fetchTokens, fetchMinimumAmount } =
+		useUserActions();
 	const { setLobbyCreationProgress, clearLobbyCreationProgress } =
 		useAppActions();
 	const isUserLoading = useUserLoading();
 	const isAuthenticated = !isUserLoading && user;
+
+	useEffect(() => {
+		if (isAuthenticated && user?.walletAddress) {
+			fetchTokens(user.walletAddress);
+		}
+	}, [isAuthenticated, user?.walletAddress]);
+
+	useEffect(() => {
+		fetchMinimumAmount("stx");
+	}, []);
 	const form = useForm<SponsoredLobbyFormValues>({
 		// @ts-ignore - Zod v4 compatibility issue with @hookform/resolvers
 		resolver: zodResolver(sponsoredLobbySchema),

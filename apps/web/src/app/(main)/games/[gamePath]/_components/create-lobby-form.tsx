@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ApiClient } from "@/lib/api/client";
 import { useUser, useUserLoading } from "@/lib/stores/user";
-import type { Game, Token, TokenInfo } from "@/lib/definitions";
+import type { Game } from "@/lib/definitions";
 import { useRouter } from "next/navigation";
 import { displayUserIdentifier } from "@/lib/utils";
 import { toast } from "sonner";
@@ -21,55 +19,14 @@ export default function CreateLobbyForm(game: Game) {
 	const progress = useLobbyCreationProgress();
 	const { clearLobbyCreationProgress, handleContinue } = useAppActions();
 
-	const [tokens, setTokens] = useState<Token[]>([]);
-	const [minimumAmount, setMinimumAmount] = useState<number>(0);
-	const [selectedToken, setSelectedToken] = useState<string>("stx");
-
-	useEffect(() => {
-		if (isAuthenticated && user?.walletAddress) {
-			ApiClient.get<Token[]>(`/api/balance/${user.walletAddress}`).then(
-				(response) => {
-					if (response.data) {
-						const fetchedTokens = response.data;
-						const hasSTX = fetchedTokens.some(
-							(t) => t.contractId === "stx"
-						);
-						if (!hasSTX) {
-							fetchedTokens.unshift({
-								name: "STX",
-								balance: 0,
-								contractId: "stx",
-							});
-						}
-						setTokens(fetchedTokens);
-					}
-				}
-			);
-		} else {
-			// Default to STX when not authenticated
-			setTokens([{ name: "STX", balance: 0, contractId: "stx" }]);
-		}
-	}, [isAuthenticated, user]);
-
-	useEffect(() => {
-		if (selectedToken) {
-			ApiClient.get<TokenInfo>(`/api/token/${selectedToken}`).then(
-				(response) => {
-					if (response.data) {
-						setMinimumAmount(response.data.minimumAmount);
-					}
-				}
-			);
-		}
-	}, [selectedToken]);
-
 	const getDefaultDescription = () => {
 		const userIdentifier = user ? displayUserIdentifier(user) : "Anonymous";
 		return `Join ${userIdentifier}'s ${game.name} lobby!`;
 	};
 
 	const handleContinueCreation = async () => {
-		const response = await handleContinue(user!.walletAddress);
+		if (!user) return;
+		const response = await handleContinue(user.walletAddress);
 		if (response.error) {
 			console.error("API error:", response.error);
 			return;
@@ -83,7 +40,7 @@ export default function CreateLobbyForm(game: Game) {
 
 	return (
 		<>
-			{progress?.restoredFromStorage ? (
+			{progress?.restoredFromStorage && isAuthenticated ? (
 				<div className="bg-card mb-6 w-full space-y-4 rounded-3xl border p-4 sm:space-y-6 sm:p-6 lg:p-8">
 					<div className="space-y-3 sm:space-y-4">
 						<div className="flex items-center justify-between gap-2">
@@ -161,10 +118,7 @@ export default function CreateLobbyForm(game: Game) {
 
 					<TabsContent value="sponsored" className="mt-8">
 						<SponsoredLobbyForm
-							tokens={tokens}
-							minimumAmount={minimumAmount}
 							getDefaultDescription={getDefaultDescription}
-							setSelectedToken={setSelectedToken}
 							game={game}
 						/>
 					</TabsContent>

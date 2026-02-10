@@ -109,7 +109,7 @@ pub async fn create_user(
         .max_age(Duration::days(14)) // 14 days in seconds
         .same_site(SameSite::None) // Allow cross-site requests
         .http_only(true)
-        .secure(state.config.is_production())
+        .secure(true)
         .build();
 
     let mut response = Json(user).into_response();

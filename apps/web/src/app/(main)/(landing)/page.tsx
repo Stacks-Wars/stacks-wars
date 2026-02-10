@@ -5,7 +5,7 @@ import TryOut from "./_components/try-out";
 
 export default function HomePage() {
 	return (
-		<div className="container mx-auto px-4 py-8 !overflow-x-hidden">
+		<div className="container mx-auto overflow-x-hidden! px-4 py-8">
 			<Hero />
 			<GamesShowcase />
 			<PlayToEarn />
