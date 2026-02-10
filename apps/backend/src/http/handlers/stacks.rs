@@ -11,7 +11,6 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
-use bs58;
 use hex;
 use reqwest::Client;
 use serde::Deserialize;
@@ -112,11 +111,13 @@ pub async fn get_balance(
                 .parse::<f64>()
                 .map_err(|e| AppError::Deserialization(e.to_string()).to_response())?
                 / 1_000_000.0;
-            tokens.push(Token {
-                name,
-                balance,
-                contract_id,
-            });
+            if balance > 0.0 {
+                tokens.push(Token {
+                    name,
+                    balance,
+                    contract_id,
+                });
+            }
         }
     }
 
@@ -134,20 +135,82 @@ fn parse_token_key(key: &str) -> Option<(String, String)> {
     }
 }
 
-/// Serialize a Stacks address to Clarity principal hex
-fn serialize_principal(address: &str) -> Result<String, AppError> {
-    let decoded = bs58::decode(address)
-        .into_vec()
-        .map_err(|_| AppError::BadRequest("Invalid address".into()))?;
-    if decoded.len() != 25 {
-        return Err(AppError::BadRequest("Invalid address length".into()));
+/// C32 alphabet used by Stacks addresses (Crockford's Base32 variant).
+const C32_CHARS: &str = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+/// Decode a c32-encoded string to bytes (base32 → base256 big-number conversion).
+fn c32_decode(input: &str) -> Result<Vec<u8>, AppError> {
+    let input = input.to_uppercase();
+    // Count leading c32 zeros (the character '0')
+    let leading_zeros = input.chars().take_while(|&c| c == '0').count();
+
+    // Big-number base conversion: base32 → base256
+    let mut acc: Vec<u8> = Vec::new();
+    for ch in input.chars() {
+        let val = C32_CHARS
+            .find(ch)
+            .ok_or_else(|| AppError::BadRequest(format!("Invalid c32 character: {}", ch)))?;
+
+        let mut carry = val;
+        for byte in acc.iter_mut().rev() {
+            let wide = (*byte as usize) * 32 + carry;
+            *byte = (wide % 256) as u8;
+            carry = wide / 256;
+        }
+        while carry > 0 {
+            acc.insert(0, (carry % 256) as u8);
+            carry /= 256;
+        }
     }
-    let version = decoded[0];
-    let hash160 = &decoded[1..21];
-    // Clarity principal: 0x05 + version + hash160
-    let mut result = vec![0x05, version];
-    result.extend_from_slice(hash160);
-    Ok(format!("0x{}", hex::encode(result)))
+
+    // Prepend zero bytes for leading '0' characters
+    let mut result = vec![0u8; leading_zeros];
+    result.extend(acc);
+    Ok(result)
+}
+
+/// Serialize a Stacks address to Clarity principal hex.
+///
+/// Stacks addresses use c32check encoding:
+///   Format: S + <version_char> + <c32_encoded(hash160 + checksum)>
+///
+/// Produces the Clarity serialized standard principal:
+///   0x05 + version_byte + hash160 (22 bytes total)
+fn serialize_principal(address: &str) -> Result<String, AppError> {
+    let address = address.to_uppercase();
+
+    if address.len() < 5 || !address.starts_with('S') {
+        return Err(AppError::BadRequest(
+            "Invalid Stacks address format".into(),
+        ));
+    }
+
+    // Second character encodes the version byte via c32
+    let version_char = address.chars().nth(1).unwrap();
+    let version = C32_CHARS
+        .find(version_char)
+        .ok_or_else(|| AppError::BadRequest("Invalid address version character".into()))?
+        as u8;
+
+    // Remaining characters encode hash160 (20 bytes) + checksum (4 bytes)
+    let data_str = &address[2..];
+    let decoded = c32_decode(data_str)?;
+
+    // Normalize to exactly 24 bytes (20 hash160 + 4 checksum)
+    let hash160_with_checksum = if decoded.len() < 24 {
+        let mut padded = vec![0u8; 24 - decoded.len()];
+        padded.extend(&decoded);
+        padded
+    } else {
+        decoded[decoded.len() - 24..].to_vec()
+    };
+
+    let hash160 = &hash160_with_checksum[..20];
+
+    // Clarity standard principal: 0x05 + version + hash160
+    let mut principal_bytes = vec![0x05, version];
+    principal_bytes.extend_from_slice(hash160);
+    Ok(format!("0x{}", hex::encode(principal_bytes)))
 }
 
 /// Get token information including price and minimum amount for $10 USD
@@ -207,12 +270,6 @@ pub async fn has_joined(
     player_address: &WalletAddress,
     state: &AppState,
 ) -> Result<bool, AppError> {
-    tracing::info!(
-        "Checking if player has joined contract: {}, player: {}",
-        contract_address.as_str(),
-        player_address.as_str()
-    );
-
     let network = if state.config.network.is_mainnet() {
         "mainnet"
     } else {
@@ -227,28 +284,17 @@ pub async fn has_joined(
     let principal = &addr_str[..last_dot];
     let contract_name = &addr_str[last_dot + 1..];
 
-    tracing::info!(
-        "Parsed contract - principal: {}, contract_name: {}",
-        principal,
-        contract_name
-    );
-
     let url = format!(
         "https://api.{}.hiro.so/v2/contracts/call-read/{}/{}/has-joined",
         network, principal, contract_name
     );
 
-    tracing::info!("API URL: {}", url);
-
     let hex_principal = serialize_principal(player_address.as_str())?;
-    tracing::info!("Serialized principal: {}", hex_principal);
 
     let body = serde_json::json!({
         "sender": player_address.as_str(),
         "arguments": [hex_principal]
     });
-
-    tracing::info!("Request body: {}", body);
 
     let client = Client::new();
     let response = client
@@ -261,8 +307,6 @@ pub async fn has_joined(
             tracing::error!("Failed to send request to Hiro API: {}", e);
             AppError::FetchError(e.to_string())
         })?;
-
-    tracing::info!("Response status: {}", response.status());
 
     if !response.status().is_success() {
         let status = response.status();
@@ -279,14 +323,10 @@ pub async fn has_joined(
         AppError::Deserialization(e.to_string())
     })?;
 
-    tracing::info!("Parsed JSON response: {:?}", json);
-
     let okay = json.get("okay").and_then(|v| v.as_bool()).ok_or_else(|| {
         tracing::error!("Missing 'okay' field in response");
         AppError::Deserialization("Missing okay".into())
     })?;
-
-    tracing::info!("Contract call okay: {}", okay);
 
     if !okay {
         let cause = json
@@ -302,12 +342,10 @@ pub async fn has_joined(
         AppError::Deserialization("Missing result".into())
     })?;
 
-    tracing::info!("Contract call result: {}", result);
-
     // Check if result is true (0x03 for true in Clarity)
     let has_joined = result == "0x03";
     if !has_joined {
-        tracing::info!(
+        tracing::warn!(
             "Player has not joined - expected '0x03' (true), got '{}'",
             result
         );

@@ -95,10 +95,10 @@ pub async fn broadcast_lobby_creation_to_tg(
             game_name,
             creator,
             description,
-            contract_line,
+            lobby_link,
             entry_fee_line,
             pool_size_line,
-            lobby_link
+            contract_line
         );
 
         let lobby_url: Url = Url::parse(&format!(
