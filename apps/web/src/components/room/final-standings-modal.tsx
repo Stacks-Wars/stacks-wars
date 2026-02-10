@@ -14,10 +14,10 @@ import {
 	useGameOverData,
 	useLobbyActions,
 } from "@/lib/stores/room";
-import { formatAddress } from "@/lib/utils";
+import { formatAddress, formatAmount } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { IoStar } from "react-icons/io5";
-import { Sparkles, Trophy } from "lucide-react";
+import { Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
@@ -146,7 +146,7 @@ export default function FinalStandingsModal() {
 									{player.prize != null &&
 										player.prize > 0 && (
 											<span className="text-sm font-medium text-green-500">
-												+{player.prize.toFixed(2)}
+												+{formatAmount(player.prize)}
 											</span>
 										)}
 								</div>

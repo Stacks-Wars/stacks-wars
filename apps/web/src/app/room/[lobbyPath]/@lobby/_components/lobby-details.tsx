@@ -2,6 +2,7 @@
 
 import ChatDialog from "@/components/room/chat";
 import { useLobby, useGame } from "@/lib/stores/room";
+import { formatAmount } from "@/lib/utils";
 
 export default function LobbyDetails() {
 	const lobby = useLobby();
@@ -29,7 +30,7 @@ export default function LobbyDetails() {
 							Entry Amount
 						</p>
 						<p className="truncate text-base font-medium sm:text-lg lg:text-xl">
-							{lobby.entryAmount ? lobby.entryAmount : 0}{" "}
+							{formatAmount(lobby.entryAmount || 0)}{" "}
 							{lobby.tokenSymbol || "STX"}
 						</p>
 					</div>
@@ -39,7 +40,7 @@ export default function LobbyDetails() {
 							Prize Pool
 						</p>
 						<p className="truncate text-base font-medium sm:text-lg lg:text-xl">
-							{lobby.currentAmount ? lobby.currentAmount : 0}{" "}
+							{formatAmount(lobby.currentAmount || 0)}{" "}
 							{lobby.tokenSymbol || "STX"}
 						</p>
 					</div>

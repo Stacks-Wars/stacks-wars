@@ -23,7 +23,7 @@ import {
 import type { AssetString, ContractIdString } from "@stacks/transactions";
 import { toast } from "sonner";
 import { Trophy, Sparkles, Coins, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatAmount } from "@/lib/utils";
 import { useRoom } from "@/lib/contexts/room-context";
 
 const rankLabels: Record<number, string> = {
@@ -76,6 +76,7 @@ export default function GameOverModal() {
 				ExpectedError.ERR_ALREADY_CLAIMED
 			);
 			sendLobbyMessage({ type: "claimReward", txId: claimTxId });
+			lobbyActions.setGameOver(null);
 		} catch (err) {
 			toast.error("Contract transaction failed. Please try again.");
 			console.error("Claim contract failed", err);
@@ -146,7 +147,7 @@ export default function GameOverModal() {
 									</span>
 								</div>
 								<span className="text-xl font-bold text-green-500">
-									+{prize.toFixed(2)}{" "}
+									+{formatAmount(prize)}{" "}
 									{lobby?.tokenSymbol || "STX"}
 								</span>
 							</div>

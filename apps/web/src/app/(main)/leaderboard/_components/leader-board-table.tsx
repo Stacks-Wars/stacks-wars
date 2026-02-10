@@ -167,7 +167,7 @@ export default function LeaderBoardTable({
 											{row.displayName ? (
 												<>
 													<span className="text-sm font-bold">
-														{row.username}
+														{row.displayName}
 													</span>
 													<span className="text-[10px] tracking-tighter text-gray-500 uppercase">
 														{formatAddress(
@@ -192,7 +192,7 @@ export default function LeaderBoardTable({
 									{row.points}
 								</TableCell>
 								<TableCell className="text-right font-medium">
-									{row.winRate}%
+									{row.winRate.toFixed(2)}%
 								</TableCell>
 								<TableCell className="text-right font-medium">
 									{row.totalMatches}
