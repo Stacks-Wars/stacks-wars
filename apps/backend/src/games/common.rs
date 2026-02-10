@@ -15,7 +15,7 @@ use crate::{
         user_wars_points::UserWarsPointsRepository,
     },
     errors::AppError,
-    http::bot::broadcasts::broadcast_lobby_winner_to_tg,
+    http::{bot::broadcasts::broadcast_lobby_winner_to_tg, handlers::stacks::convert_to_stx},
     models::LobbyStatus,
     state::{AppState, RedisClient},
 };
@@ -292,13 +292,46 @@ pub async fn save_player_result(
         // Pass season_id and wars_point so the repository will upsert points and
         // also update match/win/pnl statistics in a single call.
         let is_winner = ctx.rank == 1;
+
+        // Convert prize and entry_amount to STX if the lobby uses a non-STX token
+        let needs_conversion = ctx
+            .token_symbol
+            .as_deref()
+            .is_some_and(|s| !s.eq_ignore_ascii_case("STX"));
+
+        let (stx_entry_amount, stx_prize) = if needs_conversion {
+            if let Some(contract_id) = ctx.token_contract_id.as_deref() {
+                let entry = match ctx.entry_amount {
+                    Some(amt) if amt > 0.0 => {
+                        Some(convert_to_stx(contract_id, amt).await)
+                    }
+                    other => other,
+                };
+                let prize = match ctx.prize {
+                    Some(amt) if amt > 0.0 => {
+                        Some(convert_to_stx(contract_id, amt).await)
+                    }
+                    other => other,
+                };
+                (entry, prize)
+            } else {
+                tracing::warn!(
+                    "Token symbol is {:?} but no token_contract_id provided, skipping conversion",
+                    ctx.token_symbol
+                );
+                (ctx.entry_amount, ctx.prize)
+            }
+        } else {
+            (ctx.entry_amount, ctx.prize)
+        };
+
         wars_points_repo
             .update_player_stats(
                 ctx.user_id,
                 Some(season_id),
                 Some(wars_point),
-                ctx.entry_amount,
-                ctx.prize,
+                stx_entry_amount,
+                stx_prize,
                 is_winner,
             )
             .await?;
@@ -384,6 +417,8 @@ pub struct WarsPointContext {
     pub is_sponsored: bool,
     pub creator_id: Option<Uuid>,
     pub active_players: usize,
+    pub token_symbol: Option<String>,
+    pub token_contract_id: Option<String>,
 }
 
 /// Calculate wars points based on game result context

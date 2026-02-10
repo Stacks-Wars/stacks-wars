@@ -166,6 +166,9 @@ impl PlayerState {
         if let Some(prize) = self.prize {
             map.insert("prize".to_string(), prize.to_string());
         }
+        if let Some(wars_point) = self.wars_point {
+            map.insert("wars_point".to_string(), wars_point.to_string());
+        }
         if let Some(ref claim_state) = self.claim_state {
             map.insert(
                 "claim_state".to_string(),

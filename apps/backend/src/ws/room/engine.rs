@@ -494,8 +494,8 @@ pub async fn handle_room_message(
                     .await;
 
                     let lobby_repo = LobbyRepository::new(spawn_state.postgres.clone());
-                    let game_id = match lobby_repo.find_by_id(spawn_lobby).await {
-                        Ok(db_lobby) => db_lobby.game_id,
+                    let db_lobby = match lobby_repo.find_by_id(spawn_lobby).await {
+                        Ok(lobby) => lobby,
                         _ => {
                             tracing::error!(
                                 "Failed to fetch lobby metadata for game initialization"
@@ -503,10 +503,23 @@ pub async fn handle_room_message(
                             return;
                         }
                     };
+                    let game_id = db_lobby.game_id;
 
                     if let Some(factory) = spawn_state.game_registry.get(&game_id) {
                         // Create engine with state (state is now required at creation time)
                         let mut engine = factory(spawn_lobby, spawn_state.clone());
+
+                        // Set lobby context (entry amount, token info) for prize/PnL calculation
+                        engine
+                            .set_lobby_context(
+                                db_lobby.entry_amount,
+                                db_lobby.current_amount,
+                                db_lobby.is_sponsored,
+                                db_lobby.creator_id,
+                                db_lobby.token_symbol.clone(),
+                                db_lobby.token_contract_id.map(|w| w.to_string()),
+                            )
+                            .await;
 
                         // Get all player IDs in the lobby
                         let player_repo = PlayerStateRepository::new(spawn_state.redis.clone());
