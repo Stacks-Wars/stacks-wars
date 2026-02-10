@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { Trophy, Sparkles, Coins, Loader2 } from "lucide-react";
 import { cn, formatAmount } from "@/lib/utils";
 import { useRoom } from "@/lib/contexts/room-context";
+import { useRef } from "react";
 
 const rankLabels: Record<number, string> = {
 	1: "1st Place",
@@ -45,6 +46,7 @@ export default function GameOverModal() {
 	const user = useUser();
 	const { sendLobbyMessage } = useRoom();
 	const isClaiming = useIsActionLoading("claimReward");
+	const pendingActionsRef = useRef<Set<string>>(new Set());
 
 	const handleClose = () => {
 		lobbyActions.setGameOver(null);
@@ -71,6 +73,8 @@ export default function GameOverModal() {
 				});
 				return;
 			}
+			pendingActionsRef.current.add("claimReward");
+			lobbyActions.setActionLoading("claimReward", true);
 			await waitForTxConfirmed(
 				claimTxId,
 				ExpectedError.ERR_ALREADY_CLAIMED

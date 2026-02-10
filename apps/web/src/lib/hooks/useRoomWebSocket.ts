@@ -51,6 +51,8 @@ export function useRoomWebSocket({
 
 	const lobbyActions = useLobbyActions();
 	const user = useUser();
+	const userRef = useRef(user);
+	userRef.current = user;
 	const router = useRouter();
 
 	useEffect(() => {
@@ -184,7 +186,7 @@ export function useRoomWebSocket({
 					lobbyActions.clearActionLoading(joinKey);
 				}
 				toast.info(
-					`${message.player.userId === user?.id ? "You" : displayUserIdentifier(message.player)} joined the lobby`
+					`${message.player.userId === userRef.current?.id ? "You" : displayUserIdentifier(message.player)} joined the lobby`
 				);
 				break;
 			}
@@ -197,7 +199,7 @@ export function useRoomWebSocket({
 					lobbyActions.clearActionLoading(leaveKey);
 				}
 				toast.info(
-					`${message.player.userId === user?.id ? "You" : displayUserIdentifier(message.player)} left the lobby`
+					`${message.player.userId === userRef.current?.id ? "You" : displayUserIdentifier(message.player)} left the lobby`
 				);
 				const currentCreator = useLobbyStore.getState().creator;
 				if (message.player.userId === currentCreator?.id) {
@@ -216,7 +218,7 @@ export function useRoomWebSocket({
 					lobbyActions.clearActionLoading(kickKey);
 				}
 				toast.info(
-					`${message.player.userId === user?.id ? "You were" : `${displayUserIdentifier(message.player)} was`} kicked from the lobby`
+					`${message.player.userId === userRef.current?.id ? "You were" : `${displayUserIdentifier(message.player)} was`} kicked from the lobby`
 				);
 				break;
 
@@ -225,7 +227,7 @@ export function useRoomWebSocket({
 				// Check for pending actions
 				if (pendingActionsRef.current.has("joinRequest")) {
 					const userInList = message.joinRequests.some(
-						(jr) => jr.userId === user?.id
+						(jr) => jr.userId === userRef.current?.id
 					);
 					if (userInList) {
 						pendingActionsRef.current.delete("joinRequest");
@@ -249,7 +251,7 @@ export function useRoomWebSocket({
 					message.userId,
 					message.accepted ? "accepted" : "rejected"
 				);
-				if (message.userId === user?.id) {
+				if (message.userId === userRef.current?.id) {
 					if (message.accepted) {
 						toast.success(
 							"Your join request was approved! You can now join the lobby."
