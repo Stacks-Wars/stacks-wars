@@ -163,6 +163,18 @@ pub async fn handle_room_message(
                             return;
                         }
                     }
+
+                    // Increment current_amount by entry_amount if entry_amount exists and is > 0
+                    let lobby_repo = LobbyRepository::new(state.postgres.clone());
+                    if let Ok(lobby) = lobby_repo.find_by_id(lobby_id).await {
+                        if let Some(entry_amt) = lobby.entry_amount {
+                            if entry_amt > 0.0 {
+                                let _ = lobby_repo
+                                    .increment_current_amount(lobby_id, entry_amt, state.clone())
+                                    .await;
+                            }
+                        }
+                    }
                 }
 
                 // Create or upsert player state with user data
@@ -324,6 +336,20 @@ pub async fn handle_room_message(
 
             // Get player state before deletion for broadcast
             let player = player_repo.get_state(lobby_id, user_id).await.ok();
+
+            // Decrement current_amount by entry_amount if contract_address exists and entry_amount > 0
+            if contract_address.is_some() {
+                let lobby_repo = LobbyRepository::new(state.postgres.clone());
+                if let Ok(lobby) = lobby_repo.find_by_id(lobby_id).await {
+                    if let Some(entry_amt) = lobby.entry_amount {
+                        if entry_amt > 0.0 {
+                            let _ = lobby_repo
+                                .decrement_current_amount(lobby_id, entry_amt, state.clone())
+                                .await;
+                        }
+                    }
+                }
+            }
 
             // remove player state
             let _ = player_repo
@@ -494,8 +520,8 @@ pub async fn handle_room_message(
                     .await;
 
                     let lobby_repo = LobbyRepository::new(spawn_state.postgres.clone());
-                    let game_id = match lobby_repo.find_by_id(spawn_lobby).await {
-                        Ok(db_lobby) => db_lobby.game_id,
+                    let db_lobby = match lobby_repo.find_by_id(spawn_lobby).await {
+                        Ok(lobby) => lobby,
                         _ => {
                             tracing::error!(
                                 "Failed to fetch lobby metadata for game initialization"
@@ -503,10 +529,23 @@ pub async fn handle_room_message(
                             return;
                         }
                     };
+                    let game_id = db_lobby.game_id;
 
                     if let Some(factory) = spawn_state.game_registry.get(&game_id) {
                         // Create engine with state (state is now required at creation time)
                         let mut engine = factory(spawn_lobby, spawn_state.clone());
+
+                        // Set lobby context (entry amount, token info) for prize/PnL calculation
+                        engine
+                            .set_lobby_context(
+                                db_lobby.entry_amount,
+                                db_lobby.current_amount,
+                                db_lobby.is_sponsored,
+                                db_lobby.creator_id,
+                                db_lobby.token_symbol.clone(),
+                                db_lobby.token_contract_id.map(|w| w.to_string()),
+                            )
+                            .await;
 
                         // Get all player IDs in the lobby
                         let player_repo = PlayerStateRepository::new(spawn_state.redis.clone());
@@ -823,6 +862,20 @@ pub async fn handle_room_message(
 
             // Get player state before deletion for broadcast
             let kicked_player = player_repo.get_state(lobby_id, kicked_user_id).await.ok();
+
+            // Decrement current_amount by entry_amount if contract_address exists and entry_amount > 0
+            if contract_address.is_some() {
+                let lobby_repo = LobbyRepository::new(state.postgres.clone());
+                if let Ok(lobby) = lobby_repo.find_by_id(lobby_id).await {
+                    if let Some(entry_amt) = lobby.entry_amount {
+                        if entry_amt > 0.0 {
+                            let _ = lobby_repo
+                                .decrement_current_amount(lobby_id, entry_amt, state.clone())
+                                .await;
+                        }
+                    }
+                }
+            }
 
             // remove player state
             let _ = player_repo

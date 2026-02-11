@@ -23,8 +23,9 @@ import {
 import type { AssetString, ContractIdString } from "@stacks/transactions";
 import { toast } from "sonner";
 import { Trophy, Sparkles, Coins, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatAmount } from "@/lib/utils";
 import { useRoom } from "@/lib/contexts/room-context";
+import { useRef } from "react";
 
 const rankLabels: Record<number, string> = {
 	1: "1st Place",
@@ -45,6 +46,7 @@ export default function GameOverModal() {
 	const user = useUser();
 	const { sendLobbyMessage } = useRoom();
 	const isClaiming = useIsActionLoading("claimReward");
+	const pendingActionsRef = useRef<Set<string>>(new Set());
 
 	const handleClose = () => {
 		lobbyActions.setGameOver(null);
@@ -71,11 +73,14 @@ export default function GameOverModal() {
 				});
 				return;
 			}
+			pendingActionsRef.current.add("claimReward");
+			lobbyActions.setActionLoading("claimReward", true);
 			await waitForTxConfirmed(
 				claimTxId,
 				ExpectedError.ERR_ALREADY_CLAIMED
 			);
 			sendLobbyMessage({ type: "claimReward", txId: claimTxId });
+			lobbyActions.setGameOver(null);
 		} catch (err) {
 			toast.error("Contract transaction failed. Please try again.");
 			console.error("Claim contract failed", err);
@@ -146,7 +151,7 @@ export default function GameOverModal() {
 									</span>
 								</div>
 								<span className="text-xl font-bold text-green-500">
-									+{prize.toFixed(2)}{" "}
+									+{formatAmount(prize)}{" "}
 									{lobby?.tokenSymbol || "STX"}
 								</span>
 							</div>

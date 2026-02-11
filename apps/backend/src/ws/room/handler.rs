@@ -198,15 +198,14 @@ async fn handle_socket(
                     if let Some(user_id) = auth_user_id {
                         if let Some(player) = standings.iter().find(|p| p.user_id == user_id) {
                             if let Some(rank) = player.rank {
+                                let has_claimed = player.has_claimed();
+                                let prize_to_send = if has_claimed { None } else { player.prize };
+
                                 let _ = manager::send_to_connection(
                                     &conn,
                                     &RoomServerMessage::GameOver {
                                         rank,
-                                        prize: if player.has_claimed() {
-                                            None
-                                        } else {
-                                            player.prize
-                                        },
+                                        prize: prize_to_send,
                                         wars_point: player.wars_point.unwrap_or(0.0),
                                     },
                                 )

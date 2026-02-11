@@ -55,6 +55,68 @@ struct StxToolsResponse {
     metrics: StxToolsMetrics,
 }
 
+/// Convert a token amount to its STX equivalent using stxtools.io prices.
+///
+/// Fetches the USD price of both the token and STX, then computes:
+///   stx_amount = amount * (token_price_usd / stx_price_usd)
+///
+/// Returns 0.0 on any failure (network error, missing price, etc.)
+pub async fn convert_to_stx(token_contract_id: &str, amount: f64) -> f64 {
+    if amount <= 0.0 {
+        return 0.0;
+    }
+
+    let client = Client::new();
+
+    let token_url = format!("https://api.stxtools.io/tokens/{}", token_contract_id);
+    let stx_url = "https://api.stxtools.io/tokens/stx".to_string();
+
+    let (token_res, stx_res) = tokio::join!(
+        client.get(&token_url).send(),
+        client.get(&stx_url).send(),
+    );
+
+    let token_price = match token_res {
+        Ok(resp) => match resp.json::<StxToolsResponse>().await {
+            Ok(data) => data.metrics.price_usd,
+            Err(e) => {
+                tracing::warn!("Failed to parse token price for {}: {}", token_contract_id, e);
+                return 0.0;
+            }
+        },
+        Err(e) => {
+            tracing::warn!("Failed to fetch token price for {}: {}", token_contract_id, e);
+            return 0.0;
+        }
+    };
+
+    let stx_price = match stx_res {
+        Ok(resp) => match resp.json::<StxToolsResponse>().await {
+            Ok(data) => data.metrics.price_usd,
+            Err(e) => {
+                tracing::warn!("Failed to parse STX price: {}", e);
+                return 0.0;
+            }
+        },
+        Err(e) => {
+            tracing::warn!("Failed to fetch STX price: {}", e);
+            return 0.0;
+        }
+    };
+
+    if stx_price <= 0.0 {
+        tracing::warn!("STX price is zero or negative, skipping conversion");
+        return 0.0;
+    }
+
+    let stx_equivalent = amount * (token_price / stx_price);
+    tracing::debug!(
+        "Converted {} {} → {} STX (token_usd={}, stx_usd={})",
+        amount, token_contract_id, stx_equivalent, token_price, stx_price
+    );
+    stx_equivalent
+}
+
 /// Get user balance from Hiro API
 pub async fn get_balance(
     Path(wallet_address): Path<String>,

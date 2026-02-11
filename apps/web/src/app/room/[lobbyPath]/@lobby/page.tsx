@@ -15,7 +15,7 @@ import {
 	useRoomConnected,
 	useRoomConnecting,
 	useIsActionLoading,
-	useCountdown,
+	useLobbyActions,
 } from "@/lib/stores/room";
 import { useUser, useIsAuthenticated } from "@/lib/stores/user";
 import RoomHeader from "@/components/room/room-header";
@@ -34,6 +34,7 @@ import {
 	waitForTxConfirmed,
 } from "@/lib/contract-utils/waitForTxConfirmed";
 import StartCountdown from "./_components/start-countdown";
+import { useRef } from "react";
 
 export default function LobbySlot() {
 	const { sendLobbyMessage } = useRoom();
@@ -48,8 +49,8 @@ export default function LobbySlot() {
 	const user = useUser();
 	const isAuthenticated = useIsAuthenticated();
 	const isStartGameLoading = useIsActionLoading("updateLobbyStatus-starting");
-	const isCancelGameLoading = useIsActionLoading("updateLobbyStatus-waiting");
-	const countdown = useCountdown();
+	const pendingActionsRef = useRef<Set<string>>(new Set());
+	const lobbyActions = useLobbyActions();
 
 	if (isConnecting || !lobby || !game) {
 		return <Loading />;
@@ -73,6 +74,7 @@ export default function LobbySlot() {
 			if (lobby.contractAddress) {
 				let leaveTxId;
 				const contract = lobby.contractAddress as ContractIdString;
+				const leaveKey = `leave-${user.id}`;
 				try {
 					if (lobby.isSponsored) {
 						if (
@@ -118,6 +120,8 @@ export default function LobbySlot() {
 						});
 						return;
 					}
+					pendingActionsRef.current.add(leaveKey);
+					lobbyActions.setActionLoading(leaveKey, true);
 					await waitForTxConfirmed(
 						leaveTxId,
 						ExpectedError.ERR_NOT_JOINED
@@ -127,6 +131,10 @@ export default function LobbySlot() {
 						"Contract transaction failed. Please try again."
 					);
 					console.error("Leave contract failed", err);
+					if (pendingActionsRef.current.has(leaveKey)) {
+						pendingActionsRef.current.delete(leaveKey);
+						lobbyActions.clearActionLoading(leaveKey);
+					}
 					return;
 				}
 			}
@@ -143,6 +151,7 @@ export default function LobbySlot() {
 		if (lobby.contractAddress) {
 			let joinTxId;
 			const contract = lobby.contractAddress as ContractIdString;
+			const joinKey = `join-${user?.id}`;
 			try {
 				if (lobby.isSponsored) {
 					if (
@@ -186,6 +195,8 @@ export default function LobbySlot() {
 					});
 					return;
 				}
+				pendingActionsRef.current.add(joinKey);
+				lobbyActions.setActionLoading(joinKey, true);
 				await waitForTxConfirmed(
 					joinTxId,
 					ExpectedError.ERR_ALREADY_JOINED
@@ -193,6 +204,10 @@ export default function LobbySlot() {
 			} catch (err) {
 				toast.error("Contract transaction failed. Please try again.");
 				console.error("Join contract failed", err);
+				if (pendingActionsRef.current.has(joinKey)) {
+					pendingActionsRef.current.delete(joinKey);
+					lobbyActions.clearActionLoading(joinKey);
+				}
 				return;
 			}
 		}

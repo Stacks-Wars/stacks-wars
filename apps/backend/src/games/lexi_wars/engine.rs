@@ -67,6 +67,8 @@ struct LexiWarsInner {
     current_amount: Option<f64>,
     is_sponsored: bool,
     creator_id: Option<Uuid>,
+    token_symbol: Option<String>,
+    token_contract_id: Option<String>,
 
     // Game loop control - Notify is used to signal valid word submission
     turn_advance_notify: Arc<Notify>,
@@ -94,6 +96,8 @@ impl LexiWarsInner {
             current_amount: None,
             is_sponsored: false,
             creator_id: None,
+            token_symbol: None,
+            token_contract_id: None,
             turn_advance_notify: Arc::new(Notify::new()),
             state,
         }
@@ -128,12 +132,16 @@ impl LexiWarsEngine {
         current_amount: Option<f64>,
         is_sponsored: bool,
         creator_id: Uuid,
+        token_symbol: Option<String>,
+        token_contract_id: Option<String>,
     ) {
         let mut inner = self.inner.write().await;
         inner.entry_amount = entry_amount;
         inner.current_amount = current_amount;
         inner.is_sponsored = is_sponsored;
         inner.creator_id = Some(creator_id);
+        inner.token_symbol = token_symbol;
+        inner.token_contract_id = token_contract_id;
     }
 }
 
@@ -249,6 +257,8 @@ impl LexiWarsInner {
             is_sponsored: self.is_sponsored,
             creator_id: self.creator_id,
             active_players: self.turn_rotation.active_count(),
+            token_symbol: self.token_symbol.clone(),
+            token_contract_id: self.token_contract_id.clone(),
         }
     }
 
@@ -535,6 +545,24 @@ impl LexiWarsInner {
 
 #[async_trait]
 impl GameEngine for LexiWarsEngine {
+    async fn set_lobby_context(
+        &mut self,
+        entry_amount: Option<f64>,
+        current_amount: Option<f64>,
+        is_sponsored: bool,
+        creator_id: Uuid,
+        token_symbol: Option<String>,
+        token_contract_id: Option<String>,
+    ) {
+        let mut inner = self.inner.write().await;
+        inner.entry_amount = entry_amount;
+        inner.current_amount = current_amount;
+        inner.is_sponsored = is_sponsored;
+        inner.creator_id = Some(creator_id);
+        inner.token_symbol = token_symbol;
+        inner.token_contract_id = token_contract_id;
+    }
+
     async fn initialize(&mut self, player_ids: Vec<Uuid>) -> Result<Vec<Value>, AppError> {
         tracing::info!("Initializing LexiWars with {} players", player_ids.len());
 
@@ -864,6 +892,8 @@ mod tests {
             is_sponsored: false,
             creator_id: None,
             active_players: 1,
+            token_symbol: None,
+            token_contract_id: None,
         };
 
         // Base points: (participants - rank + 1) * 2

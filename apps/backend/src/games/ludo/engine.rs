@@ -71,6 +71,8 @@ struct LudoInner {
     current_amount: Option<f64>,
     is_sponsored: bool,
     creator_id: Option<Uuid>,
+    token_symbol: Option<String>,
+    token_contract_id: Option<String>,
 
     // Game loop control
     turn_advance_notify: Arc<Notify>,
@@ -97,6 +99,8 @@ impl LudoInner {
             current_amount: None,
             is_sponsored: false,
             creator_id: None,
+            token_symbol: None,
+            token_contract_id: None,
             turn_advance_notify: Arc::new(Notify::new()),
             state,
         }
@@ -131,12 +135,16 @@ impl LudoEngine {
         current_amount: Option<f64>,
         is_sponsored: bool,
         creator_id: Uuid,
+        token_symbol: Option<String>,
+        token_contract_id: Option<String>,
     ) {
         let mut inner = self.inner.write().await;
         inner.entry_amount = entry_amount;
         inner.current_amount = current_amount;
         inner.is_sponsored = is_sponsored;
         inner.creator_id = Some(creator_id);
+        inner.token_symbol = token_symbol;
+        inner.token_contract_id = token_contract_id;
     }
 }
 
@@ -202,6 +210,8 @@ impl LudoInner {
             is_sponsored: self.is_sponsored,
             creator_id: self.creator_id,
             active_players: self.turn_rotation.active_count(),
+            token_symbol: self.token_symbol.clone(),
+            token_contract_id: self.token_contract_id.clone(),
         }
     }
 
@@ -561,6 +571,24 @@ impl LudoInner {
 
 #[async_trait]
 impl GameEngine for LudoEngine {
+    async fn set_lobby_context(
+        &mut self,
+        entry_amount: Option<f64>,
+        current_amount: Option<f64>,
+        is_sponsored: bool,
+        creator_id: Uuid,
+        token_symbol: Option<String>,
+        token_contract_id: Option<String>,
+    ) {
+        let mut inner = self.inner.write().await;
+        inner.entry_amount = entry_amount;
+        inner.current_amount = current_amount;
+        inner.is_sponsored = is_sponsored;
+        inner.creator_id = Some(creator_id);
+        inner.token_symbol = token_symbol;
+        inner.token_contract_id = token_contract_id;
+    }
+
     async fn initialize(&mut self, player_ids: Vec<Uuid>) -> Result<Vec<Value>, AppError> {
         tracing::info!("Initializing Ludo with {} players", player_ids.len());
 

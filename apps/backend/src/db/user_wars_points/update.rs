@@ -84,12 +84,9 @@ impl UserWarsPointsRepository {
                 points.total_wins += 1;
             }
 
-            let pnl_addition = if let Some(entry) = entry_amount {
-                let prize_amount = prize.unwrap_or(0.0);
-                prize_amount - entry
-            } else {
-                0.0
-            };
+            let entry = entry_amount.unwrap_or(0.0);
+            let prize_amount = prize.unwrap_or(0.0);
+            let pnl_addition = prize_amount - entry;
 
             points.total_pnl += pnl_addition;
             points.win_rate = if points.total_matches > 0 {
@@ -119,12 +116,9 @@ impl UserWarsPointsRepository {
             let total_matches = 1;
             let total_wins = if is_winner { 1 } else { 0 };
 
-            let total_pnl = if let Some(entry) = entry_amount {
-                let prize_amount = prize.unwrap_or(0.0);
-                prize_amount - entry
-            } else {
-                0.0
-            };
+            let entry = entry_amount.unwrap_or(0.0);
+            let prize_amount = prize.unwrap_or(0.0);
+            let total_pnl = prize_amount - entry;
 
             let win_rate = if total_matches > 0 {
                 (total_wins as f64 / total_matches as f64) * 100.0

@@ -35,6 +35,20 @@ pub trait GameEngine: Send + Sync {
         // Default: no-op - override if game needs app state
     }
 
+    /// Set lobby context for prize/points calculation (entry amount, token info, etc.)
+    /// Should be called after creation and before initialize()
+    async fn set_lobby_context(
+        &mut self,
+        _entry_amount: Option<f64>,
+        _current_amount: Option<f64>,
+        _is_sponsored: bool,
+        _creator_id: Uuid,
+        _token_symbol: Option<String>,
+        _token_contract_id: Option<String>,
+    ) {
+        // Default: no-op - override if game needs lobby context
+    }
+
     /// Handle a player action (as JSON) and return events to broadcast (as JSON)
     async fn handle_action(&mut self, user_id: Uuid, action: Value)
     -> Result<Vec<Value>, AppError>;

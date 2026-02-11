@@ -1,6 +1,10 @@
 "use client";
 
-import { usePlayers, useJoinRequests } from "@/lib/stores/room";
+import {
+	usePlayers,
+	useJoinRequests,
+	useLobbyActions,
+} from "@/lib/stores/room";
 import { useLobby } from "@/lib/stores/room";
 import { useUser } from "@/lib/stores/user";
 import { useRoom } from "@/lib/contexts/room-context";
@@ -10,6 +14,7 @@ import { kickPlayerContract } from "@/lib/contract-utils/kick";
 import type { AssetString, ContractIdString } from "@stacks/transactions";
 import { toast } from "sonner";
 import { waitForTxConfirmed } from "@/lib/contract-utils/waitForTxConfirmed";
+import { useRef } from "react";
 
 export default function Participants() {
 	const players = usePlayers();
@@ -17,6 +22,8 @@ export default function Participants() {
 	const lobby = useLobby();
 	const user = useUser();
 	const { sendLobbyMessage } = useRoom();
+	const pendingActionsRef = useRef<Set<string>>(new Set());
+	const lobbyActions = useLobbyActions();
 
 	const isCreator = user?.id === lobby?.creatorId;
 	const acceptedPlayers = players.filter((p) => p.state === "accepted");
@@ -56,17 +63,16 @@ export default function Participants() {
 					});
 					return;
 				}
-
+				pendingActionsRef.current.add(`kick-${userId}`);
+				lobbyActions.setActionLoading(`kick-${userId}`, true);
 				await waitForTxConfirmed(kickTxId);
 			} catch (err) {
 				console.error("Kick contract failed", err);
 				toast.error("Contract transaction failed. Please try again.");
 				return;
 			}
-			sendLobbyMessage({ type: "kick", userId });
-		} else {
-			sendLobbyMessage({ type: "kick", userId });
 		}
+		sendLobbyMessage({ type: "kick", userId });
 	};
 
 	return (
