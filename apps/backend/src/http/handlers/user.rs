@@ -106,8 +106,8 @@ pub async fn create_user(
     // Create httpOnly cookie for the token
     let cookie = Cookie::build(("auth_token", token.clone()))
         .path("/")
-        .max_age(Duration::days(14)) // 14 days in seconds
-        .same_site(SameSite::None) // Allow cross-site requests
+        .max_age(Duration::days(14))
+        .same_site(SameSite::Lax)
         .http_only(true)
         .secure(true)
         .build();
@@ -356,9 +356,9 @@ pub async fn logout(
     let cookie = Cookie::build(("auth_token", ""))
         .path("/")
         .max_age(Duration::seconds(0))
-        .same_site(SameSite::None)
+        .same_site(SameSite::Lax)
         .http_only(true)
-        .secure(state.config.is_production())
+        .secure(true)
         .build();
 
     let mut response = StatusCode::NO_CONTENT.into_response();
