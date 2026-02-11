@@ -39,7 +39,7 @@ export default function Player({
 		? useIsActionLoading(rejectActionKey)
 		: false;
 	return (
-		<div className="bg-card flex items-center justify-between gap-3 rounded-xl px-3 py-3 sm:rounded-2xl sm:px-4 sm:py-4 lg:px-6">
+		<div className="flex items-center justify-between gap-3 rounded-xl border px-3 py-3 sm:rounded-2xl sm:px-4 sm:py-4 lg:px-6">
 			<Link
 				href={`/u/${player.username || player.walletAddress}`}
 				className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3"
