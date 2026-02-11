@@ -188,6 +188,35 @@ impl LobbyRepository {
         Ok(lobby)
     }
 
+    /// Decrement current amount by a specific value.
+    pub async fn decrement_current_amount(
+        &self,
+        lobby_id: Uuid,
+        amount: f64,
+        state: AppState,
+    ) -> Result<Lobby, AppError> {
+        Lobby::validate_amount(Some(amount))?;
+
+        let lobby = sqlx::query_as::<_, Lobby>(
+            r#"
+            UPDATE lobbies
+            SET current_amount = COALESCE(current_amount, 0) - $1, updated_at = $2
+            WHERE id = $3
+            RETURNING *
+            "#,
+        )
+        .bind(amount)
+        .bind(Utc::now().naive_utc())
+        .bind(lobby_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| AppError::DatabaseError(format!("Failed to decrement lobby amount: {}", e)))?;
+
+        broadcast_lobby_update(state, lobby_id).await;
+
+        Ok(lobby)
+    }
+
     /// Update token information.
     pub async fn update_token_info(
         &self,
