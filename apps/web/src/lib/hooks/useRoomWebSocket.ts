@@ -86,10 +86,6 @@ export function useRoomWebSocket({
 					const plugin = gamePluginRef.current;
 					if (plugin) {
 						const gameMsg = msg.game as { type?: string };
-						console.log(
-							`[Room] Routing game message to plugin:`,
-							gameMsg.type
-						);
 						// Call the plugin's message handler and update state
 						setGameState((prevState: unknown) =>
 							plugin.handleMessage(prevState, msg)

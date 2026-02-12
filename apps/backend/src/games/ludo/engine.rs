@@ -27,8 +27,8 @@ use super::message::{LudoAction, LudoEvent};
 // Constants
 // ============================================================================
 
-pub const TURN_TIMEOUT_SECS: u64 = 30;
-pub const ROLL_TIMEOUT_SECS: u64 = 15;
+pub const ROLL_TIMEOUT_SECS: u64 = 5;
+pub const MOVE_TIMEOUT_SECS: u64 = 15;
 
 // ============================================================================
 // Turn Phase
@@ -165,29 +165,17 @@ impl LudoInner {
             .and_then(|id| self.player_states.get(&id).cloned())
     }
 
-    /// Calculate prize for a given rank
-    fn calculate_prize(&self, rank: usize, participants: usize) -> Option<f64> {
+    /// Calculate prize for a given rank — winner takes all in Ludo
+    fn calculate_prize(&self, rank: usize, _participants: usize) -> Option<f64> {
         let total_pool = self.current_amount?;
 
         if total_pool <= 0.0 {
             return None;
         }
 
-        let prize = match rank {
-            1 => {
-                if participants == 2 {
-                    (total_pool * 70.0) / 100.0
-                } else {
-                    (total_pool * 50.0) / 100.0
-                }
-            }
-            2 => (total_pool * 30.0) / 100.0,
-            3 => (total_pool * 20.0) / 100.0,
-            _ => 0.0,
-        };
-
-        if prize > 0.0 {
-            Some(prize)
+        // Winner takes the entire pool
+        if rank == 1 {
+            Some(total_pool)
         } else {
             None
         }
@@ -232,7 +220,7 @@ impl LudoInner {
         // Broadcast Turn event to room
         let turn_event = LudoEvent::Turn {
             player: current_player_state,
-            timeout_secs: TURN_TIMEOUT_SECS,
+            timeout_secs: ROLL_TIMEOUT_SECS,
         };
         broadcast::broadcast_game_message(
             &self.state,
@@ -331,12 +319,7 @@ impl LudoInner {
             return Ok(true); // Turn advances (no moves available)
         }
 
-        // If only one pawn can move, auto-move it
-        if self.movable_pawns.len() == 1 {
-            return self.handle_move_pawn(user_id, self.movable_pawns[0]).await;
-        }
-
-        // Multiple pawns can move, wait for player choice
+        // Wait for player to choose which pawn to move (even if only one)
         self.turn_phase = TurnPhase::WaitingForMove;
         Ok(false)
     }
@@ -668,17 +651,13 @@ impl GameEngine for LudoEngine {
         };
 
         match should_advance {
-            Ok(true) => {
+            Ok(_) => {
                 // Check if game is over (someone won)
                 if inner.board.get_winner().is_some() {
                     inner.end_game().await;
-                } else {
-                    // Signal turn advance
-                    inner.turn_advance_notify.notify_one();
                 }
-            }
-            Ok(false) => {
-                // Turn continues (waiting for move or bonus turn)
+                // Always signal the game loop so it can react to phase changes
+                inner.turn_advance_notify.notify_one();
             }
             Err(e) => {
                 tracing::warn!("Ludo action error: {}", e);
@@ -694,7 +673,7 @@ impl GameEngine for LudoEngine {
         let current_player = inner.get_current_player_state();
         let turn = current_player.map(|player| LudoEvent::Turn {
             player,
-            timeout_secs: TURN_TIMEOUT_SECS,
+            timeout_secs: ROLL_TIMEOUT_SECS,
         });
 
         let game_state = serde_json::json!({
@@ -734,15 +713,11 @@ async fn run_game_loop(inner: Arc<RwLock<LudoInner>>, state: AppState) {
     };
 
     loop {
-        // Get current turn state
+        // Check if game should end
         let (is_finished, has_winner) = {
             let inner_guard = inner.read().await;
-            (
-                inner_guard.finished,
-                inner_guard.board.get_winner().is_some(),
-            )
+            (inner_guard.finished, inner_guard.board.get_winner().is_some())
         };
-
         if is_finished || has_winner {
             tracing::info!("Ludo game loop ending for lobby {}", lobby_id);
             break;
@@ -754,77 +729,19 @@ async fn run_game_loop(inner: Arc<RwLock<LudoInner>>, state: AppState) {
             inner_guard.start_turn().await;
         }
 
-        // Countdown loop
-        let mut time_remaining = TURN_TIMEOUT_SECS;
-
-        while time_remaining > 0 {
-            // Broadcast countdown
-            let countdown_event = LudoEvent::Countdown {
-                time: time_remaining,
-            };
-            broadcast::broadcast_game_message(
-                &state,
-                lobby_id,
-                serde_json::to_value(&countdown_event).unwrap_or_default(),
-            )
-            .await;
-
-            // Wait for either: turn completion notification or 1 second timeout
-            let wait_result = tokio::time::timeout(
-                std::time::Duration::from_secs(1),
-                turn_advance_notify.notified(),
-            )
-            .await;
-
-            // Check if turn was completed
-            let turn_complete = {
-                let inner_guard = inner.read().await;
-                inner_guard.turn_phase == TurnPhase::Complete
-            };
-
-            if wait_result.is_ok() || turn_complete {
-                break;
-            }
-
-            time_remaining -= 1;
-        }
-
-        // Check if we timed out
-        let (turn_phase, current_player_id) = {
-            let inner_guard = inner.read().await;
-            (inner_guard.turn_phase, inner_guard.turn_rotation.current_player())
-        };
-
-        if turn_phase != TurnPhase::Complete {
-            // Player timed out - auto-action based on phase
-            let mut inner_guard = inner.write().await;
-
-            if let Some(player_id) = current_player_id {
-                match inner_guard.turn_phase {
-                    TurnPhase::WaitingForRoll => {
-                        // Auto-roll dice
-                        let _ = inner_guard.handle_roll_dice(player_id).await;
-                    }
-                    TurnPhase::WaitingForMove => {
-                        // Auto-move first available pawn
-                        if let Some(&pawn_id) = inner_guard.movable_pawns.first() {
-                            let _ = inner_guard.handle_move_pawn(player_id, pawn_id).await;
-                        }
-                    }
-                    TurnPhase::Complete => {}
-                }
-            }
-        }
+        // Run the turn (handles bonus turns from rolling 6)
+        run_turn(&inner, &state, &turn_advance_notify, lobby_id).await;
 
         // Check if game ended
         let has_winner = {
             let inner_guard = inner.read().await;
             inner_guard.board.get_winner().is_some()
         };
-
         if has_winner {
             let mut inner_guard = inner.write().await;
-            inner_guard.end_game().await;
+            if !inner_guard.finished {
+                inner_guard.end_game().await;
+            }
             break;
         }
 
@@ -837,6 +754,160 @@ async fn run_game_loop(inner: Arc<RwLock<LudoInner>>, state: AppState) {
             }
         }
     }
+}
+
+/// Run a single turn (including bonus turns from rolling 6)
+async fn run_turn(
+    inner: &Arc<RwLock<LudoInner>>,
+    state: &AppState,
+    notify: &Arc<Notify>,
+    lobby_id: Uuid,
+) {
+    loop {
+        // --- Phase 1: Wait for dice roll (ROLL_TIMEOUT_SECS) ---
+        let phase_after = run_phase_countdown(
+            inner, state, notify, lobby_id,
+            ROLL_TIMEOUT_SECS,
+            TurnPhase::WaitingForRoll,
+        ).await;
+
+        // If still waiting for roll after timeout, auto-roll
+        if phase_after == TurnPhase::WaitingForRoll {
+            let mut inner_guard = inner.write().await;
+            if let Some(player_id) = inner_guard.turn_rotation.current_player() {
+                let _ = inner_guard.handle_roll_dice(player_id).await;
+            }
+        }
+
+        // Re-check phase after (auto-)roll
+        let phase = {
+            let inner_guard = inner.read().await;
+            inner_guard.turn_phase
+        };
+
+        // If no valid moves or 3-sixes, turn is done
+        if phase == TurnPhase::Complete {
+            break;
+        }
+
+        // Check if game ended (winner detected during auto-roll)
+        let finished = {
+            let inner_guard = inner.read().await;
+            inner_guard.finished || inner_guard.board.get_winner().is_some()
+        };
+        if finished {
+            break;
+        }
+
+        if phase == TurnPhase::WaitingForMove {
+            // --- Phase 2: Wait for pawn move (MOVE_TIMEOUT_SECS) ---
+            let phase_after = run_phase_countdown(
+                inner, state, notify, lobby_id,
+                MOVE_TIMEOUT_SECS,
+                TurnPhase::WaitingForMove,
+            ).await;
+
+            // If still waiting for move after timeout, auto-move first available pawn
+            if phase_after == TurnPhase::WaitingForMove {
+                let mut inner_guard = inner.write().await;
+                if let Some(player_id) = inner_guard.turn_rotation.current_player() {
+                    if let Some(&pawn_id) = inner_guard.movable_pawns.first() {
+                        let _ = inner_guard.handle_move_pawn(player_id, pawn_id).await;
+                    }
+                }
+            }
+        }
+
+        // Check if game ended
+        let finished = {
+            let inner_guard = inner.read().await;
+            inner_guard.finished || inner_guard.board.get_winner().is_some()
+        };
+        if finished {
+            break;
+        }
+
+        // Check if bonus turn (rolled 6 → phase went back to WaitingForRoll)
+        let phase = {
+            let inner_guard = inner.read().await;
+            inner_guard.turn_phase
+        };
+
+        if phase == TurnPhase::WaitingForRoll {
+            // Bonus turn — loop back to roll phase
+            continue;
+        }
+
+        // Turn complete
+        break;
+    }
+}
+
+/// Run countdown for a specific phase.
+/// Returns the current TurnPhase when the countdown ends (either by phase change or timeout).
+async fn run_phase_countdown(
+    inner: &Arc<RwLock<LudoInner>>,
+    state: &AppState,
+    notify: &Arc<Notify>,
+    lobby_id: Uuid,
+    timeout_secs: u64,
+    expected_phase: TurnPhase,
+) -> TurnPhase {
+    let mut time_remaining = timeout_secs;
+
+    while time_remaining > 0 {
+        // Broadcast countdown
+        let countdown_event = LudoEvent::Countdown {
+            time: time_remaining,
+        };
+        broadcast::broadcast_game_message(
+            state,
+            lobby_id,
+            serde_json::to_value(&countdown_event).unwrap_or_default(),
+        )
+        .await;
+
+        // Wait for notification or 1 second tick
+        let _ = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            notify.notified(),
+        )
+        .await;
+
+        // Check if phase changed (player acted, or game ended)
+        let current_phase = {
+            let inner_guard = inner.read().await;
+            inner_guard.turn_phase
+        };
+
+        if current_phase != expected_phase {
+            return current_phase;
+        }
+
+        // Also check if game is finished
+        let finished = {
+            let inner_guard = inner.read().await;
+            inner_guard.finished
+        };
+        if finished {
+            return TurnPhase::Complete;
+        }
+
+        time_remaining -= 1;
+    }
+
+    // Broadcast 0 so clients see timer expire
+    let countdown_event = LudoEvent::Countdown { time: 0 };
+    broadcast::broadcast_game_message(
+        state,
+        lobby_id,
+        serde_json::to_value(&countdown_event).unwrap_or_default(),
+    )
+    .await;
+
+    // Return the current phase (unchanged = timed out)
+    let inner_guard = inner.read().await;
+    inner_guard.turn_phase
 }
 
 // ============================================================================
@@ -855,38 +926,26 @@ pub fn create_ludo(lobby_id: Uuid, state: AppState) -> Box<dyn GameEngine> {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn test_prize_calculation() {
+    fn test_prize_calculation_winner_takes_all() {
         let total_pool = 100.0;
 
-        // Helper to calculate prize
-        let calc_prize = |rank: usize, participants: usize| -> Option<f64> {
-            let prize = match rank {
-                1 => {
-                    if participants == 2 {
-                        (total_pool * 70.0) / 100.0
-                    } else {
-                        (total_pool * 50.0) / 100.0
-                    }
-                }
-                2 => (total_pool * 30.0) / 100.0,
-                3 => (total_pool * 20.0) / 100.0,
-                _ => 0.0,
-            };
-            if prize > 0.0 {
-                Some(prize)
+        // Winner takes all — only rank 1 gets prize
+        let calc_prize = |rank: usize| -> Option<f64> {
+            if rank == 1 {
+                Some(total_pool)
             } else {
                 None
             }
         };
 
         // 4 players
-        assert_eq!(calc_prize(1, 4), Some(50.0));
-        assert_eq!(calc_prize(2, 4), Some(30.0));
-        assert_eq!(calc_prize(3, 4), Some(20.0));
-        assert_eq!(calc_prize(4, 4), None);
+        assert_eq!(calc_prize(1), Some(100.0));
+        assert_eq!(calc_prize(2), None);
+        assert_eq!(calc_prize(3), None);
+        assert_eq!(calc_prize(4), None);
 
-        // 2 players
-        assert_eq!(calc_prize(1, 2), Some(70.0));
-        assert_eq!(calc_prize(2, 2), Some(30.0));
+        // 2 players — same rule
+        assert_eq!(calc_prize(1), Some(100.0));
+        assert_eq!(calc_prize(2), None);
     }
 }

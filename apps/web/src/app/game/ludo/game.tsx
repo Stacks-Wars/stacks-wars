@@ -14,6 +14,7 @@ import { usePlayers } from "@/lib/stores/room";
 import { cn, displayUserIdentifier } from "@/lib/utils";
 import RoomHeader from "@/components/room/room-header";
 import ChatDialog from "@/components/room/chat";
+import Image from "next/image";
 import { Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, Move } from "lucide-react";
 
 // Dice icons mapping
@@ -69,26 +70,15 @@ export default function LudoGame({
 	const canRoll = isMyTurn && state.turnPhase === "WaitingForRoll";
 	const canMove = isMyTurn && state.turnPhase === "WaitingForMove";
 
-	// Get my player index for the board
-	const myPlayerIndex = state.board?.players.findIndex(
-		(p) => p.userId === user?.id
-	);
+	// Get my playerIndex from the board
+	const myPlayerIndex =
+		state.board?.players.find((p) => p.userId === user?.id)?.playerIndex ??
+		-1;
 
 	// Map userId to PlayerState for display names
 	const getPlayerInfo = (userId: string): PlayerState | undefined => {
 		return roomPlayers.find((p) => p.userId === userId);
 	};
-
-	// Debug logging
-	console.log("[Ludo Debug]", {
-		isMyTurn,
-		canMove,
-		turnPhase: state.turnPhase,
-		movablePawns: state.movablePawns,
-		selectedPawnId,
-		currentDice: state.currentDice,
-		myPlayerIndex,
-	});
 
 	const handleRollDice = () => {
 		if (!canRoll) return;
@@ -97,128 +87,37 @@ export default function LudoGame({
 	};
 
 	const handleSelectPawn = (pawnId: number) => {
-		console.log("[Ludo] Attempting to select pawn:", pawnId, {
-			canMove,
-			movablePawns: state.movablePawns,
-			includes: state.movablePawns.includes(pawnId),
-		});
 		if (!canMove || !state.movablePawns.includes(pawnId)) return;
 		setSelectedPawnId(pawnId);
 	};
 
 	const handleConfirmMove = () => {
 		if (!canMove || selectedPawnId === null) return;
-		sendMessage("movePawn", selectedPawnId);
+		sendMessage("movePawn", { pawnId: selectedPawnId });
 		setSelectedPawnId(null);
 	};
-
-	// Timer color based on time remaining
-	const timerColor =
-		state.timeRemaining <= 5 && isMyTurn
-			? "text-red-500"
-			: state.timeRemaining <= 10 && isMyTurn
-				? "text-yellow-500"
-				: "text-primary";
 
 	// Get dice icon component
 	const DiceIcon = state.currentDice
 		? DiceIcons[state.currentDice - 1]
 		: Dice1;
 
+	// Current player color
+	const currentPlayerColor = state.board
+		? PLAYER_COLOR_CLASSES[
+				getPlayerColor(
+					state.board.players.find(
+						(p) => p.userId === state.currentPlayer?.userId
+					)?.playerIndex ?? 0
+				)
+			]
+		: null;
+
 	return (
 		<>
 			<RoomHeader />
-			<div className="mx-auto max-w-4xl space-y-4 px-4 py-4">
-				{/* Turn Indicator with Timer */}
-				<div
-					className={cn(
-						"rounded-lg border p-4 transition-all",
-						isMyTurn
-							? "border-primary bg-primary/10 animate-pulse"
-							: "bg-card"
-					)}
-				>
-					{state.currentPlayer ? (
-						<div className="flex items-center justify-between">
-							<div className="flex items-center gap-3">
-								{/* Current player color indicator */}
-								{state.board && (
-									<div
-										className={cn(
-											"h-10 w-10 rounded-full",
-											PLAYER_COLOR_CLASSES[
-												getPlayerColor(
-													state.board.players.findIndex(
-														(p) =>
-															p.userId ===
-															state.currentPlayer
-																?.userId
-													)
-												)
-											]?.bg
-										)}
-									/>
-								)}
-								<div>
-									<p
-										className={cn(
-											"text-sm font-medium",
-											isMyTurn
-												? "text-primary"
-												: "text-muted-foreground"
-										)}
-									>
-										{isMyTurn
-											? "🎲 Your Turn!"
-											: "Current Turn"}
-									</p>
-									<p className="text-lg font-semibold">
-										{displayUserIdentifier(
-											state.currentPlayer
-										)}
-									</p>
-									{isMyTurn && (
-										<p className="text-muted-foreground mt-1 text-xs">
-											{state.turnPhase ===
-											"WaitingForRoll"
-												? "Roll the dice!"
-												: state.turnPhase ===
-													  "WaitingForMove"
-													? selectedPawnId !== null
-														? "Press Move to confirm"
-														: "Select a pawn to move"
-													: "Processing..."}
-										</p>
-									)}
-								</div>
-							</div>
-							<div className="flex items-center gap-4">
-								{/* Timer */}
-								<div
-									className={cn(
-										"flex h-14 w-14 items-center justify-center rounded-full border-2 text-xl font-bold transition-colors",
-										state.timeRemaining <= 5 && isMyTurn
-											? "border-red-500 bg-red-500/10"
-											: state.timeRemaining <= 10 &&
-												  isMyTurn
-												? "border-yellow-500 bg-yellow-500/10"
-												: "border-primary bg-primary/10"
-									)}
-								>
-									<span className={timerColor}>
-										{state.timeRemaining}
-									</span>
-								</div>
-							</div>
-						</div>
-					) : (
-						<p className="text-muted-foreground text-center">
-							Waiting for game to start...
-						</p>
-					)}
-				</div>
-
-				{/* Ludo Board with Center Dice */}
+			<div className="mx-auto max-w-4xl space-y-3 py-6">
+				{/* Ludo Board */}
 				<LudoBoard
 					board={state.board}
 					myPlayerIndex={myPlayerIndex ?? -1}
@@ -226,24 +125,119 @@ export default function LudoGame({
 					selectedPawnId={selectedPawnId}
 					onPawnSelect={handleSelectPawn}
 					getPlayerInfo={getPlayerInfo}
-					currentPlayerId={state.currentPlayer?.userId}
 					isMyTurn={isMyTurn}
 					canRoll={canRoll}
 					canMove={canMove}
 					currentDice={state.currentDice}
 					onRollDice={handleRollDice}
-					onConfirmMove={handleConfirmMove}
 				/>
+
+				{/* Player Legend — outside board, below it */}
+				{state.board && (
+					<div className="flex flex-wrap justify-center gap-3">
+						{state.board.players.map((player) => {
+							const playerInfo = getPlayerInfo(player.userId);
+							const color = getPlayerColor(player.playerIndex);
+							const colorClasses = PLAYER_COLOR_CLASSES[color];
+							const isCurrentTurn =
+								state.currentPlayer?.userId === player.userId;
+
+							return (
+								<div
+									key={player.playerIndex}
+									className={cn(
+										"flex items-center gap-2 rounded-full border px-3 py-1 text-xs",
+										colorClasses.borderLight,
+										isCurrentTurn && "ring-2 ring-offset-1",
+										isCurrentTurn && colorClasses.ring
+									)}
+								>
+									<div
+										className={cn(
+											"h-3 w-3 rounded-full",
+											colorClasses.bg
+										)}
+									/>
+									<span>
+										{player.userId === user?.id
+											? "You"
+											: playerInfo
+												? displayUserIdentifier(playerInfo)
+												: `Player ${player.playerIndex + 1}`}
+									</span>
+									<span className="text-muted-foreground">
+										(
+										{player.pawns?.filter(
+											(p) =>
+												p.position.type === "finished"
+										).length ?? 0}
+										/4)
+									</span>
+								</div>
+							);
+						})}
+					</div>
+				)}
+			</div>
+
+			{/* Fixed bottom bar: Move button or Turn indicator */}
+			<div className="pointer-events-none fixed right-0 bottom-0 left-0 z-40 flex justify-center pb-5">
+				{canMove && selectedPawnId !== null ? (
+					<button
+						onClick={handleConfirmMove}
+						className="pointer-events-auto flex items-center gap-2 rounded-full bg-green-500 px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
+					>
+						<Move className="h-4 w-4" />
+						Move Pawn {selectedPawnId + 1}
+					</button>
+				) : state.currentPlayer ? (
+					<div
+						className={cn(
+							"pointer-events-auto flex items-center gap-3 rounded-full border px-4 py-2 shadow-lg backdrop-blur-md",
+							isMyTurn
+								? "border-primary bg-primary/10"
+								: "bg-card/90 border-border"
+						)}
+					>
+						{currentPlayerColor && (
+							<div
+								className={cn(
+									"h-5 w-5 rounded-full",
+									currentPlayerColor.bg
+								)}
+							/>
+						)}
+						<p className="text-sm font-semibold">
+							{isMyTurn
+								? "Your turn"
+								: `Waiting for ${displayUserIdentifier(state.currentPlayer)}`}
+						</p>
+						{isMyTurn && (
+							<span
+								className={cn(
+									"text-xs tabular-nums",
+									state.timeRemaining <= 3
+										? "text-red-500"
+										: "text-muted-foreground"
+								)}
+							>
+								· Auto{" "}
+								{state.turnPhase === "WaitingForRoll"
+									? "roll"
+									: "play"}{" "}
+								in {state.timeRemaining}s
+							</span>
+						)}
+					</div>
+				) : null}
 			</div>
 
 			{/* Floating Chat Button */}
-			<div className="pointer-events-none fixed right-0 bottom-6 left-0 z-40">
-				<div className="container mx-auto flex max-w-4xl justify-end px-4">
-					<ChatDialog
-						buttonVariant="default"
-						buttonClassName="size-12 shadow-lg pointer-events-auto"
-					/>
-				</div>
+			<div className="pointer-events-none fixed right-4 bottom-5 z-50">
+				<ChatDialog
+					buttonVariant="default"
+					buttonClassName="size-12 shadow-lg pointer-events-auto"
+				/>
 			</div>
 		</>
 	);
@@ -260,13 +254,11 @@ interface LudoBoardProps {
 	selectedPawnId: number | null;
 	onPawnSelect: (pawnId: number) => void;
 	getPlayerInfo: (userId: string) => PlayerState | undefined;
-	currentPlayerId?: string;
 	isMyTurn: boolean;
 	canRoll: boolean;
 	canMove: boolean;
 	currentDice: number | null;
 	onRollDice: () => void;
-	onConfirmMove: () => void;
 }
 
 // Board layout: 15x15 grid
@@ -350,32 +342,28 @@ const HOME_STRETCH_COORDS: Record<number, [number, number][]> = {
 		[7, 3],
 		[7, 4],
 		[7, 5],
-		[7, 6],
-	], // Red - going down
+	], // Red - going right toward center
 	1: [
 		[1, 7],
 		[2, 7],
 		[3, 7],
 		[4, 7],
 		[5, 7],
-		[6, 7],
-	], // Green - going right
+	], // Green - going down toward center
 	2: [
 		[7, 13],
 		[7, 12],
 		[7, 11],
 		[7, 10],
 		[7, 9],
-		[7, 8],
-	], // Yellow - going up
+	], // Yellow - going left toward center
 	3: [
 		[13, 7],
 		[12, 7],
 		[11, 7],
 		[10, 7],
 		[9, 7],
-		[8, 7],
-	], // Blue - going left
+	], // Blue - going up toward center
 };
 
 function LudoBoard({
@@ -385,13 +373,11 @@ function LudoBoard({
 	selectedPawnId,
 	onPawnSelect,
 	getPlayerInfo,
-	currentPlayerId,
 	isMyTurn,
 	canRoll,
 	canMove,
 	currentDice,
 	onRollDice,
-	onConfirmMove,
 }: LudoBoardProps) {
 	if (!board) {
 		return (
@@ -440,10 +426,10 @@ function LudoBoard({
 	const DiceIcon = currentDice ? DiceIcons[currentDice - 1] : Dice1;
 
 	return (
-		<div className="bg-card rounded-xl border-2 p-2 sm:p-4">
+		<div className="mx-auto w-full max-w-125">
 			{/* 15x15 Grid Board */}
-			<div className="relative mx-auto aspect-square w-full max-w-125">
-				<div className="grid h-full w-full grid-cols-15 grid-rows-15 gap-px rounded-lg bg-slate-800 p-1">
+			<div className="relative aspect-square w-full">
+				<div className="grid h-full w-full grid-cols-15 grid-rows-15 overflow-hidden rounded-lg border-2 border-slate-700">
 					{Array.from({ length: 15 * 15 }, (_, idx) => {
 						const row = Math.floor(idx / 15);
 						const col = idx % 15;
@@ -468,108 +454,40 @@ function LudoBoard({
 					})}
 				</div>
 
-				{/* Center Dice/Move Button - Only shown when it's my turn */}
-				{isMyTurn && (
-					<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-						<div className="pointer-events-auto flex flex-col items-center gap-2">
-							{canRoll ? (
-								<button
-									onClick={onRollDice}
-									className="flex h-16 w-16 animate-bounce items-center justify-center rounded-xl border-4 border-white bg-linear-to-br from-slate-700 to-slate-900 shadow-xl transition-transform hover:scale-110 active:scale-95 sm:h-20 sm:w-20"
-								>
-									<Dice1 className="h-8 w-8 text-white sm:h-10 sm:w-10" />
-								</button>
-							) : canMove ? (
-								<>
-									{/* Show dice result */}
-									<div className="flex h-14 w-14 items-center justify-center rounded-xl border-4 border-white bg-linear-to-br from-slate-700 to-slate-900 shadow-xl sm:h-16 sm:w-16">
-										<DiceIcon
-											className={cn(
-												"h-7 w-7 sm:h-9 sm:w-9",
-												currentDice === 6
-													? "text-yellow-400"
-													: "text-white"
-											)}
-										/>
-									</div>
-									{/* Move button - only visible when pawn is selected */}
-									{selectedPawnId !== null && (
-										<button
-											onClick={onConfirmMove}
-											className="flex items-center gap-1 rounded-full bg-green-500 px-4 py-2 text-sm font-bold text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
-										>
-											<Move className="h-4 w-4" />
-											Move
-										</button>
-									)}
-								</>
-							) : currentDice ? (
-								<div className="flex h-14 w-14 items-center justify-center rounded-xl border-4 border-white bg-linear-to-br from-slate-700 to-slate-900 opacity-70 shadow-xl sm:h-16 sm:w-16">
-									<DiceIcon
-										className={cn(
-											"h-7 w-7 sm:h-9 sm:w-9",
-											currentDice === 6
-												? "text-yellow-400"
-												: "text-white"
-										)}
-									/>
-								</div>
-							) : null}
-						</div>
-					</div>
-				)}
-			</div>
-
-			{/* Player Legend */}
-			<div className="mt-4 flex flex-wrap justify-center gap-3">
-				{[0, 1, 2, 3].map((playerIndex) => {
-					const player = getPlayer(playerIndex);
-					const playerInfo = player
-						? getPlayerInfo(player.userId)
-						: undefined;
-					const color = getPlayerColor(playerIndex);
-					const colorClasses = PLAYER_COLOR_CLASSES[color];
-					const isActive = !!player;
-					const isCurrentTurn =
-						player && currentPlayerId === player.userId;
-
-					return (
-						<div
-							key={playerIndex}
-							className={cn(
-								"flex items-center gap-2 rounded-full border px-3 py-1 text-xs",
-								isActive
-									? colorClasses.borderLight
-									: "border-muted",
-								isCurrentTurn && "ring-2 ring-offset-1",
-								isCurrentTurn && colorClasses.ring
-							)}
+				{/* Center overlay: logo when idle, dice when rolling/moving */}
+				<div className="pointer-events-none absolute top-1/2 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
+					{canRoll ? (
+						<button
+							onClick={onRollDice}
+							className="pointer-events-auto flex animate-bounce flex-col items-center justify-center gap-1 rounded-xl border-4 border-white bg-linear-to-br from-slate-700 to-slate-900 px-4 py-3 shadow-xl transition-transform hover:scale-110 active:scale-95"
 						>
-							<div
+							<Dice1 className="h-6 w-6 text-white sm:h-8 sm:w-8" />
+							<span className="text-[10px] font-semibold text-white/90 sm:text-xs">
+								Tap to roll
+							</span>
+						</button>
+					) : canMove ? (
+						<div className="flex items-center justify-center rounded-xl border-4 border-white bg-linear-to-br from-slate-700 to-slate-900 p-3 shadow-xl">
+							<DiceIcon
 								className={cn(
-									"h-3 w-3 rounded-full",
-									isActive ? colorClasses.bg : "bg-muted"
+									"h-8 w-8 sm:h-10 sm:w-10",
+									currentDice === 6
+										? "text-yellow-400"
+										: "text-white"
 								)}
 							/>
-							<span
-								className={
-									isActive ? "" : "text-muted-foreground"
-								}
-							>
-								{isActive
-									? playerInfo
-										? displayUserIdentifier(playerInfo)
-										: `Player ${playerIndex + 1}`
-									: "Empty"}
-							</span>
-							{isActive && (
-								<span className="text-muted-foreground">
-									({player?.pawnsFinished || 0}/4)
-								</span>
-							)}
 						</div>
-					);
-				})}
+					) : (
+						/* Logo in center when idle */
+						<Image
+							src="/logo.svg"
+							alt="Logo"
+							width={40}
+							height={40}
+							className="opacity-40"
+						/>
+					)}
+				</div>
 			</div>
 		</div>
 	);
@@ -632,7 +550,7 @@ function BoardCell({
 	}
 
 	if (cellType.type === "center") {
-		return <div className="bg-linear-to-br from-slate-700 to-slate-800" />;
+		return <div className="bg-slate-800" />;
 	}
 
 	if (cellType.type === "track") {
@@ -710,21 +628,21 @@ function getCellType(row: number, col: number): CellType {
 		return { type: "center" };
 	}
 
-	// Home stretches
-	// Red home stretch (row 7, cols 1-6)
-	if (row === 7 && col >= 1 && col <= 6) {
+	// Home stretches (5 cells each, positions 0-4, stop before center)
+	// Red home stretch (row 7, cols 1-5)
+	if (row === 7 && col >= 1 && col <= 5) {
 		return { type: "homeStretch", playerIndex: 0, position: col - 1 };
 	}
-	// Green home stretch (col 7, rows 1-6)
-	if (col === 7 && row >= 1 && row <= 6) {
+	// Green home stretch (col 7, rows 1-5)
+	if (col === 7 && row >= 1 && row <= 5) {
 		return { type: "homeStretch", playerIndex: 1, position: row - 1 };
 	}
-	// Yellow home stretch (row 7, cols 8-13)
-	if (row === 7 && col >= 8 && col <= 13) {
+	// Yellow home stretch (row 7, cols 9-13)
+	if (row === 7 && col >= 9 && col <= 13) {
 		return { type: "homeStretch", playerIndex: 2, position: 13 - col };
 	}
-	// Blue home stretch (col 7, rows 8-13)
-	if (col === 7 && row >= 8 && row <= 13) {
+	// Blue home stretch (col 7, rows 9-13)
+	if (col === 7 && row >= 9 && row <= 13) {
 		return { type: "homeStretch", playerIndex: 3, position: 13 - row };
 	}
 
@@ -905,20 +823,8 @@ function HomeCell({
 			pawn &&
 			myPlayerIndex === playerIndex &&
 			movablePawns.includes(pawn.id);
-		const isSelected = pawn && selectedPawnId === pawn.id;
-
-		// Debug logging
-		if (pawn) {
-			console.log("[HomeCell Debug]", {
-				slotKey,
-				slotPawnId,
-				pawnId: pawn.id,
-				playerIndex,
-				myPlayerIndex,
-				isMovable,
-				movablePawns,
-			});
-		}
+		const isSelected =
+			pawn && myPlayerIndex === playerIndex && selectedPawnId === pawn.id;
 
 		return (
 			<div
@@ -929,21 +835,22 @@ function HomeCell({
 			>
 				{pawn ? (
 					<button
+						type="button"
 						onClick={() => {
-							console.log("[HomeCell] Click on pawn:", pawn.id, {
-								isMovable,
-							});
 							if (isMovable) onPawnSelect(pawn.id);
 						}}
-						disabled={!isMovable}
+						aria-disabled={!isMovable}
 						className={cn(
-							"flex h-[80%] w-[80%] items-center justify-center rounded-full border-2 border-white bg-white text-xs font-bold shadow-md transition-all",
+							"flex h-[80%] w-[80%] items-center justify-center rounded-full border-2 border-white bg-white text-xs font-bold shadow-md transition-all select-none",
 							color === "yellow"
 								? "text-yellow-600"
 								: colorClasses.text,
 							isMovable && "cursor-pointer hover:scale-110",
-							isSelected && "scale-110 ring-4 ring-green-400",
-							isMovable && !isSelected && "animate-pulse"
+							!isMovable && "cursor-default",
+							isSelected && "scale-110 ring-4 ring-amber-400",
+							isMovable &&
+								!isSelected &&
+								"animate-pulse shadow-[0_0_16px_rgba(56,189,248,0.8)] ring-4 ring-sky-400 ring-offset-2 ring-offset-slate-800"
 						)}
 					>
 						{pawn.id + 1}
@@ -1001,57 +908,77 @@ function TrackCell({
 	return (
 		<div
 			className={cn(
-				"flex items-center justify-center",
+				"flex items-center justify-center border border-slate-200",
 				isStart && startColor ? startColor.bg : "bg-white",
 				isSafe && !isStart && "bg-yellow-100"
 			)}
 		>
-			{pawns.length > 0 ? (
-				<div className="relative flex items-center justify-center">
-					{pawns.slice(0, 1).map(({ pawn, player }) => {
+			{pawns.length > 0
+				? (() => {
+						// Sort: current player's movable pawns first, then current player's other pawns, then opponents
+						const sorted = [...pawns].sort((a, b) => {
+							const aIsMine =
+								a.player.playerIndex === myPlayerIndex ? 1 : 0;
+							const bIsMine =
+								b.player.playerIndex === myPlayerIndex ? 1 : 0;
+							if (aIsMine !== bIsMine) return bIsMine - aIsMine;
+							const aMovable = movablePawns.includes(a.pawn.id)
+								? 1
+								: 0;
+							const bMovable = movablePawns.includes(b.pawn.id)
+								? 1
+								: 0;
+							return bMovable - aMovable;
+						});
+						const top = sorted[0];
+						const { pawn, player } = top;
 						const color = getPlayerColor(player.playerIndex);
 						const colorClasses = PLAYER_COLOR_CLASSES[color];
 						const isMyPawn = player.playerIndex === myPlayerIndex;
 						const isMovable =
 							isMyPawn && movablePawns.includes(pawn.id);
-						const isSelected = selectedPawnId === pawn.id;
+						const isSelected =
+							isMyPawn && selectedPawnId === pawn.id;
 
 						return (
-							<button
-								key={`${player.userId}-${pawn.id}`}
-								onClick={() =>
-									isMovable && onPawnSelect(pawn.id)
-								}
-								disabled={!isMovable}
-								className={cn(
-									"flex h-[85%] w-[85%] items-center justify-center rounded-full text-[9px] font-bold shadow-sm transition-all",
-									colorClasses.bg,
-									color === "yellow"
-										? "text-black"
-										: "text-white",
-									isMovable &&
-										"cursor-pointer hover:scale-110",
-									isSelected &&
-										"scale-110 ring-4 ring-green-400",
-									isMovable && !isSelected && "animate-pulse"
-								)}
-							>
-								{pawn.id + 1}
-								{pawns.length > 1 && (
-									<span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-black text-[6px] text-white">
-										{pawns.length}
-									</span>
-								)}
-							</button>
+							<div className="relative flex items-center justify-center">
+								<button
+									type="button"
+									key={`${player.userId}-${pawn.id}`}
+									onClick={() => {
+										if (isMovable) onPawnSelect(pawn.id);
+									}}
+									aria-disabled={!isMovable}
+									className={cn(
+										"flex aspect-square min-h-4 w-[85%] min-w-4 items-center justify-center rounded-full border-2 bg-white text-[9px] font-bold shadow-sm transition-all select-none",
+										colorClasses.border,
+										color === "yellow"
+											? "text-yellow-600"
+											: colorClasses.text,
+										isMovable &&
+											"cursor-pointer hover:scale-110",
+										!isMovable && "cursor-default",
+										isSelected &&
+											"scale-110 ring-4 ring-amber-400",
+										isMovable &&
+											!isSelected &&
+											"animate-pulse shadow-[0_0_16px_rgba(56,189,248,0.8)] ring-4 ring-sky-400 ring-offset-1"
+									)}
+								>
+									{pawn.id + 1}
+									{pawns.length > 1 && (
+										<span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-black text-[6px] text-white">
+											{pawns.length}
+										</span>
+									)}
+								</button>
+							</div>
 						);
-					})}
-				</div>
-			) : (
-				isSafe &&
-				!isStart && (
-					<span className="text-[8px] text-yellow-600">★</span>
-				)
-			)}
+					})()
+				: isSafe &&
+					!isStart && (
+						<span className="text-[8px] text-yellow-600">★</span>
+					)}
 		</div>
 	);
 }
@@ -1084,34 +1011,60 @@ function HomeStretchCell({
 
 	return (
 		<div
-			className={cn(colorClasses.bg, "flex items-center justify-center")}
+			className={cn(
+				colorClasses.bg,
+				"flex items-center justify-center border",
+				colorClasses.border
+			)}
 		>
 			{pawns.length > 0 ? (
-				pawns.slice(0, 1).map(({ pawn }) => {
+				(() => {
+					// Sort: movable pawns first so they're always visible & clickable
+					const sorted = [...pawns].sort((a, b) => {
+						const aMovable = movablePawns.includes(a.pawn.id)
+							? 1
+							: 0;
+						const bMovable = movablePawns.includes(b.pawn.id)
+							? 1
+							: 0;
+						return bMovable - aMovable;
+					});
+					const { pawn } = sorted[0];
 					const isMyPawn = playerIndex === myPlayerIndex;
 					const isMovable =
 						isMyPawn && movablePawns.includes(pawn.id);
-					const isSelected = selectedPawnId === pawn.id;
+					const isSelected = isMyPawn && selectedPawnId === pawn.id;
 
 					return (
 						<button
+							type="button"
 							key={pawn.id}
-							onClick={() => isMovable && onPawnSelect(pawn.id)}
-							disabled={!isMovable}
+							onClick={() => {
+								if (isMovable) onPawnSelect(pawn.id);
+							}}
+							aria-disabled={!isMovable}
 							className={cn(
-								"flex h-[80%] w-[80%] items-center justify-center rounded-full border-2 border-white bg-white text-[9px] font-bold shadow-sm transition-all",
+								"relative flex aspect-square min-h-4 w-[80%] min-w-4 items-center justify-center rounded-full border-2 border-white bg-white text-[9px] font-bold shadow-sm transition-all select-none",
 								color === "yellow"
 									? "text-yellow-600"
 									: colorClasses.text,
 								isMovable && "cursor-pointer hover:scale-110",
-								isSelected && "scale-110 ring-4 ring-green-400",
-								isMovable && !isSelected && "animate-pulse"
+								!isMovable && "cursor-default",
+								isSelected && "scale-110 ring-4 ring-amber-400",
+								isMovable &&
+									!isSelected &&
+									"animate-pulse shadow-[0_0_16px_rgba(56,189,248,0.8)] ring-4 ring-sky-400 ring-offset-1"
 							)}
 						>
 							{pawn.id + 1}
+							{pawns.length > 1 && (
+								<span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-black text-[6px] text-white">
+									{pawns.length}
+								</span>
+							)}
 						</button>
 					);
-				})
+				})()
 			) : (
 				<div className="h-[50%] w-[50%] rounded-full bg-white/30" />
 			)}
