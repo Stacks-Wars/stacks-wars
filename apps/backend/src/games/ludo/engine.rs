@@ -478,6 +478,135 @@ impl LudoInner {
         Ok(true) // Turn advances
     }
 
+    /// Eliminate a player (called when they quit)
+    async fn eliminate_player(&mut self, player_id: Uuid, reason: &str) {
+        let remaining = self.turn_rotation.active_count();
+        let rank = remaining;
+        let prize = self.calculate_prize(rank, self.total_players);
+
+        self.turn_rotation.eliminate_player(player_id);
+
+        if let Some(player) = self.players.get_mut(&player_id) {
+            player.eliminate();
+        }
+
+        // Save result
+        let ctx = self.build_wars_point_context(player_id, rank, prize);
+        let wars_point = match save_player_result(&self.state, self.lobby_id, &ctx).await {
+            Ok(result) => result.wars_point,
+            Err(e) => {
+                tracing::error!("Failed to save player result: {}", e);
+                calculate_wars_point(&ctx)
+            }
+        };
+
+        // Update player_state
+        if let Some(ps) = self.player_states.get_mut(&player_id) {
+            ps.rank = Some(rank);
+            ps.prize = prize;
+            ps.wars_point = Some(wars_point);
+        }
+
+        // Broadcast PlayerQuit event
+        if let Some(player) = self.player_states.get(&player_id).cloned() {
+            let event = LudoEvent::PlayerQuit {
+                player,
+                reason: reason.to_string(),
+            };
+            broadcast::broadcast_game_message(
+                &self.state,
+                self.lobby_id,
+                serde_json::to_value(&event).unwrap_or_default(),
+            )
+            .await;
+        }
+
+        // Send GameOver to the quitting player
+        let game_over = RoomServerMessage::GameOver {
+            rank,
+            prize,
+            wars_point,
+        };
+        broadcast::broadcast_user(&self.state, player_id, &game_over).await;
+    }
+
+    /// End the game when the last player standing wins (due to other players quitting)
+    async fn end_game_last_standing(&mut self) {
+        self.finished = true;
+
+        let state = self.state.clone();
+        let lobby_id = self.lobby_id;
+        let participants = self.total_players;
+
+        let active_players = self.turn_rotation.active_players();
+        let mut final_standings: Vec<PlayerState> = Vec::new();
+        let mut player_rankings: Vec<PlayerRanking> = Vec::new();
+
+        // Process the winner (remaining active player)
+        for &winner_id in &active_players {
+            let rank = 1;
+            let prize = self.calculate_prize(rank, participants);
+
+            let ctx = self.build_wars_point_context(winner_id, rank, prize);
+            let wars_point = match save_player_result(&state, lobby_id, &ctx).await {
+                Ok(result) => result.wars_point,
+                Err(e) => {
+                    tracing::error!("Failed to save player result: {}", e);
+                    calculate_wars_point(&ctx)
+                }
+            };
+
+            if let Some(ps) = self.player_states.get_mut(&winner_id) {
+                ps.rank = Some(rank);
+                ps.prize = prize;
+                ps.wars_point = Some(wars_point);
+                final_standings.push(ps.clone());
+            }
+
+            player_rankings.push(PlayerRanking {
+                user_id: winner_id,
+                rank,
+                score: None,
+                prize,
+            });
+
+            // Send GameOver to winner
+            let game_over = RoomServerMessage::GameOver {
+                rank,
+                prize,
+                wars_point,
+            };
+            broadcast::broadcast_user(&state, winner_id, &game_over).await;
+        }
+
+        // Add already-eliminated players to final standings
+        for ps in self.player_states.values() {
+            if !active_players.contains(&ps.user_id) {
+                final_standings.push(ps.clone());
+            }
+        }
+
+        // Sort standings by rank
+        final_standings.sort_by_key(|ps| ps.rank.unwrap_or(usize::MAX));
+
+        // Broadcast FinalStanding
+        let final_standing = RoomServerMessage::FinalStanding {
+            standings: final_standings,
+        };
+        broadcast::broadcast_room(&state, lobby_id, &final_standing).await;
+
+        // Finish lobby
+        if let Err(e) = finish_lobby(&state, lobby_id).await {
+            tracing::error!("Failed to finish lobby {}: {}", lobby_id, e);
+        }
+
+        self.results = Some(GameResults {
+            rankings: player_rankings,
+            finished_at: chrono::Utc::now().timestamp(),
+            metadata: None,
+        });
+    }
+
     /// End the game and calculate final standings
     async fn end_game(&mut self) {
         self.finished = true;
@@ -685,6 +814,36 @@ impl GameEngine for LudoEngine {
         });
 
         Ok(game_state)
+    }
+
+    async fn handle_player_quit(&mut self, user_id: Uuid) -> Result<Vec<Value>, AppError> {
+        let mut inner = self.inner.write().await;
+
+        if inner.finished {
+            return Ok(vec![]);
+        }
+
+        // Check if player is active
+        if !inner.turn_rotation.active_players().contains(&user_id) {
+            return Ok(vec![]);
+        }
+
+        let is_current_player = inner.turn_rotation.current_player() == Some(user_id);
+
+        // Eliminate the player
+        inner.eliminate_player(user_id, "Player quit the game").await;
+
+        // Check if game should end (1 or fewer active players)
+        if inner.turn_rotation.active_count() <= 1 {
+            inner.end_game_last_standing().await;
+            inner.turn_advance_notify.notify_one();
+        } else if is_current_player {
+            // Current player quit, complete their turn so the game loop advances
+            inner.turn_phase = TurnPhase::Complete;
+            inner.turn_advance_notify.notify_one();
+        }
+
+        Ok(vec![])
     }
 
     fn is_finished(&self) -> bool {

@@ -90,6 +90,9 @@ pub enum LudoEvent {
     /// Bonus turn awarded (rolled a 6) - broadcast to room
     BonusTurn { player: PlayerState },
 
+    /// Player quit the game - broadcast to room
+    PlayerQuit { player: PlayerState, reason: String },
+
     /// Countdown tick - broadcast to room
     Countdown { time: u64 },
 

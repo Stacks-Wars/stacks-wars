@@ -315,6 +315,28 @@ async fn handle_game_action(
     // Get the active game engine for this lobby
     let mut active_games = state.active_games.lock().await;
     if let Some(game_engine) = active_games.get_mut(&lobby_id) {
+        // Check if this is a quit action — handled separately from game-specific actions
+        if action.get("type").and_then(|v| v.as_str()) == Some("quit") {
+            match game_engine.handle_player_quit(user_id).await {
+                Ok(events) => {
+                    for event in events {
+                        let wrapped_msg = serde_json::json!({ "game": event });
+                        let game_msg = crate::ws::core::message::JsonMessage::from(wrapped_msg);
+                        let _ = broadcast_room(state, lobby_id, &game_msg).await;
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Player quit handling failed for lobby {}: {}", lobby_id, e);
+                    let wrapped_error = serde_json::json!({
+                        "game": { "type": "error", "message": e.to_string() }
+                    });
+                    let game_error = crate::ws::core::message::JsonMessage::from(wrapped_error);
+                    let _ = broadcast_user(state, user_id, &game_error).await;
+                }
+            }
+            return;
+        }
+
         // Handle the action and get response events
         match game_engine.handle_action(user_id, action).await {
             Ok(events) => {

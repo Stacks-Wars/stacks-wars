@@ -687,6 +687,33 @@ impl GameEngine for LexiWarsEngine {
         Ok(game_state)
     }
 
+    async fn handle_player_quit(&mut self, user_id: Uuid) -> Result<Vec<Value>, AppError> {
+        let mut inner = self.inner.write().await;
+
+        if inner.finished {
+            return Ok(vec![]);
+        }
+
+        // Check if player is active
+        if !inner.turn_rotation.active_players().contains(&user_id) {
+            return Ok(vec![]);
+        }
+
+        let is_current_player = inner.turn_rotation.current_player() == Some(user_id);
+
+        // Eliminate the player using existing elimination logic
+        inner
+            .eliminate_player(user_id, "Player quit the game")
+            .await;
+
+        // Signal game loop if current player quit or game should end
+        if is_current_player || inner.turn_rotation.active_count() <= 1 {
+            inner.turn_advance_notify.notify_one();
+        }
+
+        Ok(vec![])
+    }
+
     fn is_finished(&self) -> bool {
         // This is sync, so we use try_read to avoid blocking
         // Default to false if lock can't be acquired

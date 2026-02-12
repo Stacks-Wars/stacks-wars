@@ -241,7 +241,7 @@ export default function LobbySlot() {
 					canStartGame && "mb-15 sm:mb-20 lg:mb-22"
 				)}
 			>
-				<RoomHeader />
+				<RoomHeader slot="lobby" />
 				<GameCard
 					game={game}
 					action="joinLobby"

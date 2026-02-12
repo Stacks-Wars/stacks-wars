@@ -69,6 +69,14 @@ pub trait GameEngine: Send + Sync {
     /// Spectators (unauthenticated users) will receive the generic state without user-specific info
     async fn get_game_state(&self, user_id: Option<Uuid>) -> Result<Value, AppError>;
 
+    /// Handle a player quitting the game mid-game
+    /// Each game implements its own quit logic (elimination, forfeit, etc.)
+    /// Returns events to broadcast (as JSON)
+    async fn handle_player_quit(&mut self, _user_id: Uuid) -> Result<Vec<Value>, AppError> {
+        // Default: no-op
+        Ok(vec![])
+    }
+
     /// Check if game is finished
     fn is_finished(&self) -> bool;
 }
