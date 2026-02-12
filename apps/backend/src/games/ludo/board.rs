@@ -15,7 +15,7 @@ use uuid::Uuid;
 // ============================================================================
 
 pub const BOARD_SIZE: usize = 52;
-pub const HOME_STRETCH_SIZE: usize = 6;
+pub const HOME_STRETCH_SIZE: usize = 5;
 pub const PAWNS_PER_PLAYER: usize = 4;
 pub const MAX_PLAYERS: usize = 4;
 
@@ -125,15 +125,10 @@ impl PlayerBoardState {
         PLAYER_STARTS[self.player_index]
     }
 
-    /// Get the position where this player enters home stretch
-    /// (one position before their start, wrapping around)
+    /// Get the last track position before entering this player's home stretch.
+    /// This is the cell adjacent to HomeStretch(0) — two positions before start.
     pub fn home_stretch_entry(&self) -> usize {
-        let start = self.start_position();
-        if start == 0 {
-            BOARD_SIZE - 1
-        } else {
-            start - 1
-        }
+        (self.start_position() + BOARD_SIZE - 2) % BOARD_SIZE
     }
 
     /// Check if all pawns have finished
@@ -176,13 +171,13 @@ impl PlayerBoardState {
                     // Stay on main track
                     true
                 } else {
-                    // Would enter home stretch
+                    // Would enter home stretch — must land exactly on a valid square or finish
                     let home_stretch_pos = dice as usize - steps_to_entry - 1;
-                    home_stretch_pos < HOME_STRETCH_SIZE
+                    home_stretch_pos <= HOME_STRETCH_SIZE // == HOME_STRETCH_SIZE means Finished
                 }
             }
             PawnPosition::HomeStretch(pos) => {
-                // Can only move if dice doesn't overshoot finish
+                // Must roll exact number to reach finish (can't overshoot)
                 pos + dice as usize <= HOME_STRETCH_SIZE
             }
             PawnPosition::Finished => false,
@@ -265,10 +260,17 @@ pub struct LudoBoard {
 
 impl LudoBoard {
     pub fn new(user_ids: &[Uuid]) -> Self {
+        // Assign player indices so that 2 players are diagonal for fairness
+        let indices: Vec<usize> = match user_ids.len() {
+            2 => vec![0, 2],       // Red & Yellow — diagonal corners
+            3 => vec![0, 1, 2],    // Red, Green, Yellow
+            _ => (0..user_ids.len()).collect(), // All four corners
+        };
+
         let players = user_ids
             .iter()
-            .enumerate()
-            .map(|(idx, &user_id)| PlayerBoardState::new(user_id, idx))
+            .zip(indices.iter())
+            .map(|(&user_id, &idx)| PlayerBoardState::new(user_id, idx))
             .collect();
 
         Self { players }
@@ -375,12 +377,22 @@ mod tests {
         let user_id = Uuid::new_v4();
         let player = PlayerBoardState::new(user_id, 0);
 
-        // Player 0's home stretch entry is at position 51 (one before start at 0)
-        assert_eq!(player.home_stretch_entry(), 51);
+        // Player 0's home stretch entry is at position 50 (two before start at 0)
+        // Grid: (7,0) — adjacent to HomeStretch(0) at (7,1)
+        assert_eq!(player.home_stretch_entry(), 50);
 
         let player1 = PlayerBoardState::new(user_id, 1);
-        // Player 1's home stretch entry is at position 12 (one before start at 13)
-        assert_eq!(player1.home_stretch_entry(), 12);
+        // Player 1's home stretch entry is at position 11 (two before start at 13)
+        // Grid: (0,7) — adjacent to HomeStretch(0) at (1,7)
+        assert_eq!(player1.home_stretch_entry(), 11);
+
+        let player2 = PlayerBoardState::new(user_id, 2);
+        // Player 2's home stretch entry is at position 24
+        assert_eq!(player2.home_stretch_entry(), 24);
+
+        let player3 = PlayerBoardState::new(user_id, 3);
+        // Player 3's home stretch entry is at position 37
+        assert_eq!(player3.home_stretch_entry(), 37);
     }
 
     #[test]

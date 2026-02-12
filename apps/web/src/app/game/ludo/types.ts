@@ -5,7 +5,7 @@ import type { PlayerState } from "@/lib/definitions";
 // ============================================================================
 
 export const BOARD_SIZE = 52;
-export const HOME_STRETCH_SIZE = 6;
+export const HOME_STRETCH_SIZE = 5;
 export const PAWNS_PER_PLAYER = 4;
 export const MAX_PLAYERS = 4;
 

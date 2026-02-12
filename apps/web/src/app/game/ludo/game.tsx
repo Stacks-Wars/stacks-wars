@@ -69,14 +69,9 @@ export default function LudoGame({
 	const canRoll = isMyTurn && state.turnPhase === "WaitingForRoll";
 	const canMove = isMyTurn && state.turnPhase === "WaitingForMove";
 
-	// Get my player index for the board (match by user id or current player when it's my turn)
+	// Get my playerIndex from the board
 	const myPlayerIndex =
-		state.board?.players.findIndex((p) => p.userId === user?.id) ??
-		(isMyTurn && state.currentPlayer
-			? state.board?.players.findIndex(
-					(p) => p.userId === state.currentPlayer?.userId
-				)
-			: -1) ??
+		state.board?.players.find((p) => p.userId === user?.id)?.playerIndex ??
 		-1;
 
 	// Map userId to PlayerState for display names
@@ -137,12 +132,12 @@ export default function LudoGame({
 											"h-10 w-10 rounded-full",
 											PLAYER_COLOR_CLASSES[
 												getPlayerColor(
-													state.board.players.findIndex(
+													state.board.players.find(
 														(p) =>
 															p.userId ===
 															state.currentPlayer
 																?.userId
-													)
+													)?.playerIndex ?? 0
 												)
 											]?.bg
 										)}
@@ -339,32 +334,28 @@ const HOME_STRETCH_COORDS: Record<number, [number, number][]> = {
 		[7, 3],
 		[7, 4],
 		[7, 5],
-		[7, 6],
-	], // Red - going down
+	], // Red - going right toward center
 	1: [
 		[1, 7],
 		[2, 7],
 		[3, 7],
 		[4, 7],
 		[5, 7],
-		[6, 7],
-	], // Green - going right
+	], // Green - going down toward center
 	2: [
 		[7, 13],
 		[7, 12],
 		[7, 11],
 		[7, 10],
 		[7, 9],
-		[7, 8],
-	], // Yellow - going up
+	], // Yellow - going left toward center
 	3: [
 		[13, 7],
 		[12, 7],
 		[11, 7],
 		[10, 7],
 		[9, 7],
-		[8, 7],
-	], // Blue - going left
+	], // Blue - going up toward center
 };
 
 function LudoBoard({
@@ -463,9 +454,12 @@ function LudoBoard({
 						{canRoll ? (
 							<button
 								onClick={onRollDice}
-								className="flex h-16 w-16 animate-bounce items-center justify-center rounded-xl border-4 border-white bg-linear-to-br from-slate-700 to-slate-900 shadow-xl transition-transform hover:scale-110 active:scale-95 sm:h-20 sm:w-20"
+								className="flex animate-bounce flex-col items-center justify-center gap-1 rounded-xl border-4 border-white bg-linear-to-br from-slate-700 to-slate-900 px-4 py-3 shadow-xl transition-transform hover:scale-110 active:scale-95"
 							>
-								<Dice1 className="h-8 w-8 text-white sm:h-10 sm:w-10" />
+								<Dice1 className="h-6 w-6 text-white sm:h-8 sm:w-8" />
+								<span className="text-[10px] font-semibold text-white/90 sm:text-xs">
+									Tap to roll
+								</span>
 							</button>
 						) : canMove ? (
 							<>
@@ -537,9 +531,15 @@ function LudoBoard({
 										: `Player ${playerIndex + 1}`
 									: "Empty"}
 							</span>
-							{isActive && (
+							{isActive && player && (
 								<span className="text-muted-foreground">
-									({player?.pawnsFinished || 0}/4)
+									(
+									{player.pawns?.filter(
+										(p) => p.position.type === "finished"
+									).length ??
+										player.pawnsFinished ??
+										0}
+									/4)
 								</span>
 							)}
 						</div>
@@ -685,21 +685,21 @@ function getCellType(row: number, col: number): CellType {
 		return { type: "center" };
 	}
 
-	// Home stretches
-	// Red home stretch (row 7, cols 1-6)
-	if (row === 7 && col >= 1 && col <= 6) {
+	// Home stretches (5 cells each, positions 0-4, stop before center)
+	// Red home stretch (row 7, cols 1-5)
+	if (row === 7 && col >= 1 && col <= 5) {
 		return { type: "homeStretch", playerIndex: 0, position: col - 1 };
 	}
-	// Green home stretch (col 7, rows 1-6)
-	if (col === 7 && row >= 1 && row <= 6) {
+	// Green home stretch (col 7, rows 1-5)
+	if (col === 7 && row >= 1 && row <= 5) {
 		return { type: "homeStretch", playerIndex: 1, position: row - 1 };
 	}
-	// Yellow home stretch (row 7, cols 8-13)
-	if (row === 7 && col >= 8 && col <= 13) {
+	// Yellow home stretch (row 7, cols 9-13)
+	if (row === 7 && col >= 9 && col <= 13) {
 		return { type: "homeStretch", playerIndex: 2, position: 13 - col };
 	}
-	// Blue home stretch (col 7, rows 8-13)
-	if (col === 7 && row >= 8 && row <= 13) {
+	// Blue home stretch (col 7, rows 9-13)
+	if (col === 7 && row >= 9 && row <= 13) {
 		return { type: "homeStretch", playerIndex: 3, position: 13 - row };
 	}
 
@@ -970,9 +970,25 @@ function TrackCell({
 				isSafe && !isStart && "bg-yellow-100"
 			)}
 		>
-			{pawns.length > 0 ? (
-				<div className="relative flex items-center justify-center">
-					{pawns.slice(0, 1).map(({ pawn, player }) => {
+			{pawns.length > 0
+				? (() => {
+						// Sort: current player's movable pawns first, then current player's other pawns, then opponents
+						const sorted = [...pawns].sort((a, b) => {
+							const aIsMine =
+								a.player.playerIndex === myPlayerIndex ? 1 : 0;
+							const bIsMine =
+								b.player.playerIndex === myPlayerIndex ? 1 : 0;
+							if (aIsMine !== bIsMine) return bIsMine - aIsMine;
+							const aMovable = movablePawns.includes(a.pawn.id)
+								? 1
+								: 0;
+							const bMovable = movablePawns.includes(b.pawn.id)
+								? 1
+								: 0;
+							return bMovable - aMovable;
+						});
+						const top = sorted[0];
+						const { pawn, player } = top;
 						const color = getPlayerColor(player.playerIndex);
 						const colorClasses = PLAYER_COLOR_CLASSES[color];
 						const isMyPawn = player.playerIndex === myPlayerIndex;
@@ -982,45 +998,44 @@ function TrackCell({
 							isMyPawn && selectedPawnId === pawn.id;
 
 						return (
-							<button
-								type="button"
-								key={`${player.userId}-${pawn.id}`}
-								onClick={() => {
-									if (isMovable) onPawnSelect(pawn.id);
-								}}
-								aria-disabled={!isMovable}
-								className={cn(
-									"flex aspect-square min-h-4 min-w-4 w-[85%] items-center justify-center rounded-full border-2 bg-white text-[9px] font-bold shadow-sm transition-all select-none",
-									colorClasses.border,
-									color === "yellow"
-										? "text-yellow-600"
-										: colorClasses.text,
-									isMovable &&
-										"cursor-pointer hover:scale-110",
-									!isMovable && "cursor-default",
-									isSelected &&
-										"scale-110 ring-4 ring-amber-400",
-									isMovable &&
-										!isSelected &&
-										"animate-pulse shadow-[0_0_16px_rgba(56,189,248,0.8)] ring-4 ring-sky-400 ring-offset-1"
-								)}
-							>
-								{pawn.id + 1}
-								{pawns.length > 1 && (
-									<span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-black text-[6px] text-white">
-										{pawns.length}
-									</span>
-								)}
-							</button>
+							<div className="relative flex items-center justify-center">
+								<button
+									type="button"
+									key={`${player.userId}-${pawn.id}`}
+									onClick={() => {
+										if (isMovable) onPawnSelect(pawn.id);
+									}}
+									aria-disabled={!isMovable}
+									className={cn(
+										"flex aspect-square min-h-4 w-[85%] min-w-4 items-center justify-center rounded-full border-2 bg-white text-[9px] font-bold shadow-sm transition-all select-none",
+										colorClasses.border,
+										color === "yellow"
+											? "text-yellow-600"
+											: colorClasses.text,
+										isMovable &&
+											"cursor-pointer hover:scale-110",
+										!isMovable && "cursor-default",
+										isSelected &&
+											"scale-110 ring-4 ring-amber-400",
+										isMovable &&
+											!isSelected &&
+											"animate-pulse shadow-[0_0_16px_rgba(56,189,248,0.8)] ring-4 ring-sky-400 ring-offset-1"
+									)}
+								>
+									{pawn.id + 1}
+									{pawns.length > 1 && (
+										<span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-black text-[6px] text-white">
+											{pawns.length}
+										</span>
+									)}
+								</button>
+							</div>
 						);
-					})}
-				</div>
-			) : (
-				isSafe &&
-				!isStart && (
-					<span className="text-[8px] text-yellow-600">★</span>
-				)
-			)}
+					})()
+				: isSafe &&
+					!isStart && (
+						<span className="text-[8px] text-yellow-600">★</span>
+					)}
 		</div>
 	);
 }
@@ -1056,12 +1071,22 @@ function HomeStretchCell({
 			className={cn(colorClasses.bg, "flex items-center justify-center")}
 		>
 			{pawns.length > 0 ? (
-				pawns.slice(0, 1).map(({ pawn }) => {
+				(() => {
+					// Sort: movable pawns first so they're always visible & clickable
+					const sorted = [...pawns].sort((a, b) => {
+						const aMovable = movablePawns.includes(a.pawn.id)
+							? 1
+							: 0;
+						const bMovable = movablePawns.includes(b.pawn.id)
+							? 1
+							: 0;
+						return bMovable - aMovable;
+					});
+					const { pawn } = sorted[0];
 					const isMyPawn = playerIndex === myPlayerIndex;
 					const isMovable =
 						isMyPawn && movablePawns.includes(pawn.id);
-					const isSelected =
-						isMyPawn && selectedPawnId === pawn.id;
+					const isSelected = isMyPawn && selectedPawnId === pawn.id;
 
 					return (
 						<button
@@ -1072,7 +1097,7 @@ function HomeStretchCell({
 							}}
 							aria-disabled={!isMovable}
 							className={cn(
-								"flex aspect-square min-h-4 min-w-4 w-[80%] items-center justify-center rounded-full border-2 border-white bg-white text-[9px] font-bold shadow-sm transition-all select-none",
+								"relative flex aspect-square min-h-4 w-[80%] min-w-4 items-center justify-center rounded-full border-2 border-white bg-white text-[9px] font-bold shadow-sm transition-all select-none",
 								color === "yellow"
 									? "text-yellow-600"
 									: colorClasses.text,
@@ -1085,9 +1110,14 @@ function HomeStretchCell({
 							)}
 						>
 							{pawn.id + 1}
+							{pawns.length > 1 && (
+								<span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-black text-[6px] text-white">
+									{pawns.length}
+								</span>
+							)}
 						</button>
 					);
-				})
+				})()
 			) : (
 				<div className="h-[50%] w-[50%] rounded-full bg-white/30" />
 			)}
