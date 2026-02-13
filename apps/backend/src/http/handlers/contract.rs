@@ -5,8 +5,13 @@ use axum::{
     http::StatusCode,
 };
 use serde::Deserialize;
-use std::fs;
 use uuid::Uuid;
+
+// Embed contract templates at compile time
+const STX_VAULT_TEMPLATE: &str = include_str!("../../../contract/stacks/contracts/stx-vault.clar");
+const FT_VAULT_TEMPLATE: &str = include_str!("../../../contract/stacks/contracts/ft-vault.clar");
+const SPONSORED_STX_VAULT_TEMPLATE: &str = include_str!("../../../contract/stacks/contracts/sponsored-stx-vault.clar");
+const SPONSORED_FT_VAULT_TEMPLATE: &str = include_str!("../../../contract/stacks/contracts/sponsored-ft-vault.clar");
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,19 +33,9 @@ pub async fn get_contract(
         .wallet_address;
 
     let contract_template = if query.contract_id.as_str() == "stx" {
-        fs::read_to_string("contract/stacks/contracts/stx-vault.clar").map_err(|_| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to read contract template".to_string(),
-            )
-        })?
+        STX_VAULT_TEMPLATE
     } else {
-        fs::read_to_string("contract/stacks/contracts/ft-vault.clar").map_err(|_| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to read contract template".to_string(),
-            )
-        })?
+        FT_VAULT_TEMPLATE
     };
 
     let contract = contract_template
@@ -77,13 +72,9 @@ pub async fn get_sponsored_contract(
         .wallet_address;
 
     let contract_template = if query.contract_id.as_str() == "stx" {
-        fs::read_to_string("contract/stacks/contracts/sponsored-stx-vault.clar").map_err(|e| {
-            AppError::ReadError(format!("Failed to read contract template: {}", e)).to_response()
-        })?
+        SPONSORED_STX_VAULT_TEMPLATE
     } else {
-        fs::read_to_string("contract/stacks/contracts/sponsored-ft-vault.clar").map_err(|e| {
-            AppError::ReadError(format!("Failed to read contract template: {}", e)).to_response()
-        })?
+        SPONSORED_FT_VAULT_TEMPLATE
     };
 
     let contract = contract_template

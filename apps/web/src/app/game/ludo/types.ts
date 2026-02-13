@@ -228,37 +228,9 @@ export interface LudoGameState {
  * Parse raw game state from server into typed LudoGameState
  */
 export function parseLudoGameState(raw: unknown): LudoGameState | null {
-	if (!raw || typeof raw !== "object") {
-		console.warn("[Ludo] parseLudoGameState: raw is not an object", raw);
-		return null;
-	}
+	if (!raw || typeof raw !== "object") return null;
 
 	const data = raw as Record<string, unknown>;
-
-	console.log("[Ludo] parseLudoGameState: parsing game state", {
-		hasBoard: !!data.board,
-		dice1: data.dice1,
-		dice2: data.dice2,
-		dice1Type: typeof data.dice1,
-		dice2Type: typeof data.dice2,
-		turnPhase: data.turnPhase,
-		boardPlayers: data.board ? (data.board as any).players?.length : null,
-	});
-
-	// Log board player indices if available
-	if (data.board && typeof data.board === "object") {
-		const board = data.board as any;
-		if (Array.isArray(board.players)) {
-			console.log("[Ludo] parseLudoGameState: board players", {
-				playerCount: board.players.length,
-				players: board.players.map((p: any) => ({
-					userId: p.userId,
-					playerIndex: p.playerIndex,
-					startPosition: p.playerIndex !== undefined ? PLAYER_STARTS[p.playerIndex] : null,
-				})),
-			});
-		}
-	}
 
 	return {
 		board: data.board as LudoBoard,
