@@ -22,7 +22,10 @@ use super::board::{LudoBoard, PawnPosition};
 pub enum LudoAction {
     /// Roll the dice (only valid when it's your turn and you haven't rolled)
     RollDice,
-    /// Choose which pawn to move after rolling (pawn_id: 0-3)
+    /// Select a dice value to play with (die1, die2, or sum)
+    #[serde(rename_all = "camelCase")]
+    SelectDiceValue { dice_value: u8 },
+    /// Choose which pawn to move with the currently selected dice value (pawn_id: 0-3)
     #[serde(rename_all = "camelCase")]
     MovePawn { pawn_id: usize },
 }
@@ -51,12 +54,29 @@ pub enum LudoEvent {
         timeout_secs: u64,
     },
 
-    /// Dice roll result - broadcast to room
+    /// Dice roll result (dual dice) - broadcast to room
     #[serde(rename_all = "camelCase")]
     DiceRolled {
         player: PlayerState,
-        dice: u8,
-        movable_pawns: Vec<usize>,
+        dice1: u8,
+        dice2: u8,
+        /// Which values (die1, die2, sum) have at least one movable pawn
+        playable_values: Vec<u8>,
+    },
+
+    /// Movable pawns for a specific dice value — sent to the requesting player
+    #[serde(rename_all = "camelCase")]
+    MovablePawns {
+        dice_value: u8,
+        pawns: Vec<usize>,
+    },
+
+    /// A dice value was consumed after a pawn move — broadcast to room
+    #[serde(rename_all = "camelCase")]
+    DiceValueUsed {
+        dice_value: u8,
+        /// Remaining playable values after this move
+        remaining_values: Vec<u8>,
     },
 
     /// Pawn moved - broadcast to room
@@ -66,6 +86,7 @@ pub enum LudoEvent {
         pawn_id: usize,
         from: PawnPosition,
         to: PawnPosition,
+        dice_value: u8,
     },
 
     /// Pawn captured (sent back to home) - broadcast to room
@@ -87,7 +108,7 @@ pub enum LudoEvent {
     /// Player has no valid moves (turn skipped) - broadcast to room
     NoValidMoves { player: PlayerState },
 
-    /// Bonus turn awarded (rolled a 6) - broadcast to room
+    /// Bonus turn awarded (both dice rolled 6) - broadcast to room
     BonusTurn { player: PlayerState },
 
     /// Player quit the game - broadcast to room

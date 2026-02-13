@@ -80,35 +80,95 @@ export const handleLudoMessage = (
 		}
 
 		case "turn": {
-			// Only clear movablePawns when starting a *new* player's turn (don’t wipe if same player / reordered message)
 			return {
 				...state,
 				currentPlayer: message.player,
 				timeRemaining: message.timeoutSecs,
 				turnPhase: "WaitingForRoll",
-				currentDice: null,
+				dice1: null,
+				dice2: null,
+				dice1Remaining: 0,
+				dice2Remaining: 0,
+				playableValues: [],
+				selectedDiceValue: null,
 				movablePawns: [],
 			};
 		}
 
 		case "diceRolled": {
-			const movablePawns = Array.isArray(message.movablePawns)
-				? message.movablePawns
+			const playableValues = Array.isArray(message.playableValues)
+				? message.playableValues
 				: [];
 			toast.info(
-				`${displayUserIdentifier(message.player)} rolled a ${message.dice}!`
+				`${displayUserIdentifier(message.player)} rolled ${message.dice1} and ${message.dice2}!`
 			);
 			return {
 				...state,
-				currentDice: message.dice,
-				movablePawns,
+				dice1: message.dice1,
+				dice2: message.dice2,
+				dice1Remaining: message.dice1,
+				dice2Remaining: message.dice2,
+				playableValues,
+				selectedDiceValue: null,
+				movablePawns: [],
 				turnPhase:
-					movablePawns.length > 0 ? "WaitingForMove" : "Complete",
+					playableValues.length > 0 ? "WaitingForMove" : "Complete",
 				lastEvent: {
 					type: "diceRolled",
-					data: { dice: message.dice, player: message.player },
+					data: {
+						dice1: message.dice1,
+						dice2: message.dice2,
+						player: message.player,
+					},
 					timestamp: Date.now(),
 				},
+			};
+		}
+
+		case "movablePawns": {
+			return {
+				...state,
+				selectedDiceValue: message.diceValue,
+				movablePawns: Array.isArray(message.pawns)
+					? message.pawns
+					: [],
+			};
+		}
+
+		case "diceValueUsed": {
+			const remaining = Array.isArray(message.remainingValues)
+				? message.remainingValues
+				: [];
+
+			// Figure out which dice remain based on remaining values
+			let d1Rem = state.dice1Remaining;
+			let d2Rem = state.dice2Remaining;
+			const usedValue = message.diceValue;
+			const sum =
+				d1Rem > 0 && d2Rem > 0 ? d1Rem + d2Rem : 0;
+
+			if (d1Rem > 0 && d2Rem > 0 && usedValue === sum) {
+				// Sum used — both consumed
+				d1Rem = 0;
+				d2Rem = 0;
+			} else if (usedValue === d1Rem) {
+				d1Rem = 0;
+			} else if (usedValue === d2Rem) {
+				d2Rem = 0;
+			}
+
+			return {
+				...state,
+				dice1Remaining: d1Rem,
+				dice2Remaining: d2Rem,
+				playableValues: remaining,
+				selectedDiceValue: null,
+				movablePawns: [],
+				// If no remaining values, turn will end via "Complete" or next event
+				turnPhase:
+					remaining.length > 0
+						? "WaitingForMove"
+						: state.turnPhase,
 			};
 		}
 
@@ -122,6 +182,7 @@ export const handleLudoMessage = (
 						pawnId: message.pawnId,
 						from: message.from,
 						to: message.to,
+						diceValue: message.diceValue,
 					},
 					timestamp: Date.now(),
 				},
@@ -181,12 +242,17 @@ export const handleLudoMessage = (
 
 		case "bonusTurn": {
 			toast.info(
-				`${displayUserIdentifier(message.player)} gets a bonus turn! 🎲`
+				`${displayUserIdentifier(message.player)} gets a bonus turn! 🎲🎲`
 			);
 			return {
 				...state,
 				turnPhase: "WaitingForRoll",
-				currentDice: null,
+				dice1: null,
+				dice2: null,
+				dice1Remaining: 0,
+				dice2Remaining: 0,
+				playableValues: [],
+				selectedDiceValue: null,
 				movablePawns: [],
 				lastEvent: {
 					type: "bonusTurn",
@@ -238,11 +304,14 @@ export const applyLudoGameState = (
 	// Apply turn phase
 	newState.turnPhase = gameState.turnPhase as TurnPhase;
 
-	// Apply current dice
-	newState.currentDice = gameState.currentDice;
-
-	// Apply movable pawns
+	// Apply dual dice state
+	newState.dice1 = gameState.dice1;
+	newState.dice2 = gameState.dice2;
+	newState.dice1Remaining = gameState.dice1Remaining;
+	newState.dice2Remaining = gameState.dice2Remaining;
+	newState.selectedDiceValue = gameState.selectedDiceValue;
 	newState.movablePawns = gameState.movablePawns;
+	newState.playableValues = gameState.playableValues;
 
 	// Apply turn if present
 	if (gameState.turn) {
