@@ -347,6 +347,15 @@ impl LudoInner {
             (roll_dice(), roll_dice())
         };
 
+        tracing::info!(
+            lobby_id = %self.lobby_id,
+            user_id = %user_id,
+            die1 = die1,
+            die2 = die2,
+            all_home = all_home,
+            "Ludo: Dice rolled"
+        );
+
         self.dice = Some((die1, die2));
         self.dice1_remaining = die1;
         self.dice2_remaining = die2;
@@ -365,10 +374,38 @@ impl LudoInner {
             dice2: die2,
             playable_values: playable.clone(),
         };
+
+        let event_json = serde_json::to_value(&roll_event);
+        match &event_json {
+            Ok(json) => {
+                let json_dice1 = json.get("dice1").and_then(|v| v.as_u64());
+                let json_dice2 = json.get("dice2").and_then(|v| v.as_u64());
+                let json_type = json.get("type").and_then(|v| v.as_str());
+                tracing::info!(
+                    lobby_id = %self.lobby_id,
+                    user_id = %user_id,
+                    dice1 = die1,
+                    dice2 = die2,
+                    json_dice1 = ?json_dice1,
+                    json_dice2 = ?json_dice2,
+                    json_type = ?json_type,
+                    "Ludo: Serialized dice roll event"
+                );
+            }
+            Err(e) => {
+                tracing::error!(
+                    lobby_id = %self.lobby_id,
+                    user_id = %user_id,
+                    error = %e,
+                    "Ludo: Failed to serialize dice roll event"
+                );
+            }
+        }
+
         broadcast::broadcast_game_message(
             &self.state,
             self.lobby_id,
-            serde_json::to_value(&roll_event).unwrap_or_default(),
+            event_json.unwrap_or_default(),
         )
         .await;
 
@@ -725,9 +762,22 @@ impl LudoInner {
 
     /// Eliminate a player (called when they quit)
     async fn eliminate_player(&mut self, player_id: Uuid, reason: &str) {
+        let active_before = self.turn_rotation.active_count();
         let remaining = self.turn_rotation.active_count();
         let rank = remaining;
         let prize = self.calculate_prize(rank, self.total_players);
+
+        tracing::info!(
+            lobby_id = %self.lobby_id,
+            player_id = %player_id,
+            reason = reason,
+            active_before = active_before,
+            active_after = remaining,
+            total_players = self.total_players,
+            rank = rank,
+            prize = prize,
+            "Ludo: Eliminating player"
+        );
 
         self.turn_rotation.eliminate_player(player_id);
 
@@ -1072,25 +1122,67 @@ impl GameEngine for LudoEngine {
     async fn handle_player_quit(&mut self, user_id: Uuid) -> Result<Vec<Value>, AppError> {
         let mut inner = self.inner.write().await;
 
+        tracing::info!(
+            lobby_id = %inner.lobby_id,
+            user_id = %user_id,
+            finished = inner.finished,
+            is_active = inner.turn_rotation.active_players().contains(&user_id),
+            active_count = inner.turn_rotation.active_count(),
+            current_player = ?inner.turn_rotation.current_player(),
+            "Ludo: Handling player quit"
+        );
+
         if inner.finished {
+            tracing::warn!(
+                lobby_id = %inner.lobby_id,
+                user_id = %user_id,
+                "Ludo: Ignoring quit - game already finished"
+            );
             return Ok(vec![]);
         }
 
         // Check if player is active
         if !inner.turn_rotation.active_players().contains(&user_id) {
+            tracing::warn!(
+                lobby_id = %inner.lobby_id,
+                user_id = %user_id,
+                "Ludo: Ignoring quit - player not active"
+            );
             return Ok(vec![]);
         }
 
         let is_current_player = inner.turn_rotation.current_player() == Some(user_id);
+        let active_count_before = inner.turn_rotation.active_count();
 
         // Eliminate the player
         inner.eliminate_player(user_id, "Player quit the game").await;
 
+        let active_count_after = inner.turn_rotation.active_count();
+
+        tracing::info!(
+            lobby_id = %inner.lobby_id,
+            user_id = %user_id,
+            is_current_player = is_current_player,
+            active_count_before = active_count_before,
+            active_count_after = active_count_after,
+            "Ludo: After elimination"
+        );
+
         // Check if game should end (1 or fewer active players)
-        if inner.turn_rotation.active_count() <= 1 {
+        if active_count_after <= 1 {
+            tracing::info!(
+                lobby_id = %inner.lobby_id,
+                active_count = active_count_after,
+                "Ludo: Ending game - last player standing"
+            );
             inner.end_game_last_standing().await;
             inner.turn_advance_notify.notify_one();
         } else if is_current_player {
+            tracing::info!(
+                lobby_id = %inner.lobby_id,
+                user_id = %user_id,
+                "Ludo: Current player quit - completing turn"
+            );
             // Current player quit, complete their turn so the game loop advances
             inner.turn_phase = TurnPhase::Complete;
             inner.turn_advance_notify.notify_one();

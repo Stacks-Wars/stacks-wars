@@ -6,6 +6,55 @@ import { formatAddress } from "@/lib/utils";
 import Link from "next/link";
 import { IoStar } from "react-icons/io5";
 import { useIsActionLoading } from "@/lib/stores/room";
+import { useEffect, useState } from "react";
+
+/** Format a "last seen" duration from milliseconds ago */
+function formatLastSeen(ms: number): string {
+	const seconds = Math.floor(ms / 1000);
+	if (seconds < 60) return `${seconds}s ago`;
+	const minutes = Math.floor(seconds / 60);
+	if (minutes < 60) return `${minutes}m ago`;
+	const hours = Math.floor(minutes / 60);
+	if (hours < 24) return `${hours}h ago`;
+	return `${Math.floor(hours / 24)}d ago`;
+}
+
+/** Activity indicator for a player based on lastPing */
+function ActivityStatus({ lastPing }: { lastPing?: number }) {
+	const [now, setNow] = useState(Date.now());
+
+	// Re-render every 5 seconds to keep the "last seen" fresh
+	useEffect(() => {
+		const interval = setInterval(() => setNow(Date.now()), 5000);
+		return () => clearInterval(interval);
+	}, []);
+
+	if (!lastPing) {
+		return (
+			<span className="text-muted-foreground text-[10px] sm:text-xs">
+				Offline
+			</span>
+		);
+	}
+
+	const elapsed = now - lastPing;
+	const isActive = elapsed <= 10_000; // Within 10 seconds
+
+	if (isActive) {
+		return (
+			<span className="flex items-center gap-1 text-[10px] text-green-500 sm:text-xs">
+				<span className="inline-block size-1.5 rounded-full bg-green-500" />
+				Active
+			</span>
+		);
+	}
+
+	return (
+		<span className="text-muted-foreground text-[10px] sm:text-xs">
+			{formatLastSeen(elapsed)}
+		</span>
+	);
+}
 
 interface PlayerProps {
 	player: PlayerState | JoinRequest;
@@ -76,6 +125,9 @@ export default function Player({
 			</Link>
 
 			<div className="flex shrink-0 items-center gap-2">
+				{"lastPing" in player && (
+					<ActivityStatus lastPing={player.lastPing} />
+				)}
 				{player.isCreator && (
 					<Badge variant={"secondary"} className="text-xs sm:text-sm">
 						Creator

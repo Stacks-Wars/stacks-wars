@@ -56,6 +56,7 @@ pub async fn handle_room_message(
             let now_ms = Utc::now().timestamp_millis() as u64;
             let elapsed = now_ms.saturating_sub(ts);
 
+            // Send personal pong response with latency
             let _ = manager::send_to_connection(
                 conn,
                 &RoomServerMessage::Pong {
@@ -66,7 +67,20 @@ pub async fn handle_room_message(
 
             if let Some(user_id) = auth_user_id {
                 if player_repo.exists(lobby_id, user_id).await.unwrap_or(false) {
+                    // Update player's last ping
                     let _ = player_repo.update_ping(lobby_id, user_id).await;
+
+                    // If this user is the creator, also update creator ping and notify lobby list
+                    if player_repo.is_creator(lobby_id, user_id).await.unwrap_or(false) {
+                        let _ = lobby_state_repo.update_creator_ping(lobby_id).await;
+                        broadcast::broadcast_lobby_update(state.clone(), lobby_id).await;
+                    }
+
+                    // Broadcast updated player list to the room so everyone sees activity status
+                    if let Ok(players) = player_repo.get_all_in_lobby(lobby_id).await {
+                        let msg = RoomServerMessage::PlayerUpdated { players };
+                        broadcast::broadcast_room(state, lobby_id, &msg).await;
+                    }
                 }
             }
         }

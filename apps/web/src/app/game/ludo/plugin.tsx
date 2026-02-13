@@ -47,6 +47,13 @@ const handleMessage = (
 ): LudoState => {
 	// Extract the game message from the wrapper
 	const gameMessage = message.game;
+	// Skip logging countdown messages (too frequent)
+	if (gameMessage.type !== "countdown") {
+		console.log("[Ludo] handleMessage: received message", {
+			messageType: gameMessage.type,
+			rawMessage: gameMessage,
+		});
+	}
 	return handleLudoMessage(state, gameMessage);
 };
 
