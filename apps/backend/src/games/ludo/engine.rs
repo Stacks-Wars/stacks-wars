@@ -5,6 +5,12 @@
 // - GameEngine trait implementation
 // - Game loop (turn timeouts)
 // - Prize/points calculation
+//
+// Dual-dice variant:
+// - Two dice per roll (die1, die2)
+// - Player can use die1, die2, or die1+die2 (sum) per pawn move
+// - After using a die its value becomes 0; using sum consumes both
+// - Bonus turn only when BOTH dice are 6
 
 use crate::{
     db::player_state::PlayerStateRepository,
@@ -39,7 +45,7 @@ pub const MOVE_TIMEOUT_SECS: u64 = 15;
 pub enum TurnPhase {
     /// Waiting for player to roll dice
     WaitingForRoll,
-    /// Waiting for player to choose a pawn to move
+    /// Waiting for player to select a dice value and move a pawn
     WaitingForMove,
     /// Turn is complete
     Complete,
@@ -62,9 +68,18 @@ struct LudoInner {
 
     // Current turn state
     turn_phase: TurnPhase,
-    current_dice: Option<u8>,
+    /// The original dice values rolled this turn
+    dice: Option<(u8, u8)>,
+    /// Remaining value of die 1 (0 = used)
+    dice1_remaining: u8,
+    /// Remaining value of die 2 (0 = used)
+    dice2_remaining: u8,
+    /// Currently selected dice value for pawn selection
+    selected_dice_value: Option<u8>,
+    /// Movable pawns for the currently selected dice value
     movable_pawns: Vec<usize>,
-    consecutive_sixes: usize,
+    /// Incremented each time a dice value is consumed (so game loop can detect moves)
+    move_generation: u64,
 
     // Prize/points calculation context
     entry_amount: Option<f64>,
@@ -92,9 +107,12 @@ impl LudoInner {
             finished: false,
             results: None,
             turn_phase: TurnPhase::WaitingForRoll,
-            current_dice: None,
+            dice: None,
+            dice1_remaining: 0,
+            dice2_remaining: 0,
+            selected_dice_value: None,
             movable_pawns: Vec::new(),
-            consecutive_sixes: 0,
+            move_generation: 0,
             entry_amount: None,
             current_amount: None,
             is_sponsored: false,
@@ -104,6 +122,66 @@ impl LudoInner {
             turn_advance_notify: Arc::new(Notify::new()),
             state,
         }
+    }
+
+    /// Get the available dice values the player can choose from.
+    /// Returns a deduplicated, sorted list of available values.
+    fn available_values(&self) -> Vec<u8> {
+        let mut vals = Vec::new();
+        if self.dice1_remaining > 0 {
+            vals.push(self.dice1_remaining);
+        }
+        if self.dice2_remaining > 0 {
+            vals.push(self.dice2_remaining);
+        }
+        // Sum is available only when BOTH dice are still unused
+        if self.dice1_remaining > 0 && self.dice2_remaining > 0 {
+            let sum = self.dice1_remaining + self.dice2_remaining;
+            vals.push(sum);
+        }
+        vals.sort();
+        vals.dedup();
+        vals
+    }
+
+    /// Check whether a dice value is the sum of both dice (not an individual die).
+    fn is_sum_value(&self, value: u8) -> bool {
+        self.dice1_remaining > 0
+            && self.dice2_remaining > 0
+            && value == self.dice1_remaining + self.dice2_remaining
+            && value != self.dice1_remaining
+            && value != self.dice2_remaining
+    }
+
+    /// Get playable values — subset of available_values that actually have movable pawns.
+    fn playable_values(&self, user_id: Uuid) -> Vec<u8> {
+        let player_board = match self.board.get_player(user_id) {
+            Some(p) => p,
+            None => return vec![],
+        };
+        self.available_values()
+            .into_iter()
+            .filter(|&v| !player_board.get_movable_pawns(v, self.is_sum_value(v)).is_empty())
+            .collect()
+    }
+
+    /// Consume a dice value after a move.
+    /// If value == sum, both dice are consumed.
+    /// If value == one die, that die is consumed.
+    fn consume_dice_value(&mut self, value: u8) {
+        let sum = self.dice1_remaining + self.dice2_remaining;
+        if self.dice1_remaining > 0 && self.dice2_remaining > 0 && value == sum {
+            // Sum uses both dice
+            self.dice1_remaining = 0;
+            self.dice2_remaining = 0;
+        } else if value == self.dice1_remaining {
+            self.dice1_remaining = 0;
+        } else if value == self.dice2_remaining {
+            self.dice2_remaining = 0;
+        }
+        self.selected_dice_value = None;
+        self.movable_pawns.clear();
+        self.move_generation += 1;
     }
 }
 
@@ -206,7 +284,10 @@ impl LudoInner {
     /// Start the turn for the current player
     async fn start_turn(&mut self) {
         self.turn_phase = TurnPhase::WaitingForRoll;
-        self.current_dice = None;
+        self.dice = None;
+        self.dice1_remaining = 0;
+        self.dice2_remaining = 0;
+        self.selected_dice_value = None;
         self.movable_pawns.clear();
 
         let Some(current_player_id) = self.turn_rotation.current_player() else {
@@ -230,7 +311,11 @@ impl LudoInner {
         .await;
     }
 
-    /// Handle dice roll action
+    // ========================================================================
+    // Action: Roll Dice
+    // ========================================================================
+
+    /// Handle dice roll action — rolls TWO dice
     async fn handle_roll_dice(&mut self, user_id: Uuid) -> Result<bool, GameError> {
         // Verify it's this player's turn
         if self.turn_rotation.current_player() != Some(user_id) {
@@ -251,50 +336,34 @@ impl LudoInner {
             return Ok(false);
         }
 
-        // Roll the dice - guarantee a 6 if all pawns are at home so the game doesn't stall
         let player_board = self.board.get_player(user_id).unwrap();
-        let dice = if player_board.all_pawns_at_home() {
-            6
+        let all_home = player_board.all_pawns_at_home();
+
+        // Roll two dice
+        // If all pawns are at home, fix one die to 6 so the player can enter
+        let (die1, die2) = if all_home {
+            (6u8, roll_dice())
         } else {
-            roll_dice()
+            (roll_dice(), roll_dice())
         };
-        self.current_dice = Some(dice);
 
-        // Track consecutive sixes (3 sixes in a row = turn lost)
-        if dice == 6 {
-            self.consecutive_sixes += 1;
-            if self.consecutive_sixes >= 3 {
-                // Too many sixes, turn is lost
-                let player_state = self.get_player_state(user_id).unwrap();
-                let event = LudoEvent::NoValidMoves {
-                    player: player_state,
-                };
-                broadcast::broadcast_game_message(
-                    &self.state,
-                    self.lobby_id,
-                    serde_json::to_value(&event).unwrap_or_default(),
-                )
-                .await;
+        self.dice = Some((die1, die2));
+        self.dice1_remaining = die1;
+        self.dice2_remaining = die2;
+        self.selected_dice_value = None;
+        self.movable_pawns.clear();
 
-                self.consecutive_sixes = 0;
-                self.turn_phase = TurnPhase::Complete;
-                return Ok(true); // Turn advances
-            }
-        } else {
-            self.consecutive_sixes = 0;
-        }
-
-        // Get movable pawns
-        let player_board = self.board.get_player(user_id).unwrap();
-        self.movable_pawns = player_board.get_movable_pawns(dice);
+        // Calculate which values are playable
+        let playable = self.playable_values(user_id);
 
         let player_state = self.get_player_state(user_id).unwrap();
 
         // Broadcast dice roll
         let roll_event = LudoEvent::DiceRolled {
             player: player_state.clone(),
-            dice,
-            movable_pawns: self.movable_pawns.clone(),
+            dice1: die1,
+            dice2: die2,
+            playable_values: playable.clone(),
         };
         broadcast::broadcast_game_message(
             &self.state,
@@ -303,8 +372,8 @@ impl LudoInner {
         )
         .await;
 
-        // Check if player has any valid moves
-        if self.movable_pawns.is_empty() {
+        // Check if player has any valid moves at all
+        if playable.is_empty() {
             let event = LudoEvent::NoValidMoves {
                 player: player_state,
             };
@@ -316,15 +385,82 @@ impl LudoInner {
             .await;
 
             self.turn_phase = TurnPhase::Complete;
-            return Ok(true); // Turn advances (no moves available)
+            return Ok(true);
         }
 
-        // Wait for player to choose which pawn to move (even if only one)
+        // Wait for player to select a dice value and then a pawn
         self.turn_phase = TurnPhase::WaitingForMove;
         Ok(false)
     }
 
-    /// Handle pawn move action
+    // ========================================================================
+    // Action: Select Dice Value
+    // ========================================================================
+
+    /// Handle selecting a dice value to play with
+    async fn handle_select_dice_value(&mut self, user_id: Uuid, dice_value: u8) -> Result<bool, GameError> {
+        // Verify it's this player's turn
+        if self.turn_rotation.current_player() != Some(user_id) {
+            return Err(GameError::NotYourTurn);
+        }
+
+        // Must be in WaitingForMove phase
+        if self.turn_phase != TurnPhase::WaitingForMove {
+            let event = LudoEvent::Invalid {
+                reason: "Not in move phase".to_string(),
+            };
+            broadcast::broadcast_game_message_to_user(
+                &self.state,
+                user_id,
+                serde_json::to_value(&event).unwrap_or_default(),
+            )
+            .await;
+            return Ok(false);
+        }
+
+        // Verify the value is available
+        let available = self.available_values();
+        if !available.contains(&dice_value) {
+            let event = LudoEvent::Invalid {
+                reason: format!("Dice value {} is not available", dice_value),
+            };
+            broadcast::broadcast_game_message_to_user(
+                &self.state,
+                user_id,
+                serde_json::to_value(&event).unwrap_or_default(),
+            )
+            .await;
+            return Ok(false);
+        }
+
+        // Get movable pawns for this value
+        let is_sum = self.is_sum_value(dice_value);
+        let player_board = self.board.get_player(user_id).unwrap();
+        let movable = player_board.get_movable_pawns(dice_value, is_sum);
+
+        self.selected_dice_value = Some(dice_value);
+        self.movable_pawns = movable.clone();
+
+        // Send MovablePawns event to the requesting player only
+        let event = LudoEvent::MovablePawns {
+            dice_value,
+            pawns: movable,
+        };
+        broadcast::broadcast_game_message_to_user(
+            &self.state,
+            user_id,
+            serde_json::to_value(&event).unwrap_or_default(),
+        )
+        .await;
+
+        Ok(false)
+    }
+
+    // ========================================================================
+    // Action: Move Pawn
+    // ========================================================================
+
+    /// Handle pawn move action — uses the currently selected dice value
     async fn handle_move_pawn(&mut self, user_id: Uuid, pawn_id: usize) -> Result<bool, GameError> {
         // Verify it's this player's turn
         if self.turn_rotation.current_player() != Some(user_id) {
@@ -345,10 +481,27 @@ impl LudoInner {
             return Ok(false);
         }
 
-        // Verify the pawn can be moved
+        // Must have a selected dice value
+        let dice_value = match self.selected_dice_value {
+            Some(v) => v,
+            None => {
+                let event = LudoEvent::Invalid {
+                    reason: "Select a dice value first".to_string(),
+                };
+                broadcast::broadcast_game_message_to_user(
+                    &self.state,
+                    user_id,
+                    serde_json::to_value(&event).unwrap_or_default(),
+                )
+                .await;
+                return Ok(false);
+            }
+        };
+
+        // Verify the pawn can be moved with this value
         if !self.movable_pawns.contains(&pawn_id) {
             let event = LudoEvent::Invalid {
-                reason: "This pawn cannot be moved with the current dice roll".to_string(),
+                reason: "This pawn cannot be moved with the selected dice value".to_string(),
             };
             broadcast::broadcast_game_message_to_user(
                 &self.state,
@@ -359,7 +512,6 @@ impl LudoInner {
             return Ok(false);
         }
 
-        let dice = self.current_dice.unwrap();
         let player_state = self.get_player_state(user_id).unwrap();
 
         // Get the pawn's current position before moving
@@ -375,7 +527,7 @@ impl LudoInner {
             .board
             .get_player_mut(user_id)
             .unwrap()
-            .move_pawn(pawn_id, dice);
+            .move_pawn(pawn_id, dice_value);
 
         // Broadcast pawn moved
         let move_event = LudoEvent::PawnMoved {
@@ -383,6 +535,7 @@ impl LudoInner {
             pawn_id,
             from: from_position,
             to: to_position,
+            dice_value,
         };
         broadcast::broadcast_game_message(
             &self.state,
@@ -439,10 +592,14 @@ impl LudoInner {
 
             // Check for winner
             if self.board.get_player(user_id).unwrap().has_won() {
+                self.consume_dice_value(dice_value);
                 self.turn_phase = TurnPhase::Complete;
                 return Ok(true);
             }
         }
+
+        // Consume the dice value
+        self.consume_dice_value(dice_value);
 
         // Broadcast board update
         let board_event = LudoEvent::BoardUpdate {
@@ -455,28 +612,116 @@ impl LudoInner {
         )
         .await;
 
-        // Check if player gets another turn (rolled a 6)
-        if dice == 6 {
-            let bonus_event = LudoEvent::BonusTurn {
+        // Broadcast DiceValueUsed with remaining values
+        let remaining = self.playable_values(user_id);
+        let used_event = LudoEvent::DiceValueUsed {
+            dice_value,
+            remaining_values: remaining.clone(),
+        };
+        broadcast::broadcast_game_message(
+            &self.state,
+            self.lobby_id,
+            serde_json::to_value(&used_event).unwrap_or_default(),
+        )
+        .await;
+
+        // Check if both dice are used up
+        let both_used = self.dice1_remaining == 0 && self.dice2_remaining == 0;
+
+        if both_used {
+            // Check for bonus turn — only if BOTH original dice were 6
+            if let Some((d1, d2)) = self.dice {
+                if d1 == 6 && d2 == 6 {
+                    let bonus_event = LudoEvent::BonusTurn {
+                        player: player_state,
+                    };
+                    broadcast::broadcast_game_message(
+                        &self.state,
+                        self.lobby_id,
+                        serde_json::to_value(&bonus_event).unwrap_or_default(),
+                    )
+                    .await;
+
+                    // Reset for another roll
+                    self.turn_phase = TurnPhase::WaitingForRoll;
+                    self.dice = None;
+                    self.dice1_remaining = 0;
+                    self.dice2_remaining = 0;
+                    self.selected_dice_value = None;
+                    self.movable_pawns.clear();
+                    return Ok(false); // Don't advance turn
+                }
+            }
+
+            // Both dice used, turn is over
+            self.turn_phase = TurnPhase::Complete;
+            return Ok(true);
+        }
+
+        // Still have remaining dice — check if any playable moves remain
+        if remaining.is_empty() {
+            // No more playable moves with remaining dice
+            let event = LudoEvent::NoValidMoves {
                 player: player_state,
             };
             broadcast::broadcast_game_message(
                 &self.state,
                 self.lobby_id,
-                serde_json::to_value(&bonus_event).unwrap_or_default(),
+                serde_json::to_value(&event).unwrap_or_default(),
             )
             .await;
 
-            // Reset for another roll
-            self.turn_phase = TurnPhase::WaitingForRoll;
-            self.current_dice = None;
-            self.movable_pawns.clear();
-            return Ok(false); // Don't advance turn, player rolls again
+            self.turn_phase = TurnPhase::Complete;
+            return Ok(true);
         }
 
-        self.turn_phase = TurnPhase::Complete;
-        Ok(true) // Turn advances
+        // Stay in WaitingForMove for the remaining dice value(s)
+        // The timer continues from the game loop
+        Ok(false)
     }
+
+    // ========================================================================
+    // Auto-move logic (for timeouts)
+    // ========================================================================
+
+    /// Perform an automatic move: prefer sum, then die1, then die2
+    async fn auto_move(&mut self, user_id: Uuid) {
+        let playable = self.playable_values(user_id);
+        if playable.is_empty() {
+            self.turn_phase = TurnPhase::Complete;
+            return;
+        }
+
+        // Prefer sum (largest value), then first available
+        let sum_available = if self.dice1_remaining > 0 && self.dice2_remaining > 0 {
+            let s = self.dice1_remaining + self.dice2_remaining;
+            if playable.contains(&s) { Some(s) } else { None }
+        } else {
+            None
+        };
+
+        let chosen = sum_available.unwrap_or(playable[0]);
+
+        // Select dice value
+        let is_sum = self.is_sum_value(chosen);
+        let player_board = self.board.get_player(user_id).unwrap();
+        let movable = player_board.get_movable_pawns(chosen, is_sum);
+        if movable.is_empty() {
+            self.turn_phase = TurnPhase::Complete;
+            return;
+        }
+
+        self.selected_dice_value = Some(chosen);
+        self.movable_pawns = movable.clone();
+
+        // Move first available pawn
+        let pawn_id = movable[0];
+        let _ = self.handle_move_pawn(user_id, pawn_id).await;
+    }
+
+    // ========================================================================
+    // Elimination / End game
+    // ========================================================================
 
     /// Eliminate a player (called when they quit)
     async fn eliminate_player(&mut self, player_id: Uuid, reason: &str) {
@@ -776,7 +1021,8 @@ impl GameEngine for LudoEngine {
 
         let should_advance = match action {
             LudoAction::RollDice => inner.handle_roll_dice(user_id).await,
-            LudoAction::MovePawn{pawn_id} => inner.handle_move_pawn(user_id, pawn_id).await,
+            LudoAction::SelectDiceValue { dice_value } => inner.handle_select_dice_value(user_id, dice_value).await,
+            LudoAction::MovePawn { pawn_id } => inner.handle_move_pawn(user_id, pawn_id).await,
         };
 
         match should_advance {
@@ -809,8 +1055,15 @@ impl GameEngine for LudoEngine {
             "board": serde_json::to_value(&inner.board).unwrap_or_default(),
             "turn": turn.map(|t| serde_json::to_value(&t).unwrap_or_default()),
             "turnPhase": format!("{:?}", inner.turn_phase),
-            "currentDice": inner.current_dice,
+            "dice1": inner.dice.map(|(d1, _)| d1),
+            "dice2": inner.dice.map(|(_, d2)| d2),
+            "dice1Remaining": inner.dice1_remaining,
+            "dice2Remaining": inner.dice2_remaining,
+            "selectedDiceValue": inner.selected_dice_value,
             "movablePawns": inner.movable_pawns,
+            "playableValues": inner.turn_rotation.current_player()
+                .map(|uid| inner.playable_values(uid))
+                .unwrap_or_default(),
         });
 
         Ok(game_state)
@@ -888,7 +1141,7 @@ async fn run_game_loop(inner: Arc<RwLock<LudoInner>>, state: AppState) {
             inner_guard.start_turn().await;
         }
 
-        // Run the turn (handles bonus turns from rolling 6)
+        // Run the turn (handles bonus turns from double-6)
         run_turn(&inner, &state, &turn_advance_notify, lobby_id).await;
 
         // Check if game ended
@@ -909,13 +1162,12 @@ async fn run_game_loop(inner: Arc<RwLock<LudoInner>>, state: AppState) {
             let mut inner_guard = inner.write().await;
             if inner_guard.turn_phase == TurnPhase::Complete {
                 inner_guard.turn_rotation.next_turn();
-                inner_guard.consecutive_sixes = 0;
             }
         }
     }
 }
 
-/// Run a single turn (including bonus turns from rolling 6)
+/// Run a single turn (including bonus turns from double-6)
 async fn run_turn(
     inner: &Arc<RwLock<LudoInner>>,
     state: &AppState,
@@ -924,14 +1176,14 @@ async fn run_turn(
 ) {
     loop {
         // --- Phase 1: Wait for dice roll (ROLL_TIMEOUT_SECS) ---
-        let phase_after = run_phase_countdown(
+        let roll_result = run_phase_countdown(
             inner, state, notify, lobby_id,
             ROLL_TIMEOUT_SECS,
             TurnPhase::WaitingForRoll,
         ).await;
 
-        // If still waiting for roll after timeout, auto-roll
-        if phase_after == TurnPhase::WaitingForRoll {
+        // If timed out while waiting for roll, auto-roll
+        if matches!(roll_result, CountdownResult::TimedOut(TurnPhase::WaitingForRoll)) {
             let mut inner_guard = inner.write().await;
             if let Some(player_id) = inner_guard.turn_rotation.current_player() {
                 let _ = inner_guard.handle_roll_dice(player_id).await;
@@ -944,7 +1196,6 @@ async fn run_turn(
             inner_guard.turn_phase
         };
 
-        // If no valid moves or 3-sixes, turn is done
         if phase == TurnPhase::Complete {
             break;
         }
@@ -958,22 +1209,37 @@ async fn run_turn(
             break;
         }
 
-        if phase == TurnPhase::WaitingForMove {
-            // --- Phase 2: Wait for pawn move (MOVE_TIMEOUT_SECS) ---
-            let phase_after = run_phase_countdown(
+        // --- Phase 2: Move loop — keep giving fresh countdowns until dice are used up ---
+        while {
+            let inner_guard = inner.read().await;
+            inner_guard.turn_phase == TurnPhase::WaitingForMove
+        } {
+            let move_result = run_phase_countdown(
                 inner, state, notify, lobby_id,
                 MOVE_TIMEOUT_SECS,
                 TurnPhase::WaitingForMove,
             ).await;
 
-            // If still waiting for move after timeout, auto-move first available pawn
-            if phase_after == TurnPhase::WaitingForMove {
-                let mut inner_guard = inner.write().await;
-                if let Some(player_id) = inner_guard.turn_rotation.current_player() {
-                    if let Some(&pawn_id) = inner_guard.movable_pawns.first() {
-                        let _ = inner_guard.handle_move_pawn(player_id, pawn_id).await;
+            match move_result {
+                CountdownResult::TimedOut(TurnPhase::WaitingForMove) => {
+                    // Timeout — auto-move with remaining dice
+                    let mut inner_guard = inner.write().await;
+                    if let Some(player_id) = inner_guard.turn_rotation.current_player() {
+                        inner_guard.auto_move(player_id).await;
                     }
+                    // auto_move will consume remaining dice and set phase to Complete,
+                    // or WaitingForRoll for bonus turn — the while condition handles it
                 }
+                CountdownResult::MoveDetected => {
+                    // Player used one die — the while loop will check if still WaitingForMove
+                    // and give a fresh MOVE_TIMEOUT_SECS countdown
+                    continue;
+                }
+                CountdownResult::PhaseChanged(_) => {
+                    // Phase changed (Complete, WaitingForRoll for bonus, etc.)
+                    break;
+                }
+                _ => break,
             }
         }
 
@@ -986,7 +1252,7 @@ async fn run_turn(
             break;
         }
 
-        // Check if bonus turn (rolled 6 → phase went back to WaitingForRoll)
+        // Check if bonus turn (double-6 → phase went back to WaitingForRoll)
         let phase = {
             let inner_guard = inner.read().await;
             inner_guard.turn_phase
@@ -1002,8 +1268,18 @@ async fn run_turn(
     }
 }
 
+/// Result from run_phase_countdown indicating why it returned.
+enum CountdownResult {
+    /// Phase changed (player acted, game ended, etc.)
+    PhaseChanged(TurnPhase),
+    /// A die was consumed but phase stayed the same — need fresh countdown
+    MoveDetected,
+    /// Timer expired without any action
+    TimedOut(TurnPhase),
+}
+
 /// Run countdown for a specific phase.
-/// Returns the current TurnPhase when the countdown ends (either by phase change or timeout).
+/// Returns a CountdownResult indicating why the countdown ended.
 async fn run_phase_countdown(
     inner: &Arc<RwLock<LudoInner>>,
     state: &AppState,
@@ -1011,8 +1287,14 @@ async fn run_phase_countdown(
     lobby_id: Uuid,
     timeout_secs: u64,
     expected_phase: TurnPhase,
-) -> TurnPhase {
+) -> CountdownResult {
     let mut time_remaining = timeout_secs;
+
+    // Capture the current move generation so we can detect when a die is consumed
+    let start_generation = {
+        let inner_guard = inner.read().await;
+        inner_guard.move_generation
+    };
 
     while time_remaining > 0 {
         // Broadcast countdown
@@ -1033,23 +1315,23 @@ async fn run_phase_countdown(
         )
         .await;
 
-        // Check if phase changed (player acted, or game ended)
-        let current_phase = {
+        // Check if phase changed, game finished, or a move was made
+        let (current_phase, finished, current_gen) = {
             let inner_guard = inner.read().await;
-            inner_guard.turn_phase
+            (inner_guard.turn_phase, inner_guard.finished, inner_guard.move_generation)
         };
 
-        if current_phase != expected_phase {
-            return current_phase;
+        if finished {
+            return CountdownResult::PhaseChanged(TurnPhase::Complete);
         }
 
-        // Also check if game is finished
-        let finished = {
-            let inner_guard = inner.read().await;
-            inner_guard.finished
-        };
-        if finished {
-            return TurnPhase::Complete;
+        if current_phase != expected_phase {
+            return CountdownResult::PhaseChanged(current_phase);
+        }
+
+        // A die was consumed (move made) — exit so run_turn can restart the countdown
+        if current_gen != start_generation {
+            return CountdownResult::MoveDetected;
         }
 
         time_remaining -= 1;
@@ -1066,7 +1348,7 @@ async fn run_phase_countdown(
 
     // Return the current phase (unchanged = timed out)
     let inner_guard = inner.read().await;
-    inner_guard.turn_phase
+    CountdownResult::TimedOut(inner_guard.turn_phase)
 }
 
 // ============================================================================

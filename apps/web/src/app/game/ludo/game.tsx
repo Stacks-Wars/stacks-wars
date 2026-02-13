@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import type { GamePluginProps, PlayerState } from "@/lib/definitions";
 import type { LudoState, Pawn, PlayerBoardState, LudoBoard } from "./types";
 import {
@@ -15,7 +14,7 @@ import { cn, displayUserIdentifier } from "@/lib/utils";
 import RoomHeader from "@/components/room/room-header";
 import ChatDialog from "@/components/room/chat";
 import Image from "next/image";
-import { Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, Move } from "lucide-react";
+import { Dice1, Dice2, Dice3, Dice4, Dice5, Dice6 } from "lucide-react";
 
 // Dice icons mapping
 const DiceIcons = [Dice1, Dice2, Dice3, Dice4, Dice5, Dice6];
@@ -64,7 +63,6 @@ export default function LudoGame({
 }: GamePluginProps<LudoState>) {
 	const user = useUser();
 	const roomPlayers = usePlayers();
-	const [selectedPawnId, setSelectedPawnId] = useState<number | null>(null);
 
 	const isMyTurn = state.currentPlayer?.userId === user?.id;
 	const canRoll = isMyTurn && state.turnPhase === "WaitingForRoll";
@@ -82,25 +80,57 @@ export default function LudoGame({
 
 	const handleRollDice = () => {
 		if (!canRoll) return;
-		setSelectedPawnId(null);
 		sendMessage("rollDice", null);
+	};
+
+	const handleSelectDiceValue = (diceValue: number) => {
+		if (!canMove) return;
+		sendMessage("selectDiceValue", { diceValue });
 	};
 
 	const handleSelectPawn = (pawnId: number) => {
 		if (!canMove || !state.movablePawns.includes(pawnId)) return;
-		setSelectedPawnId(pawnId);
+		// Immediately move the pawn (no confirm button)
+		sendMessage("movePawn", { pawnId });
 	};
 
-	const handleConfirmMove = () => {
-		if (!canMove || selectedPawnId === null) return;
-		sendMessage("movePawn", { pawnId: selectedPawnId });
-		setSelectedPawnId(null);
-	};
+	// Build the three dice value options: die1, sum, die2
+	const diceOptions = (() => {
+		if (state.dice1 === null || state.dice2 === null) return [];
+		const d1 = state.dice1Remaining;
+		const d2 = state.dice2Remaining;
+		const opts: { label: string; value: number; remaining: boolean }[] = [];
 
-	// Get dice icon component
-	const DiceIcon = state.currentDice
-		? DiceIcons[state.currentDice - 1]
-		: Dice1;
+		opts.push({
+			label: String(d1 || state.dice1),
+			value: state.dice1,
+			remaining: d1 > 0,
+		});
+
+		// Sum only when both dice are still available
+		if (d1 > 0 && d2 > 0) {
+			opts.push({
+				label: String(d1 + d2),
+				value: d1 + d2,
+				remaining: true,
+			});
+		} else {
+			// Show sum as 0 when one die is used
+			opts.push({
+				label: "0",
+				value: 0,
+				remaining: false,
+			});
+		}
+
+		opts.push({
+			label: String(d2 || state.dice2),
+			value: state.dice2,
+			remaining: d2 > 0,
+		});
+
+		return opts;
+	})();
 
 	// Current player color
 	const currentPlayerColor = state.board
@@ -122,13 +152,14 @@ export default function LudoGame({
 					board={state.board}
 					myPlayerIndex={myPlayerIndex ?? -1}
 					movablePawns={canMove ? state.movablePawns : []}
-					selectedPawnId={selectedPawnId}
+					selectedPawnId={null}
 					onPawnSelect={handleSelectPawn}
 					getPlayerInfo={getPlayerInfo}
 					isMyTurn={isMyTurn}
 					canRoll={canRoll}
 					canMove={canMove}
-					currentDice={state.currentDice}
+					dice1={state.dice1}
+					dice2={state.dice2}
 					onRollDice={handleRollDice}
 				/>
 
@@ -162,7 +193,9 @@ export default function LudoGame({
 										{player.userId === user?.id
 											? "You"
 											: playerInfo
-												? displayUserIdentifier(playerInfo)
+												? displayUserIdentifier(
+														playerInfo
+													)
 												: `Player ${player.playerIndex + 1}`}
 									</span>
 									<span className="text-muted-foreground">
@@ -178,19 +211,53 @@ export default function LudoGame({
 						})}
 					</div>
 				)}
+
+				{/* Dice Value Selection Buttons — below legend when in move phase */}
+				{canMove && diceOptions.length > 0 && (
+					<div className="flex items-center justify-center gap-4">
+						{diceOptions.map((opt, i) => {
+							const isPlayable =
+								opt.remaining &&
+								opt.value > 0 &&
+								state.playableValues.includes(opt.value);
+							const isSelected =
+								state.selectedDiceValue === opt.value;
+							const isUsed = !opt.remaining;
+
+							return (
+								<button
+									key={i}
+									type="button"
+									disabled={!isPlayable}
+									onClick={() =>
+										isPlayable &&
+										handleSelectDiceValue(opt.value)
+									}
+									className={cn(
+										"flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold shadow-md transition-all sm:h-14 sm:w-14 sm:text-xl",
+										isUsed &&
+											"bg-muted text-muted-foreground cursor-not-allowed opacity-40",
+										!isUsed &&
+											!isPlayable &&
+											"bg-muted text-muted-foreground cursor-not-allowed opacity-60",
+										isPlayable &&
+											!isSelected &&
+											"bg-primary/20 text-primary hover:bg-primary/30 ring-primary/50 cursor-pointer ring-2",
+										isSelected &&
+											"bg-primary text-primary-foreground ring-primary scale-110 cursor-pointer shadow-lg ring-4"
+									)}
+								>
+									{isUsed ? "0" : opt.label}
+								</button>
+							);
+						})}
+					</div>
+				)}
 			</div>
 
-			{/* Fixed bottom bar: Move button or Turn indicator */}
+			{/* Fixed bottom bar: Turn indicator */}
 			<div className="pointer-events-none fixed right-0 bottom-0 left-0 z-40 flex justify-center pb-5">
-				{canMove && selectedPawnId !== null ? (
-					<button
-						onClick={handleConfirmMove}
-						className="pointer-events-auto flex items-center gap-2 rounded-full bg-green-500 px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
-					>
-						<Move className="h-4 w-4" />
-						Move Pawn {selectedPawnId + 1}
-					</button>
-				) : state.currentPlayer ? (
+				{state.currentPlayer ? (
 					<div
 						className={cn(
 							"pointer-events-auto flex items-center gap-3 rounded-full border px-4 py-2 shadow-lg backdrop-blur-md",
@@ -257,7 +324,8 @@ interface LudoBoardProps {
 	isMyTurn: boolean;
 	canRoll: boolean;
 	canMove: boolean;
-	currentDice: number | null;
+	dice1: number | null;
+	dice2: number | null;
 	onRollDice: () => void;
 }
 
@@ -376,7 +444,8 @@ function LudoBoard({
 	isMyTurn,
 	canRoll,
 	canMove,
-	currentDice,
+	dice1,
+	dice2,
 	onRollDice,
 }: LudoBoardProps) {
 	if (!board) {
@@ -422,8 +491,11 @@ function LudoBoard({
 	const getPlayer = (playerIndex: number) =>
 		board.players.find((p) => p.playerIndex === playerIndex);
 
-	// Dice icon for center
-	const DiceIcon = currentDice ? DiceIcons[currentDice - 1] : Dice1;
+	// Dice icons for center (two dice)
+	const Dice1Icon =
+		dice1 && dice1 >= 1 && dice1 <= 6 ? DiceIcons[dice1 - 1] : Dice1;
+	const Dice2Icon =
+		dice2 && dice2 >= 1 && dice2 <= 6 ? DiceIcons[dice2 - 1] : Dice1;
 
 	return (
 		<div className="mx-auto w-full max-w-125">
@@ -454,28 +526,25 @@ function LudoBoard({
 					})}
 				</div>
 
-				{/* Center overlay: logo when idle, dice when rolling/moving */}
+				{/* Center overlay: logo when idle, dice when rolling/moving, tap to roll */}
 				<div className="pointer-events-none absolute top-1/2 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
 					{canRoll ? (
 						<button
 							onClick={onRollDice}
-							className="pointer-events-auto flex animate-bounce flex-col items-center justify-center gap-1 rounded-xl border-4 border-white bg-linear-to-br from-slate-700 to-slate-900 px-4 py-3 shadow-xl transition-transform hover:scale-110 active:scale-95"
+							className="pointer-events-auto flex animate-bounce flex-col items-center justify-center gap-1 px-4 py-3 transition-transform hover:scale-110 active:scale-95"
 						>
-							<Dice1 className="h-6 w-6 text-white sm:h-8 sm:w-8" />
+							<div className="flex gap-1">
+								<Dice1 className="h-5 w-5 text-white sm:h-7 sm:w-7" />
+								<Dice1 className="h-5 w-5 text-white sm:h-7 sm:w-7" />
+							</div>
 							<span className="text-[10px] font-semibold text-white/90 sm:text-xs">
 								Tap to roll
 							</span>
 						</button>
-					) : canMove ? (
-						<div className="flex items-center justify-center rounded-xl border-4 border-white bg-linear-to-br from-slate-700 to-slate-900 p-3 shadow-xl">
-							<DiceIcon
-								className={cn(
-									"h-8 w-8 sm:h-10 sm:w-10",
-									currentDice === 6
-										? "text-yellow-400"
-										: "text-white"
-								)}
-							/>
+					) : canMove && dice1 && dice2 ? (
+						<div className="flex items-center justify-center gap-1.5 sm:gap-2 sm:p-3">
+							<Dice1Icon className="h-7 w-7 text-white sm:h-9 sm:w-9" />
+							<Dice2Icon className="h-7 w-7 text-white sm:h-9 sm:w-9" />
 						</div>
 					) : (
 						/* Logo in center when idle */

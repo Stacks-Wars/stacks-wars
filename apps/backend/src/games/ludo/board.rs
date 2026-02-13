@@ -141,12 +141,13 @@ impl PlayerBoardState {
         self.pawns.iter().all(|p| p.position.is_home())
     }
 
-    /// Get pawns that can be moved with the given dice roll
-    pub fn get_movable_pawns(&self, dice: u8) -> Vec<usize> {
+    /// Get pawns that can be moved with the given dice value.
+    /// `is_sum` should be true when the value is the sum of both dice (sum cannot exit home).
+    pub fn get_movable_pawns(&self, dice: u8, is_sum: bool) -> Vec<usize> {
         let mut movable = Vec::new();
 
         for pawn in &self.pawns {
-            if self.can_move_pawn(pawn.id, dice) {
+            if self.can_move_pawn(pawn.id, dice, is_sum) {
                 movable.push(pawn.id);
             }
         }
@@ -154,14 +155,15 @@ impl PlayerBoardState {
         movable
     }
 
-    /// Check if a specific pawn can be moved with the given dice roll
-    pub fn can_move_pawn(&self, pawn_id: usize, dice: u8) -> bool {
+    /// Check if a specific pawn can be moved with the given dice value.
+    /// `is_sum` should be true when the value is the sum of both dice (sum cannot exit home).
+    pub fn can_move_pawn(&self, pawn_id: usize, dice: u8, is_sum: bool) -> bool {
         let pawn = &self.pawns[pawn_id];
 
         match pawn.position {
             PawnPosition::Home => {
-                // Need a 6 to leave home
-                dice == 6
+                // Need a single die showing 6 to leave home — sum of dice cannot be used
+                !is_sum && dice == 6
             }
             PawnPosition::OnTrack(pos) => {
                 // Check if move would enter home stretch or stay on track
@@ -362,10 +364,12 @@ mod tests {
         // Pawn starts at home
         assert!(player.pawns[0].position.is_home());
 
-        // Can't move with anything but 6
-        assert!(!player.can_move_pawn(0, 1));
-        assert!(!player.can_move_pawn(0, 5));
-        assert!(player.can_move_pawn(0, 6));
+        // Can't move with anything but a single-die 6
+        assert!(!player.can_move_pawn(0, 1, false));
+        assert!(!player.can_move_pawn(0, 5, false));
+        assert!(player.can_move_pawn(0, 6, false));
+        // Sum of 6 cannot exit home
+        assert!(!player.can_move_pawn(0, 6, true));
 
         // Move out of home with 6
         let new_pos = player.move_pawn(0, 6);

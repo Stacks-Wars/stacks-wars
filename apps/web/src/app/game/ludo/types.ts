@@ -75,9 +75,19 @@ export interface LudoState {
 	currentPlayer: PlayerState | null;
 	/** Current turn phase */
 	turnPhase: TurnPhase;
-	/** Current dice value (null if not yet rolled) */
-	currentDice: number | null;
-	/** Pawns that can be moved with current dice roll */
+	/** Die 1 value (null if not yet rolled) */
+	dice1: number | null;
+	/** Die 2 value (null if not yet rolled) */
+	dice2: number | null;
+	/** Remaining value of die 1 (0 = used) */
+	dice1Remaining: number;
+	/** Remaining value of die 2 (0 = used) */
+	dice2Remaining: number;
+	/** Which dice values (die1, die2, sum) are playable (have movable pawns) */
+	playableValues: number[];
+	/** Currently selected dice value for pawn movement */
+	selectedDiceValue: number | null;
+	/** Pawns that can be moved with the currently selected dice value */
 	movablePawns: number[];
 	/** Time remaining in seconds for current turn */
 	timeRemaining: number;
@@ -113,6 +123,8 @@ export type LudoMessage =
 	| BoardUpdateMessage
 	| TurnMessage
 	| DiceRolledMessage
+	| MovablePawnsMessage
+	| DiceValueUsedMessage
 	| PawnMovedMessage
 	| PawnCapturedMessage
 	| PawnFinishedMessage
@@ -135,8 +147,21 @@ export interface TurnMessage {
 export interface DiceRolledMessage {
 	type: "diceRolled";
 	player: PlayerState;
-	dice: number;
-	movablePawns: number[];
+	dice1: number;
+	dice2: number;
+	playableValues: number[];
+}
+
+export interface MovablePawnsMessage {
+	type: "movablePawns";
+	diceValue: number;
+	pawns: number[];
+}
+
+export interface DiceValueUsedMessage {
+	type: "diceValueUsed";
+	diceValue: number;
+	remainingValues: number[];
 }
 
 export interface PawnMovedMessage {
@@ -145,6 +170,7 @@ export interface PawnMovedMessage {
 	pawnId: number;
 	from: PawnPosition;
 	to: PawnPosition;
+	diceValue: number;
 }
 
 export interface PawnCapturedMessage {
@@ -189,8 +215,13 @@ export interface LudoGameState {
 	board: LudoBoard;
 	turn: TurnMessage | null;
 	turnPhase: string;
-	currentDice: number | null;
+	dice1: number | null;
+	dice2: number | null;
+	dice1Remaining: number;
+	dice2Remaining: number;
+	selectedDiceValue: number | null;
 	movablePawns: number[];
+	playableValues: number[];
 }
 
 /**
@@ -205,8 +236,13 @@ export function parseLudoGameState(raw: unknown): LudoGameState | null {
 		board: data.board as LudoBoard,
 		turn: data.turn as TurnMessage | null,
 		turnPhase: (data.turnPhase as string) || "WaitingForRoll",
-		currentDice: (data.currentDice as number) || null,
+		dice1: (data.dice1 as number) ?? null,
+		dice2: (data.dice2 as number) ?? null,
+		dice1Remaining: (data.dice1Remaining as number) ?? 0,
+		dice2Remaining: (data.dice2Remaining as number) ?? 0,
+		selectedDiceValue: (data.selectedDiceValue as number) ?? null,
 		movablePawns: (data.movablePawns as number[]) || [],
+		playableValues: (data.playableValues as number[]) || [],
 	};
 }
 
