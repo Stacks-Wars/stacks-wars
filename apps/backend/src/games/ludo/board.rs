@@ -269,26 +269,10 @@ impl LudoBoard {
             _ => (0..user_ids.len()).collect(), // All four corners
         };
 
-        tracing::info!(
-            player_count = user_ids.len(),
-            user_ids = ?user_ids.iter().map(|id| id.to_string()).collect::<Vec<_>>(),
-            assigned_indices = ?indices,
-            "Ludo: Creating board with player indices"
-        );
-
         let players = user_ids
             .iter()
             .zip(indices.iter())
-            .map(|(&user_id, &idx)| {
-                let start_pos = PLAYER_STARTS[idx];
-                tracing::info!(
-                    user_id = %user_id,
-                    player_index = idx,
-                    start_position = start_pos,
-                    "Ludo: Player assigned to position"
-                );
-                PlayerBoardState::new(user_id, idx)
-            })
+            .map(|(&user_id, &idx)| PlayerBoardState::new(user_id, idx))
             .collect();
 
         Self { players }
