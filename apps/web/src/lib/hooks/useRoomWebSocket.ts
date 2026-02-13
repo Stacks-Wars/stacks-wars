@@ -131,7 +131,7 @@ export function useRoomWebSocket({
 
 	// Handle lobby-level messages
 	const handleLobbyMessage = (message: RoomServerMessage) => {
-		if (message.type !== "pong")
+		if (message.type !== "pong" && message.type !== "playerUpdated")
 			console.log("[Room] Handling lobby message:", message);
 
 		switch (message.type) {
