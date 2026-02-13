@@ -7,12 +7,21 @@ import type {
 	LudoBoard,
 	PawnPosition,
 } from "./types";
-import { parseLudoGameState } from "./types";
+import { parseLudoGameState, PLAYER_STARTS } from "./types";
 import { toast } from "sonner";
 
 /** Normalize board from server (e.g. position.type "Home" -> "home") so UI logic works */
 function normalizeBoard(board: LudoBoard): LudoBoard {
-	return {
+	console.log("[Ludo] normalizeBoard: received board", {
+		playerCount: board.players.length,
+		players: board.players.map((p) => ({
+			userId: p.userId,
+			playerIndex: p.playerIndex,
+			startPosition: PLAYER_STARTS[p.playerIndex],
+		})),
+	});
+
+	const normalized = {
 		...board,
 		players: board.players.map((p) => ({
 			...p,
@@ -22,6 +31,17 @@ function normalizeBoard(board: LudoBoard): LudoBoard {
 			})),
 		})),
 	};
+
+	console.log("[Ludo] normalizeBoard: normalized board", {
+		playerCount: normalized.players.length,
+		players: normalized.players.map((p) => ({
+			userId: p.userId,
+			playerIndex: p.playerIndex,
+			startPosition: PLAYER_STARTS[p.playerIndex],
+		})),
+	});
+
+	return normalized;
 }
 
 /**
@@ -96,18 +116,48 @@ export const handleLudoMessage = (
 		}
 
 		case "diceRolled": {
+			console.log("[Ludo] diceRolled message received:", {
+				type: message.type,
+				rawMessage: message,
+				dice1: message.dice1,
+				dice2: message.dice2,
+				dice1Type: typeof message.dice1,
+				dice2Type: typeof message.dice2,
+				player: message.player,
+				playableValues: message.playableValues,
+			});
+
+			// Validate dice values
+			if (message.dice1 === undefined || message.dice1 === null) {
+				console.error("[Ludo] dice1 is undefined/null:", message);
+			}
+			if (message.dice2 === undefined || message.dice2 === null) {
+				console.error("[Ludo] dice2 is undefined/null:", message);
+			}
+
 			const playableValues = Array.isArray(message.playableValues)
 				? message.playableValues
 				: [];
+
+			const dice1 = message.dice1 ?? 0;
+			const dice2 = message.dice2 ?? 0;
+
+			console.log("[Ludo] Processing dice roll:", {
+				dice1,
+				dice2,
+				playableValues,
+				playerId: message.player?.userId,
+			});
+
 			toast.info(
-				`${displayUserIdentifier(message.player)} rolled ${message.dice1} and ${message.dice2}!`
+				`${displayUserIdentifier(message.player)} rolled ${dice1} and ${dice2}!`
 			);
 			return {
 				...state,
-				dice1: message.dice1,
-				dice2: message.dice2,
-				dice1Remaining: message.dice1,
-				dice2Remaining: message.dice2,
+				dice1,
+				dice2,
+				dice1Remaining: dice1,
+				dice2Remaining: dice2,
 				playableValues,
 				selectedDiceValue: null,
 				movablePawns: [],
@@ -116,8 +166,8 @@ export const handleLudoMessage = (
 				lastEvent: {
 					type: "diceRolled",
 					data: {
-						dice1: message.dice1,
-						dice2: message.dice2,
+						dice1,
+						dice2,
 						player: message.player,
 					},
 					timestamp: Date.now(),
@@ -129,9 +179,7 @@ export const handleLudoMessage = (
 			return {
 				...state,
 				selectedDiceValue: message.diceValue,
-				movablePawns: Array.isArray(message.pawns)
-					? message.pawns
-					: [],
+				movablePawns: Array.isArray(message.pawns) ? message.pawns : [],
 			};
 		}
 
@@ -144,8 +192,7 @@ export const handleLudoMessage = (
 			let d1Rem = state.dice1Remaining;
 			let d2Rem = state.dice2Remaining;
 			const usedValue = message.diceValue;
-			const sum =
-				d1Rem > 0 && d2Rem > 0 ? d1Rem + d2Rem : 0;
+			const sum = d1Rem > 0 && d2Rem > 0 ? d1Rem + d2Rem : 0;
 
 			if (d1Rem > 0 && d2Rem > 0 && usedValue === sum) {
 				// Sum used — both consumed
@@ -166,9 +213,7 @@ export const handleLudoMessage = (
 				movablePawns: [],
 				// If no remaining values, turn will end via "Complete" or next event
 				turnPhase:
-					remaining.length > 0
-						? "WaitingForMove"
-						: state.turnPhase,
+					remaining.length > 0 ? "WaitingForMove" : state.turnPhase,
 			};
 		}
 
@@ -288,11 +333,24 @@ export const applyLudoGameState = (
 	state: LudoState,
 	rawGameState: unknown
 ): LudoState => {
+	console.log("[Ludo] applyLudoGameState: received raw game state", {
+		rawGameState,
+		rawType: typeof rawGameState,
+	});
+
 	const gameState = parseLudoGameState(rawGameState);
 	if (!gameState) {
 		console.warn("[Ludo] Invalid game state received:", rawGameState);
 		return state;
 	}
+
+	console.log("[Ludo] applyLudoGameState: parsed game state", {
+		dice1: gameState.dice1,
+		dice2: gameState.dice2,
+		turnPhase: gameState.turnPhase,
+		hasBoard: !!gameState.board,
+		boardPlayerCount: gameState.board?.players.length,
+	});
 
 	let newState = { ...state };
 
@@ -312,6 +370,13 @@ export const applyLudoGameState = (
 	newState.selectedDiceValue = gameState.selectedDiceValue;
 	newState.movablePawns = gameState.movablePawns;
 	newState.playableValues = gameState.playableValues;
+
+	console.log("[Ludo] applyLudoGameState: applied dice state", {
+		dice1: newState.dice1,
+		dice2: newState.dice2,
+		dice1Remaining: newState.dice1Remaining,
+		dice2Remaining: newState.dice2Remaining,
+	});
 
 	// Apply turn if present
 	if (gameState.turn) {
