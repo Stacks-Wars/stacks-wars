@@ -43,12 +43,13 @@ bun install
 ### Development
 
 ```bash
-# Start all apps (web + backend)
+# Start all apps (web)
 bun run dev
+cargo run
 
 # Or start individually
 bun run dev:web      # Next.js frontend
-bun run dev:backend  # Rust backend
+cargo run  # Rust backend
 bun run dev:native   # React Native/Expo
 ```
 
@@ -96,20 +97,15 @@ The Rust backend has comprehensive documentation in each module:
 
 - `bun run dev` - Start all applications
 - `bun run dev:web` - Start Next.js frontend
-- `bun run dev:backend` - Start Rust backend
 - `bun run dev:native` - Start Expo development server
+- `cargo run` - Start Rust backend
 
 ### Build
 
 - `bun run build` - Build all applications
+- `cargo run build` - Build Rust Backend
 - `bun run check-types` - TypeScript type checking
 
-### Database
+## Test
 
-- `bun run db:push` - Push schema changes to database
-- `bun run db:studio` - Open Drizzle Studio UI
-
-### Backend (from `apps/backend/`)
-
-- `cargo run --bin stacks_wars_be` - Start backend server
-- `cargo test` - Run tests
+- `cargo test` - Run Backend tests

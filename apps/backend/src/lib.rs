@@ -20,7 +20,10 @@ use tokio::signal;
 
 /// Start the HTTP API server and Telegram bot
 pub async fn start_server() {
-    dotenvy::dotenv().ok();
+    // Load .env from the backend crate directory (works even when run from workspace root)
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let env_path = std::path::Path::new(manifest_dir).join(".env");
+    dotenvy::from_path(&env_path).ok();
     tracing_subscriber::fmt::init();
 
     // Run database migrations

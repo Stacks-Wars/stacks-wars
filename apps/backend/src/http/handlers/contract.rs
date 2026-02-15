@@ -1,4 +1,4 @@
-use crate::{db::user::UserRepository, errors::AppError, models::WalletAddress, state::AppState};
+use crate::{db::user::UserRepository, models::WalletAddress, state::AppState};
 use axum::{
     Json,
     extract::{Query, State},
