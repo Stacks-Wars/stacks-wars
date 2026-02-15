@@ -45,9 +45,9 @@ Stacks Wars offers two types of lobbies with different fund handling:
 - **Server doesn't hold funds** - acts only as game coordinator
 - **Immediate claim** - Winners can claim prizes on-chain with server signature
 - **Best for:** Transparent, trustless gaming
-- **Fee:** 1% platform fee on winnings
+- **Fee:** 2% platform fee on winnings
 
-> **Example:** You deposit 100 STX, win, and claim 198 STX (1% fee already deducted)
+> **Example:** You deposit 100 STX, win, and claim 196 STX (2% fee already deducted)
 
 ### Sponsored Lobbies
 
@@ -55,7 +55,6 @@ Stacks Wars offers two types of lobbies with different fund handling:
 - **Sponsor guarantees the pot** - Sponsoring entity covers the cost
 - **Rewards distributed** - Winners receive tokens or prizes instead of STX
 - **Best for:** Tournaments, promotional events, or risk-free play
-- **Fee:** Varies by sponsor (usually 0%)
 
 > **Example:** Tournament organizer sponsors a lobby. Winners receive exclusive tournament tokens instead of STX.
 
@@ -147,24 +146,17 @@ When upgrading:
 3. Proxy is updated to point to new implementation
 4. User balances remain untouched
 
-## Auditing & Transparency
-
-### Third-Party Audits
-
-- **Initial Audit:** Conducted by Certora Labs (Q1 2024)
-- **Re-audit Schedule:** Every major version release
-- **Audit Reports:** Public on [github.com/stacks-wars/audits](https://github.com/stacks-wars/audits)
 
 ### Public Contract Code
 
 All contracts are open-source:
 
 ```
-Repository: github.com/stacks-wars/contracts
+Repository: github.com/Stacks-Wars/stacks-wars/tree/dev/apps/backend/contract/stacks/contracts
 Files:
-  ├─ vault.clar
-  ├─ governance.clar
-  └─ tests/
+  ├─ stx-vault.clar
+  ├─ ft-vault.clar
+  └─ sponsored-stx-vault.clar
 ```
 
 You can verify the deployed contract matches the source code using:
@@ -195,19 +187,9 @@ You can verify the deployed contract matches the source code using:
 
 **Q: My signature claim was rejected**
 - Ensure the game result shows you as the winner
-- Check that the claim window hasn't expired (72 hours)
 - Verify your wallet address in the signature
 
 **Q: Why is my deposit still pending?**
 - Deposits need 1 confirmation (~6 minutes)
 - Check Stacks Explorer for transaction status
 - Contact support if delayed over 30 minutes
-
-**Q: Can I dispute a game result?**
-- Game results are signed by the server and verified on-chain
-- Disputes must be filed within the claim window (72 hours)
-- Contact support@stacks-wars.com with game ID
-
-**Q: Is the contract verified?**
-- Yes! Check [Stacks Explorer](https://explorer.stacks.co) and search our contract address
-- Look for the "Verified" badge and audit report links
