@@ -1,0 +1,462 @@
+---
+title: Plugin System
+description: Build custom games for Stacks Wars using our extensible plugin architecture
+icon: Wrench
+---
+
+## Overview
+
+The Stacks Wars Plugin System enables developers to build and deploy custom games on the platform. Every game is built with three core components: **State**, **Handler**, and **Component**.
+
+This architecture ensures:
+- **Type safety** with Zod validation
+- **Pure functions** for deterministic game logic
+- **React UI** for rich user experiences
+- **Real-time synchronization** via WebSockets
+
+---
+
+## Core Architecture
+
+### 1. The State (Zod-Validated TypeScript)
+
+Every game needs a **Zod schema** that validates and types the game state.
+
+**Purpose:**
+- Define all game data structures
+- Validate inputs and outputs
+- Enable runtime type checking
+- Serialize/deserialize between client and server
+
+**Example: Lexi Wars State**
+
+```typescript
+import { z } from 'zod';
+
+export const LexiWarsStateSchema = z.object({
+  gameId: z.string().uuid(),
+  players: z.array(z.object({
+    id: z.string(),
+    username: z.string(),
+    score: z.number().min(0),
+    tiles: z.array(z.string()),
+    status: z.enum(['active', 'passed', 'eliminated']),
+  })),
+  currentTurn: z.number(),
+  currentPlayer: z.string(),
+  board: z.array(z.string()), // Available words
+  validWords: z.array(z.string()), // Dictionary reference
+  round: z.number(),
+  startedAt: z.string().datetime(),
+  status: z.enum(['playing', 'paused', 'completed']),
+  winner: z.string().optional(),
+});
+
+export type LexiWarsState = z.infer<typeof LexiWarsStateSchema>;
+```
+
+**Key Principles:**
+1. **Be explicit**: Every field should have a clear purpose
+2. **Use enums**: For status, game phases, player states
+3. **Include metadata**: Game ID, timestamps, player info
+4. **Validate constraints**: Min/max values, format requirements
+5. **Make it serializable**: All fields must work with JSON
+
+---
+
+### 2. The Handler (Pure Function)
+
+A **Handler** is a pure function that processes WebSocket messages and returns a new state.
+
+**Signature:**
+```typescript
+type GameHandler<S> = (
+  state: S,
+  action: GameAction,
+  context: GameContext
+) => S | Promise<S>;
+```
+
+**Purpose:**
+- Process player inputs (moves, actions)
+- Update game state deterministically
+- Validate moves against rules
+- Determine winners and game flow
+
+**Example: Lexi Wars Handler**
+
+```typescript
+export const handleLexiWarsAction = async (
+  state: LexiWarsState,
+  action: GameAction,
+  context: GameContext
+): Promise<LexiWarsState> => {
+  // Validate the action
+  if (action.type === 'PLAY_WORD') {
+    const { playerId, word } = action.payload;
+    
+    // Check if it's the current player's turn
+    if (state.currentPlayer !== playerId) {
+      throw new Error('Not your turn');
+    }
+    
+    // Validate the word
+    if (!state.validWords.includes(word)) {
+      throw new Error('Invalid word');
+    }
+    
+    // Update state
+    const playerIndex = state.players.findIndex(p => p.id === playerId);
+    const updatedPlayers = [...state.players];
+    updatedPlayers[playerIndex] = {
+      ...updatedPlayers[playerIndex],
+      score: updatedPlayers[playerIndex].score + word.length * 10,
+      tiles: updatedPlayers[playerIndex].tiles.filter(t => t !== word),
+    };
+    
+    // Advance turn
+    const nextPlayerIndex = (playerIndex + 1) % updatedPlayers.length;
+    
+    // Check for game end
+    const allPassed = updatedPlayers.every(p => p.status !== 'active');
+    
+    return {
+      ...state,
+      players: updatedPlayers,
+      currentPlayer: updatedPlayers[nextPlayerIndex].id,
+      currentTurn: state.currentTurn + 1,
+      status: allPassed ? 'completed' : 'playing',
+      winner: allPassed ? getWinnerById(updatedPlayers) : undefined,
+    };
+  }
+  
+  if (action.type === 'PASS') {
+    const { playerId } = action.payload;
+    
+    // Mark player as passed
+    const playerIndex = state.players.findIndex(p => p.id === playerId);
+    const updatedPlayers = [...state.players];
+    updatedPlayers[playerIndex] = {
+      ...updatedPlayers[playerIndex],
+      status: 'passed',
+    };
+    
+    // Advance turn
+    const nextPlayerIndex = (playerIndex + 1) % updatedPlayers.length;
+    
+    return {
+      ...state,
+      players: updatedPlayers,
+      currentPlayer: updatedPlayers[nextPlayerIndex].id,
+    };
+  }
+  
+  throw new Error(`Unknown action: ${action.type}`);
+};
+```
+
+**Handler Best Practices:**
+1. **Pure function**: No side effects (don't call APIs)
+2. **Deterministic**: Same input = same output
+3. **Validate aggressively**: Check every move against rules
+4. **Throw errors**: Invalid moves should throw with clear messages
+5. **Return new state**: Don't mutate the input state
+
+---
+
+### 3. The Component (React UI)
+
+A **React component** renders the game and sends player actions back to the server via WebSocket.
+
+**Signature:**
+```typescript
+interface GameComponentProps<S> {
+  state: S;
+  playerId: string;
+  onAction: (action: GameAction) => Promise<void>;
+  isLoading?: boolean;
+}
+
+export const GameComponent: React.FC<GameComponentProps<LexiWarsState>> = ({
+  state,
+  playerId,
+  onAction,
+  isLoading,
+}) => {
+  // Render UI and handle user interactions
+};
+```
+
+**Example: Lexi Wars Component**
+
+```typescript
+import React, { useState } from 'react';
+import { LexiWarsState, GameAction } from './types';
+
+interface LexiWarsProps {
+  state: LexiWarsState;
+  playerId: string;
+  onAction: (action: GameAction) => Promise<void>;
+  isLoading?: boolean;
+}
+
+export const LexiWarsGame: React.FC<LexiWarsProps> = ({
+  state,
+  playerId,
+  onAction,
+  isLoading,
+}) => {
+  const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const currentPlayer = state.players.find(p => p.id === playerId);
+  const isYourTurn = state.currentPlayer === playerId;
+
+  const handlePlayWord = async () => {
+    if (!selectedWord) return;
+    
+    try {
+      await onAction({
+        type: 'PLAY_WORD',
+        payload: {
+          playerId,
+          word: selectedWord,
+        },
+      });
+      setSelectedWord(null);
+    } catch (error) {
+      console.error('Failed to play word:', error);
+    }
+  };
+
+  const handlePass = async () => {
+    try {
+      await onAction({
+        type: 'PASS',
+        payload: { playerId },
+      });
+    } catch (error) {
+      console.error('Failed to pass:', error);
+    }
+  };
+
+  if (state.status === 'completed') {
+    const winner = state.players.find(p => p.id === state.winner);
+    return (
+      <div className="game-over">
+        <h2>{winner?.username} won!</h2>
+        <p>Final scores:</p>
+        {state.players.map(p => (
+          <div key={p.id}>
+            {p.username}: {p.score}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="lexiWars">
+      <div className="board">
+        <h3>Available Words</h3>
+        <ul>
+          {state.board.map(word => (
+            <li
+              key={word}
+              onClick={() => setSelectedWord(word)}
+              className={selectedWord === word ? 'selected' : ''}
+            >
+              {word}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="playerArea">
+        <h3>{currentPlayer?.username}'s Tiles</h3>
+        <div className="tiles">
+          {currentPlayer?.tiles.map(tile => (
+            <span key={tile} className="tile">{tile}</span>
+          ))}
+        </div>
+
+        <div className="actions">
+          <button
+            onClick={handlePlayWord}
+            disabled={!isYourTurn || !selectedWord || isLoading}
+          >
+            Play Word
+          </button>
+          <button
+            onClick={handlePass}
+            disabled={!isYourTurn || isLoading}
+          >
+            Pass
+          </button>
+        </div>
+      </div>
+
+      <div className="leaderboard">
+        <h3>Scores</h3>
+        {state.players.map(p => (
+          <div key={p.id} className={p.id === state.currentPlayer ? 'active' : ''}>
+            {p.username}: {p.score} ({p.status})
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+```
+
+**Component Best Practices:**
+1. **Props-driven**: No local state for game logic
+2. **Handle loading**: Show feedback during network calls
+3. **Error handling**: Gracefully handle action failures
+4. **Accessibility**: Use semantic HTML, ARIA labels
+5. **Responsive**: Work on mobile and desktop
+
+---
+
+## Building a Custom Game
+
+### Step 1: Design Your State
+
+```typescript
+// Define what your game needs to track
+export const MyGameStateSchema = z.object({
+  gameId: z.string().uuid(),
+  players: z.array(/* player schema */),
+  // ... other fields
+});
+
+export type MyGameState = z.infer<typeof MyGameStateSchema>;
+```
+
+### Step 2: Implement the Handler
+
+```typescript
+// Create pure functions that process actions
+export const handleMyGameAction = async (
+  state: MyGameState,
+  action: GameAction,
+  context: GameContext
+): Promise<MyGameState> => {
+  // Validate and update state
+  return newState;
+};
+```
+
+### Step 3: Build the React Component
+
+```typescript
+// Create an engaging UI
+export const MyGameComponent: React.FC<GameComponentProps<MyGameState>> = ({
+  state,
+  playerId,
+  onAction,
+}) => {
+  // Render game and handle interactions
+  return <div>/* Your game UI */</div>;
+};
+```
+
+### Step 4: Register with Platform
+
+```typescript
+// Register your game
+export const myGamePlugin: GamePlugin = {
+  id: 'my-game',
+  name: 'My Awesome Game',
+  description: 'A fun game for Stacks Wars',
+  stateSchema: MyGameStateSchema,
+  handler: handleMyGameAction,
+  component: MyGameComponent,
+  minPlayers: 2,
+  maxPlayers: 4,
+  estimatedDuration: 600000, // 10 minutes in ms
+};
+```
+
+---
+
+## Type Safety
+
+The plugin system enforces type safety at every layer:
+
+```typescript
+// Server validates action against state
+const newState = await handler(state, action);
+
+// Server validates newState against schema
+const validated = MyGameStateSchema.parse(newState);
+
+// Client sends only valid GameActions
+const action = {
+  type: 'PLAY_MOVE',
+  payload: { /* validated payload */ },
+};
+```
+
+---
+
+## Real-Time Synchronization
+
+Games use WebSockets for live updates:
+
+```typescript
+// Client sends action
+socket.emit('action', { type: 'PLAY_MOVE', payload: {...} });
+
+// Server processes and broadcasts
+socket.broadcast('stateUpdate', newState);
+
+// Client receives update
+onStateChange(newState);
+```
+
+---
+
+## Testing Your Game
+
+```typescript
+describe('MyGame Handler', () => {
+  it('should handle valid actions', async () => {
+    const state = getInitialState();
+    const action = { type: 'PLAY_MOVE', payload: {...} };
+    
+    const newState = await handleMyGameAction(state, action, context);
+    
+    expect(newState).toMatchSchema(MyGameStateSchema);
+    expect(newState.currentTurn).toBe(state.currentTurn + 1);
+  });
+
+  it('should reject invalid actions', async () => {
+    const state = getInitialState();
+    const invalidAction = { type: 'PLAY_MOVE', payload: {...} };
+    
+    expect(() => handleMyGameAction(state, invalidAction, context))
+      .toThrow('Invalid move');
+  });
+});
+```
+
+---
+
+## Deployment
+
+Submit your plugin via GitHub pull request:
+
+1. Fork the Stacks Wars repository
+2. Add your plugin to `/games/plugins/`
+3. Include tests and documentation
+4. Submit a pull request
+5. Community and core team review
+6. Merge and deploy to production
+
+---
+
+## Resources
+
+- [Example: Lexi Wars](../game-rules/lexi-wars.mdx)
+- [Example: Ludo](../game-rules/ludo.mdx)
+- [Smart Contracts](./smart-contracts.mdx)
+- [GitHub Repository](https://github.com/Stacks-Wars/stacks-wars)
