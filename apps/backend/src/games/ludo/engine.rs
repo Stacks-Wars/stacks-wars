@@ -1235,7 +1235,7 @@ async fn run_turn(
                     // and give a fresh MOVE_TIMEOUT_SECS countdown
                     continue;
                 }
-                CountdownResult::PhaseChanged(_) => {
+                CountdownResult::PhaseChanged() => {
                     // Phase changed (Complete, WaitingForRoll for bonus, etc.)
                     break;
                 }
@@ -1271,7 +1271,7 @@ async fn run_turn(
 /// Result from run_phase_countdown indicating why it returned.
 enum CountdownResult {
     /// Phase changed (player acted, game ended, etc.)
-    PhaseChanged(TurnPhase),
+    PhaseChanged(),
     /// A die was consumed but phase stayed the same — need fresh countdown
     MoveDetected,
     /// Timer expired without any action
@@ -1322,11 +1322,11 @@ async fn run_phase_countdown(
         };
 
         if finished {
-            return CountdownResult::PhaseChanged(TurnPhase::Complete);
+            return CountdownResult::PhaseChanged();
         }
 
         if current_phase != expected_phase {
-            return CountdownResult::PhaseChanged(current_phase);
+            return CountdownResult::PhaseChanged();
         }
 
         // A die was consumed (move made) — exit so run_turn can restart the countdown
