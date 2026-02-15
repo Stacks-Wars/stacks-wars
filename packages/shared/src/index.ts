@@ -12,6 +12,10 @@ export const BETTERAUTH_URL = DEV
 export const siteConfig = {
 	title: "Stacks Wars",
 	authSuccessRedirectUrl: "/games",
+	socials: {
+		x: "https://x.com/StacksWars",
+		telegram: "https://t.me/stackswars",
+	},
 };
 
 // UTILS
