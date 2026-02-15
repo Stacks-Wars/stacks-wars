@@ -7,7 +7,6 @@ import type { Game } from "@/lib/definitions";
 
 export default async function GamesShowcase() {
 	const { data: games } = await ApiClient.get<Game[]>("/api/games?order=asc");
-	console.log(games);
 
 	if (!games || games.length === 0) {
 		return null;
@@ -30,13 +29,6 @@ export default async function GamesShowcase() {
 					</div>
 				</div>
 			</div>
-			<Image
-				src={"/images/footer-seperator.svg"}
-				alt="Footer Illustration"
-				width={1248}
-				height={28}
-				className="mb-6 h-4 w-full object-cover sm:mb-8 sm:h-7 lg:mb-12"
-			/>
 		</div>
 	);
 }
@@ -51,7 +43,7 @@ function ShowcaseGameCard({ game }: { game: Game }) {
 				src={game.imageUrl}
 				alt={game.name}
 				fill
-				className="object-cover transition-transform duration-300 group-hover:scale-102"
+				className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
 			/>
 			<div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 to-transparent p-4 md:p-6">
 				<h3 className="text-lg font-bold text-white md:text-2xl">
@@ -70,13 +62,13 @@ export function GamesShowcaseSkeleton() {
 		<div className="mt-16 flex flex-col gap-6">
 			<div className="flex flex-wrap justify-center gap-2 self-center md:gap-3">
 				{[1, 2, 3, 4].map((i) => (
-					<Skeleton key={i} className="h-10 w-28 rounded-full" />
+					<Skeleton key={i} className="h-12 w-36 rounded-full" />
 				))}
 			</div>
 			<div className="relative -mx-4">
-				<div className="scrollbar-hide overflow-x-auto px-4 pb-4">
+				<div className="px-4 pb-4">
 					<div className="flex gap-4">
-						{[1, 2, 3, 4, 5].map((i) => (
+						{[1, 2, 3].map((i) => (
 							<Skeleton
 								key={i}
 								className="h-[186px] w-[200px] shrink-0 rounded-2xl md:h-[280px] md:w-[360px]"
@@ -85,7 +77,6 @@ export function GamesShowcaseSkeleton() {
 					</div>
 				</div>
 			</div>
-			<Skeleton className="mb-6 h-4 w-full sm:mb-8 sm:h-7 lg:mb-12" />
 		</div>
 	);
 }
