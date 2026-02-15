@@ -4,6 +4,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 use uuid::Uuid;
 
+use crate::db::game::GameRepository;
 use crate::db::join_request::{JoinRequestRepository, JoinRequestState};
 use crate::db::lobby::LobbyRepository;
 use crate::db::lobby_chat::LobbyChatRepository;
@@ -13,6 +14,7 @@ use crate::db::user::UserRepository;
 use crate::http::bot::broadcasts::delete_lobby_creation_message;
 use crate::http::handlers::stacks::has_joined;
 use crate::models::player_state::ClaimState;
+use crate::models::player_state::PlayerStatus;
 use crate::models::{LobbyStatus, PlayerState, WalletAddress};
 use crate::state::{AppState, ConnectionInfo};
 use crate::ws::room::{
@@ -206,6 +208,7 @@ pub async fn handle_room_message(
                     trust_rating,
                     claim_state,
                     false,
+                    PlayerStatus::Joined,
                 );
                 let _ = player_repo
                     .upsert_state(pstate.clone(), Some(state.clone()))
@@ -466,9 +469,6 @@ pub async fn handle_room_message(
                     for sec in (0..=5).rev() {
                         let _ = spawn_repo.set_countdown(spawn_lobby, sec as u8).await.ok();
 
-                        if sec == 0 {
-                            break;
-                        }
                         sleep(Duration::from_secs(1)).await;
 
                         // If status changed or lobby missing, abort countdown.
@@ -498,43 +498,52 @@ pub async fn handle_room_message(
                             },
                         )
                         .await;
+
+                        if sec == 0 {
+                            break;
+                        }
                     }
 
                     // Clear countdown and mark started
                     let _ = spawn_repo.clear_countdown(spawn_lobby).await.ok();
-                    let _ = spawn_repo.mark_started(spawn_lobby).await.ok();
-                    // Update PostgreSQL status to InProgress
+
+                    // Active Player Check
+                    // Before starting the game, check which players are truly active.
+                    // Players with last_ping older than 10 seconds are considered inactive.
+                    let player_repo = PlayerStateRepository::new(spawn_state.redis.clone());
+                    let all_players = match player_repo.get_all_in_lobby(spawn_lobby).await {
+                        Ok(players) => players,
+                        Err(e) => {
+                            tracing::error!("Failed to fetch players for active check: {}", e);
+                            return;
+                        }
+                    };
+
+                    let now_ms = Utc::now().timestamp_millis() as u64;
+                    const INACTIVE_THRESHOLD_MS: u64 = 10_000; // 10 seconds
+
+                    let mut active_player_ids: Vec<Uuid> = Vec::new();
+                    let mut inactive_player_ids: Vec<Uuid> = Vec::new();
+
+                    for player in &all_players {
+                        // Only check players who are currently Joined (participants)
+                        if player.status != PlayerStatus::Joined {
+                            continue;
+                        }
+                        let is_active = match player.last_ping {
+                            Some(ping_ms) => now_ms.saturating_sub(ping_ms) <= INACTIVE_THRESHOLD_MS,
+                            None => false,
+                        };
+                        if is_active {
+                            active_player_ids.push(player.user_id);
+                        } else {
+                            inactive_player_ids.push(player.user_id);
+                        }
+                    }
+
+                    // Get game min_players to validate
                     let lobby_repo_spawn = LobbyRepository::new(spawn_state.postgres.clone());
-                    let _ = lobby_repo_spawn
-                        .update_status(spawn_lobby, LobbyStatus::InProgress, spawn_state.clone())
-                        .await;
-
-                    // Get participant count and current amount for broadcast
-                    let participant_count = spawn_repo
-                        .get_state(spawn_lobby)
-                        .await
-                        .map(|s| s.participant_count)
-                        .unwrap_or(0);
-
-                    let current_amount = lobby_repo_spawn
-                        .find_by_id(spawn_lobby)
-                        .await
-                        .ok()
-                        .and_then(|l| l.current_amount);
-
-                    let _ = broadcast::broadcast_room(
-                        &spawn_state,
-                        spawn_lobby,
-                        &RoomServerMessage::LobbyStatusChanged {
-                            status: LobbyStatus::InProgress,
-                            participant_count,
-                            current_amount,
-                        },
-                    )
-                    .await;
-
-                    let lobby_repo = LobbyRepository::new(spawn_state.postgres.clone());
-                    let db_lobby = match lobby_repo.find_by_id(spawn_lobby).await {
+                    let db_lobby = match lobby_repo_spawn.find_by_id(spawn_lobby).await {
                         Ok(lobby) => lobby,
                         _ => {
                             tracing::error!(
@@ -543,17 +552,127 @@ pub async fn handle_room_message(
                             return;
                         }
                     };
+
+                    let game_repo = GameRepository::new(spawn_state.postgres.clone());
+                    let game = match game_repo.find_by_id(db_lobby.game_id).await {
+                        Ok(g) => g,
+                        Err(_) => {
+                            tracing::error!("Failed to fetch game for min_players check");
+                            return;
+                        }
+                    };
+
+                    if (active_player_ids.len() as i16) < game.min_players {
+                        // Not enough active players - revert to waiting
+                        let _ = spawn_repo
+                            .update_status(spawn_lobby, LobbyStatus::Waiting)
+                            .await;
+                        let _ = lobby_repo_spawn
+                            .update_status(spawn_lobby, LobbyStatus::Waiting, spawn_state.clone())
+                            .await;
+
+                        let participant_count = spawn_repo
+                            .get_state(spawn_lobby)
+                            .await
+                            .map(|s| s.participant_count)
+                            .unwrap_or(0);
+
+                        let current_amount = db_lobby.current_amount;
+
+                        let _ = broadcast::broadcast_room(
+                            &spawn_state,
+                            spawn_lobby,
+                            &RoomServerMessage::LobbyStatusChanged {
+                                status: LobbyStatus::Waiting,
+                                participant_count,
+                                current_amount,
+                            },
+                        )
+                        .await;
+
+                        let game_msg = RoomServerMessage::GameStartFailed {
+                            reason: format!(
+                                "Need at least {} active players to start",
+                                game.min_players
+                            ),
+                        };
+                        let _ = broadcast::broadcast_room(
+                            &spawn_state,
+                            spawn_lobby,
+                            &game_msg,
+                        )
+                        .await;
+                        return;
+                    }
+
+                    // Batch update inactive players to NotJoined so they can leave later for refund
+                    for &inactive_id in &inactive_player_ids {
+                        let _ = player_repo
+                            .update_status(spawn_lobby, inactive_id, PlayerStatus::NotJoined)
+                            .await;
+                    }
+
+                    // Broadcast updated player list after status changes
+                    if !inactive_player_ids.is_empty() {
+                        if let Ok(players) = player_repo.get_all_in_lobby(spawn_lobby).await {
+                            let _ = broadcast::broadcast_room(
+                                &spawn_state,
+                                spawn_lobby,
+                                &RoomServerMessage::PlayerUpdated { players },
+                            )
+                            .await;
+                        }
+                    }
+
+                    let _ = spawn_repo.mark_started(spawn_lobby).await.ok();
+                    // Update PostgreSQL status to InProgress
+                    let _ = lobby_repo_spawn
+                        .update_status(spawn_lobby, LobbyStatus::InProgress, spawn_state.clone())
+                        .await;
+
+                    // Calculate the correct current_amount for the game:
+                    // - Sponsored lobbies: use the full current_amount (sponsor put up the pool)
+                    // - Normal lobbies: entry_amount * active_player_count
+                    let game_current_amount = if db_lobby.is_sponsored {
+                        db_lobby.current_amount
+                    } else {
+                        match db_lobby.entry_amount {
+                            Some(entry) if entry > 0.0 => {
+                                Some(entry * active_player_ids.len() as f64)
+                            }
+                            _ => db_lobby.current_amount,
+                        }
+                    };
+
+                    // Get participant count for broadcast
+                    let participant_count = spawn_repo
+                        .get_state(spawn_lobby)
+                        .await
+                        .map(|s| s.participant_count)
+                        .unwrap_or(0);
+
+                    let _ = broadcast::broadcast_room(
+                        &spawn_state,
+                        spawn_lobby,
+                        &RoomServerMessage::LobbyStatusChanged {
+                            status: LobbyStatus::InProgress,
+                            participant_count,
+                            current_amount: game_current_amount,
+                        },
+                    )
+                    .await;
+
                     let game_id = db_lobby.game_id;
 
                     if let Some(factory) = spawn_state.game_registry.get(&game_id) {
                         // Create engine with state (state is now required at creation time)
                         let mut engine = factory(spawn_lobby, spawn_state.clone());
 
-                        // Set lobby context (entry amount, token info) for prize/PnL calculation
+                        // Set lobby context with the calculated game amount
                         engine
                             .set_lobby_context(
                                 db_lobby.entry_amount,
-                                db_lobby.current_amount,
+                                game_current_amount,
                                 db_lobby.is_sponsored,
                                 db_lobby.creator_id,
                                 db_lobby.token_symbol.clone(),
@@ -561,21 +680,8 @@ pub async fn handle_room_message(
                             )
                             .await;
 
-                        // Get all player IDs in the lobby
-                        let player_repo = PlayerStateRepository::new(spawn_state.redis.clone());
-                        let player_ids = match player_repo.get_all_in_lobby(spawn_lobby).await {
-                            Ok(players) => players.into_iter().map(|p| p.user_id).collect(),
-                            Err(e) => {
-                                tracing::error!(
-                                    "Failed to fetch players for game initialization: {}",
-                                    e
-                                );
-                                return;
-                            }
-                        };
-
-                        // Initialize the game engine
-                        match engine.initialize(player_ids).await {
+                        // Initialize the game engine with only active player IDs
+                        match engine.initialize(active_player_ids).await {
                             Ok(events) => {
                                 tracing::info!(
                                     "Game initialized successfully for lobby {}",
@@ -1155,6 +1261,92 @@ pub async fn handle_room_message(
 
             // Send success
             let _ = manager::send_to_connection(conn, &RoomServerMessage::ClaimSuccess).await;
+        }
+
+        RoomClientMessage::ToggleParticipation { participate } => {
+            if lobby_status == LobbyStatus::InProgress {
+                let err = RoomError::ParticipationFailed(
+                    "Cannot toggle participation during active game".to_string(),
+                );
+                let _ = manager::send_to_connection(conn, &RoomServerMessage::from(err)).await;
+                return;
+            }
+
+            let user_id = match require_auth(conn, auth_user_id).await {
+                Ok(uid) => uid,
+                Err(_) => return,
+            };
+
+            // Only the lobby creator can toggle participation
+            let is_creator = player_repo
+                .is_creator(lobby_id, user_id)
+                .await
+                .unwrap_or(false);
+
+            if !is_creator {
+                let err = RoomError::ParticipationFailed(
+                    "Only the lobby creator can toggle participation".to_string(),
+                );
+                let _ = manager::send_to_connection(conn, &RoomServerMessage::from(err)).await;
+                return;
+            }
+
+            // Check that the lobby is sponsored
+            let lobby_repo = LobbyRepository::new(state.postgres.clone());
+            let db_lobby = match lobby_repo.find_by_id(lobby_id).await {
+                Ok(l) => l,
+                Err(_) => {
+                    let err = RoomError::ParticipationFailed(
+                        "Lobby not found".to_string(),
+                    );
+                    let _ = manager::send_to_connection(conn, &RoomServerMessage::from(err)).await;
+                    return;
+                }
+            };
+
+            if !db_lobby.is_sponsored {
+                let err = RoomError::ParticipationFailed(
+                    "Participation toggle is only available for sponsored lobbies".to_string(),
+                );
+                let _ = manager::send_to_connection(conn, &RoomServerMessage::from(err)).await;
+                return;
+            }
+
+            // Toggle the status
+            let new_status = if participate {
+                PlayerStatus::Joined
+            } else {
+                PlayerStatus::NotJoined
+            };
+
+            if let Err(e) = player_repo.update_status(lobby_id, user_id, new_status).await {
+                let err = RoomError::ParticipationFailed(
+                    format!("Failed to update status: {}", e),
+                );
+                let _ = manager::send_to_connection(conn, &RoomServerMessage::from(err)).await;
+                return;
+            }
+
+            // Broadcast participation toggle to room
+            let _ = broadcast::broadcast_room(
+                state,
+                lobby_id,
+                &RoomServerMessage::ParticipationToggled {
+                    user_id,
+                    participating: participate,
+                },
+            )
+            .await;
+
+            // Broadcast updated player list
+            if let Ok(players) = player_repo.get_all_in_lobby(lobby_id).await {
+                let _ = broadcast::broadcast_room(
+                    state,
+                    lobby_id,
+                    &RoomServerMessage::PlayerUpdated { players },
+                )
+                .await;
+            }
         }
     }
 }

@@ -36,10 +36,17 @@ export type RoomServerMessage =
 	| FinalStandingMessage
 	| GameOverMessage
 	| ClaimSuccessMessage
+	| ParticipationToggledMessage
 	| ErrorMessage;
 
 export interface ClaimSuccessMessage {
 	type: "claimSuccess";
+}
+
+export interface ParticipationToggledMessage {
+	type: "participationToggled";
+	userId: string;
+	participating: boolean;
 }
 
 export interface LobbyBootstrapMessage {
@@ -183,6 +190,7 @@ export type RoomClientMessage =
 	| AddReactionMessage
 	| RemoveReactionMessage
 	| ClaimRewardMessage
+	| ToggleParticipationMessage
 	| PingMessage;
 
 export interface ClaimRewardMessage {
@@ -243,4 +251,9 @@ export interface RemoveReactionMessage {
 export interface PingMessage {
 	type: "ping";
 	ts: number;
+}
+
+export interface ToggleParticipationMessage {
+	type: "toggleParticipation";
+	participate: boolean;
 }

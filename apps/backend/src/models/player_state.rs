@@ -117,12 +117,13 @@ impl PlayerState {
         trust_rating: f64,
         claim_state: Option<ClaimState>,
         is_creator: bool,
+        status: PlayerStatus,
     ) -> Self {
         let now = Utc::now().timestamp();
         Self {
             user_id,
             lobby_id,
-            status: PlayerStatus::Joined,
+            status,
             state: JoinRequestState::Accepted,
             wallet_address,
             username,
@@ -306,6 +307,7 @@ mod tests {
             trust_rating,
             claim_state.clone(),
             false,
+            PlayerStatus::Joined,
         );
 
         assert_eq!(state.user_id, user_id);
@@ -335,6 +337,7 @@ mod tests {
             5.0,
             None,
             false,
+            PlayerStatus::Joined,
         );
 
         let hash = state.to_redis_hash();

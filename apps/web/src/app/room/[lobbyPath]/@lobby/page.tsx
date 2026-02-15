@@ -34,6 +34,7 @@ import {
 	waitForTxConfirmed,
 } from "@/lib/contract-utils/waitForTxConfirmed";
 import StartCountdown from "./_components/start-countdown";
+import SponsorParticipation from "./_components/sponsor-participation";
 import { useRef } from "react";
 
 export default function LobbySlot() {
@@ -222,10 +223,21 @@ export default function LobbySlot() {
 		sendLobbyMessage({ type: "updateLobbyStatus", status: "waiting" });
 	};
 
+	// Count active participants (exclude spectating sponsored creator)
+	const activePlayerCount = players.filter((p) => {
+		if (
+			lobby.isSponsored &&
+			p.userId === lobby.creatorId &&
+			p.status === "notJoined"
+		)
+			return false;
+		return true;
+	}).length;
+
 	const canStartGame =
 		isCreator &&
 		lobby.status === "waiting" &&
-		players.length >= game.minPlayers;
+		activePlayerCount >= game.minPlayers;
 
 	return (
 		<div className="container mx-auto p-4 pt-0">
@@ -253,6 +265,7 @@ export default function LobbySlot() {
 					isAuthenticated={isAuthenticated}
 				/>
 				<LobbyDetails />
+				<SponsorParticipation />
 				<Participants />
 			</div>
 			{canStartGame && (

@@ -26,7 +26,18 @@ export default function Participants() {
 	const lobbyActions = useLobbyActions();
 
 	const isCreator = user?.id === lobby?.creatorId;
-	const acceptedPlayers = players.filter((p) => p.state === "accepted");
+
+	// Filter out the sponsored lobby creator when they are spectating (notJoined)
+	const acceptedPlayers = players.filter((p) => {
+		if (p.state !== "accepted") return false;
+		if (
+			lobby?.isSponsored &&
+			p.userId === lobby.creatorId &&
+			p.status === "notJoined"
+		)
+			return false;
+		return true;
+	});
 	const pendingPlayers = joinRequests.filter((jr) => jr.state === "pending");
 
 	const handleApprove = (userId: string) => {

@@ -29,7 +29,7 @@ export interface PlayerState {
 	userId: string;
 	lobbyId: string;
 	state: joinState;
-	status: "not_joined" | "joined";
+	status: "notJoined" | "joined";
 	walletAddress: string;
 	username?: string;
 	displayName?: string;
