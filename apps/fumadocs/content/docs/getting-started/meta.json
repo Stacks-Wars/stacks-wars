@@ -1,5 +1,10 @@
 {
 	"name": "Getting Started",
-	"pages": ["wallet-setup", "lobbies-and-wagering", "leaderboard-and-seasons"],
+	"pages": [
+		"installation",
+		"wallet-setup",
+		"lobbies-and-wagering",
+		"leaderboard-and-seasons"
+	],
 	"defaultOpen": true
 }
