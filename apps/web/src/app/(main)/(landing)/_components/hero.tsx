@@ -1,37 +1,64 @@
 import Image from "next/image";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
+
 export default function Hero() {
 	return (
-		<div className="min-h-[50vh] lg:min-h-[60vh] relative flex items-center justify-center py-16 lg:py-26 px-4 w-full bg-[#312F2D] flex-col gap-3 rounded-3xl md:rounded-4xl">
-			<h3 className="capitalize text-3xl md:text-5xl lg:text-8xl font-bold">
-				battle of words
-			</h3>
-			<p className="font-medium md:text-xl lg:text-2xl max-w-3xl text-center px-4">
-				Experience the thrill of Stacks Wars with our first game. Dive in, test
-				your skills, and claim victory!
-			</p>
-			<Image
-				className="absolute scale-x-[-1] -top-6 min-[500px]:-top-16 left-[31.33px]  min-[500px]:w-40 min-[500px]:h-40  md:w-72 md:h-72  object-contain shrink-0"
-				src={"/images/ruby1.png"}
-				width={25.9}
-				height={30.9}
-				sizes="100vw"
-				alt=""
-			/>
-			<Image
-				className="absolute top-[50%] -right-2 md:-right-20 min-[500px]:-right-16 min-[500px]:w-40 min-[500px]:h-40  md:w-72 md:h-72 object-cover shrink-0"
-				width={35}
-				src={"/images/ruby1.png"}
-				height={42}
-				sizes="100vw"
-				alt=""
-			/>
-			<Button
-				variant={"outline"}
-				className="absolute -bottom-5 -translate-y-1/2 w-full max-w-48 sm:max-w-52 lg:max-w-80 rounded-full text-sm sm:text-base lg:text-xl font-medium -mb-4 sm:-mb-6 lg:-mb-8 py-3 sm:py-3.5 lg:py-4 h-8 sm:h-12 lg:h-16 shadow-sm"
-			>
-				Play Now!
-			</Button>
+		<div className="relative w-full">
+			<div className="relative flex min-h-[50vh] w-full flex-col items-center justify-center gap-6 overflow-hidden rounded-3xl bg-[#312F2D] px-4 py-16 md:rounded-4xl lg:min-h-[55vh] lg:gap-8 lg:py-20">
+				{/* Hero Banner Background */}
+				<Image
+					className="absolute inset-0 z-0 h-full w-full object-cover"
+					src="/images/hero-banner.png"
+					fill
+					sizes="100vw"
+					alt=""
+					priority
+				/>
+
+				{/* Optional overlay for better text readability */}
+				<div className="absolute inset-0 z-0 bg-black/40" />
+
+				{/* Content */}
+				<div className="relative z-10 flex flex-col items-center gap-4 lg:gap-6">
+					<h1 className="text-center text-4xl font-bold capitalize text-white md:text-6xl lg:text-8xl">
+						battle of words
+					</h1>
+					<p className="max-w-3xl px-4 text-center text-base font-medium text-white/90 md:text-xl lg:text-2xl">
+						Experience the thrill of Stacks Wars with our first game. Dive in,
+						test your skills, and claim victory!
+					</p>
+				</div>
+
+				{/* Ruby Images */}
+				<Image
+					className="absolute -top-8 left-[31.33px] z-10 h-20 w-20 shrink-0 scale-x-[-1] object-contain min-[500px]:-top-16 min-[500px]:h-32 min-[500px]:w-32 md:h-56 md:w-56 lg:h-72 lg:w-72"
+					src="/images/ruby1.png"
+					width={288}
+					height={288}
+					sizes="(max-width: 500px) 80px, (max-width: 768px) 128px, (max-width: 1024px) 224px, 288px"
+					alt=""
+				/>
+				<Image
+					className="absolute -right-4 top-[50%] z-10 h-20 w-20 shrink-0 object-contain min-[500px]:-right-8 min-[500px]:h-32 min-[500px]:w-32 md:-right-12 md:h-56 md:w-56 lg:-right-16 lg:h-72 lg:w-72"
+					src="/images/ruby1.png"
+					width={288}
+					height={288}
+					sizes="(max-width: 500px) 80px, (max-width: 768px) 128px, (max-width: 1024px) 224px, 288px"
+					alt=""
+				/>
+			</div>
+
+			{/* Button - Outside the overflow-hidden container */}
+			<div className="relative z-20 -mt-6 flex justify-center sm:-mt-7 lg:-mt-10">
+				<Button
+					variant="outline"
+					className="h-12 w-full max-w-52 rounded-full px-8 py-3 text-base font-semibold shadow-lg sm:h-14 sm:max-w-64 sm:text-lg lg:h-16 lg:max-w-80 lg:text-xl"
+					asChild
+				>
+					<Link href="/games">Play Now!</Link>
+				</Button>
+			</div>
 		</div>
 	);
 }

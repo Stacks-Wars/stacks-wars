@@ -1,5 +1,7 @@
+import { siteConfig } from "@stacks-wars/shared";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { ExternalLink } from "../ui/external-link";
 
 export default function Footer() {
 	return (
@@ -15,8 +17,7 @@ export default function Footer() {
 				<div className="mx-auto max-w-4xl space-y-6 sm:space-y-8 lg:space-y-12">
 					<div className="space-y-4 sm:space-y-6">
 						<p className="text-foreground text-center text-2xl font-bold sm:text-3xl lg:text-4xl xl:text-5xl">
-							Every stack counts. Every move matters. Are you
-							ready?
+							Every stack counts. Every move matters. Are you ready?
 						</p>
 						<p className="text-foreground text-center text-lg font-medium sm:text-xl lg:text-2xl xl:text-3xl">
 							Join the community
@@ -29,13 +30,9 @@ export default function Footer() {
 							size="lg"
 							className="w-full max-w-xs cursor-pointer rounded-full py-3 text-sm font-medium sm:w-auto sm:max-w-none sm:px-8 sm:py-4 sm:text-base lg:px-10 lg:py-5 lg:text-lg"
 						>
-							<a
-								href="https://x.com/stacks-wars"
-								target="_blank"
-								rel="noopener noreferrer"
-							>
+							<ExternalLink href={siteConfig.socials.x}>
 								X (formerly Twitter)
-							</a>
+							</ExternalLink>
 						</Button>
 						<Button
 							asChild
@@ -43,13 +40,9 @@ export default function Footer() {
 							size="lg"
 							className="w-full max-w-xs cursor-pointer rounded-full py-3 text-sm font-medium sm:w-auto sm:max-w-none sm:px-8 sm:py-4 sm:text-base lg:px-10 lg:py-5 lg:text-lg"
 						>
-							<a
-								href="https://t.me/stacks-wars"
-								target="_blank"
-								rel="noopener noreferrer"
-							>
+							<ExternalLink href={siteConfig.socials.telegram}>
 								Telegram
-							</a>
+							</ExternalLink>
 						</Button>
 					</div>
 				</div>

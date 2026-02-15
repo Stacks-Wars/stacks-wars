@@ -54,8 +54,6 @@
 }
 
 :root {
-
-
 	--border-secondary: #1D2E4E;
 	--radius: 0.5rem;
 	--background: oklch(0.08 0 0);

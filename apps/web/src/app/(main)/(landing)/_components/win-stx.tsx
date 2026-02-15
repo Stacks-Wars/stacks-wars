@@ -17,7 +17,7 @@ export default function WinStx() {
 					src={"/images/trophy.png"}
 					width={416}
 					height={624}
-					alt=""
+					alt="Trophy"
 				/>
 			</div>
 			<div className="relative w-full h-full hidden md:flex py-14 lg:py-20 md:pl-14 pr-8 flex-row-reverse items-center">

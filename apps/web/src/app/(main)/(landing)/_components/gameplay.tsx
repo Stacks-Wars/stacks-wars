@@ -17,21 +17,21 @@ export default function Gameplay() {
 						src={"/images/xbox-pad.png"}
 						width={369.1}
 						height={364.1}
-						alt=""
+						alt="Xbox controller used for gameplay"
 					/>
 					<Image
 						className="absolute top-[20.83px] right-16 lg:w-13.25 lg:h-15.75 object-contain"
 						width={25.9}
 						src={"/images/ruby1.png"}
 						height={30.9}
-						alt=""
+						alt="Floating ruby gem"
 					/>
 					<Image
 						className="absolute bottom-12 left-[31.33px] w-[25.9px] h-[30.9px] object-contain"
 						src={"/images/ruby2.png"}
 						width={25.9}
 						height={30.9}
-						alt=""
+						alt="Floating ruby gem"
 					/>
 				</div>
 			</div>
