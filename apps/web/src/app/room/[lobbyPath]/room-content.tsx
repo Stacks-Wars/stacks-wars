@@ -21,7 +21,8 @@ function RoomContentInner({
 	const autoView =
 		!lobbyData ||
 		lobbyData.status === "waiting" ||
-		lobbyData.status === "starting"
+		lobbyData.status === "starting" ||
+		lobbyData.status === "finished"
 			? "lobby"
 			: "game";
 
