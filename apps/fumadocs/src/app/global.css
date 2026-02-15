@@ -1,3 +1,159 @@
 @import 'tailwindcss';
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+	--background-image-gradient-primary: var(--gradient-primary);
+	--background-image-muted-gradient: var(--muted-gradient);
+	--background-image-gradient-primary-2: var(--gradient-primary-2);
+	--background-image-gradient-secondary-1: var(--gradient-secondary-1);
+	--background-image-gradient-secondary-2: var(--gradient-secondary-2);
+	--background-image-muted-gradient-2: var(--muted-gradient-2);
+	--background-image-app-spotlight: var(--app-spotlight);
+	--color-border-secondary: var(--border-secondary);
+
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--font-sans: var(--font-geist-sans);
+	--font-mono: var(--font-geist-mono);
+	--font-neue: var(--font-neue-montreal);
+	--color-sidebar-ring: var(--sidebar-ring);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar: var(--sidebar);
+	--color-chart-5: var(--chart-5);
+	--color-chart-4: var(--chart-4);
+	--color-chart-3: var(--chart-3);
+	--color-chart-2: var(--chart-2);
+	--color-chart-1: var(--chart-1);
+	--color-ring: var(--ring);
+	--color-input: var(--input);
+	--color-border: var(--border);
+	--color-destructive: var(--destructive);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-accent: var(--accent);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-muted: var(--muted);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-secondary: var(--secondary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-primary: var(--primary);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-popover: var(--popover);
+	--color-card-foreground: var(--card-foreground);
+	--color-card: var(--card);
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+
+
+	--border-secondary: #1D2E4E;
+	--radius: 0.5rem;
+	--background: oklch(0.08 0 0);
+	--foreground: oklch(1 0 0);
+	--card: oklch(0.12 0 0);
+	--card-foreground: oklch(1 0 0);
+	--popover: oklch(0.11 0 0);
+	--popover-foreground: oklch(1 0 0);
+	--primary: #2c61b8;
+	--primary-foreground: oklch(1 0 0);
+	--secondary: #f29c11;
+	--secondary-foreground: #ffffff;
+	--muted: oklch(0.15 0 0);
+	--muted-foreground: oklch(0.65 0 0);
+	--accent: oklch(0.18 0 0);
+	--accent-foreground: oklch(1 0 0);
+	--destructive: oklch(0.577 0.245 27.325);
+	--border: oklch(0.25 0 0);
+	--input: oklch(1 0 0 / 15%);
+	--ring: oklch(0.5049 0.1489 259.85);
+	--chart-1: oklch(0.646 0.222 41.116);
+	--chart-2: oklch(0.6 0.118 184.704);
+	--chart-3: oklch(0.398 0.07 227.392);
+	--chart-4: oklch(0.828 0.189 84.429);
+	--chart-5: oklch(0.769 0.188 70.08);
+	--sidebar: oklch(0.985 0 0);
+	--sidebar-foreground: oklch(0.145 0 0);
+	--sidebar-primary: oklch(0.205 0 0);
+	--sidebar-primary-foreground: oklch(0.985 0 0);
+	--sidebar-accent: oklch(0.97 0 0);
+	--sidebar-accent-foreground: oklch(0.205 0 0);
+	--sidebar-border: oklch(0.922 0 0);
+	--sidebar-ring: oklch(0.708 0 0);
+	--app-spotlight: radial-gradient(circle at center, #1e2245 0%, #050505 70%, #000000 100%);
+
+	--gradient-primary: linear-gradient(to bottom, #2c61b8, oklch(0.08 0 0));
+	--muted-gradient: linear-gradient(to bottom, var(--border), var(--background));
+	--gradient-primary-2: linear-gradient(to bottom right, var(--primary), var(--background), var(--background), var(--background));
+	--gradient-secondary-1: linear-gradient(to bottom, var(--chart-4), var(--secondary));
+	--gradient-secondary-2: linear-gradient(to bottom, var(--secondary), var(--chart-4));
+	--muted-gradient-2: linear-gradient(to bottom, var(--background), var(--border));
+}
+
+.dark {
+	--background: oklch(0.08 0 0);
+	--foreground: oklch(1 0 0);
+	--card: oklch(0.12 0 0);
+	--card-foreground: oklch(1 0 0);
+	--popover: oklch(0.11 0 0);
+	--popover-foreground: oklch(0.145 0 0);
+	--primary: #2c61b8;
+	--primary-foreground: oklch(1 0 0);
+	--secondary: oklch(0.18 0 0);
+	--secondary-foreground: oklch(1 0 0);
+	--muted: oklch(0.15 0 0);
+	--muted-foreground: oklch(0.65 0 0);
+	--accent: oklch(0.18 0 0);
+	--accent-foreground: oklch(1 0 0);
+	--destructive: oklch(0.577 0.245 27.325);
+	--border: oklch(0.25 0 0);
+	--input: oklch(1 0 0 / 15%);
+	--ring: oklch(0.5049 0.1489 259.85);
+	--chart-1: oklch(0.646 0.222 41.116);
+	--chart-2: oklch(0.6 0.118 184.704);
+	--chart-3: oklch(0.398 0.07 227.392);
+	--chart-4: oklch(0.828 0.189 84.429);
+	--chart-5: oklch(0.769 0.188 70.08);
+	--sidebar: oklch(0.985 0 0);
+	--sidebar-foreground: oklch(0.145 0 0);
+	--sidebar-primary: oklch(0.205 0 0);
+	--sidebar-primary-foreground: oklch(0.985 0 0);
+	--sidebar-accent: oklch(0.97 0 0);
+	--sidebar-accent-foreground: oklch(0.205 0 0);
+	--sidebar-border: oklch(0.922 0 0);
+	--sidebar-ring: oklch(0.708 0 0);
+	--app-spotlight: radial-gradient(circle at center, #1e2245 0%, #050505 70%, #000000 100%);
+
+	--gradient-primary: linear-gradient(to bottom, #2c61b8, oklch(0.08 0 0));
+	--muted-gradient: linear-gradient(to bottom, var(--border), var(--background));
+	--gradient-primary-2: linear-gradient(to bottom right, var(--primary), var(--background), var(--background), var(--background));
+	--gradient-secondary-1: linear-gradient(to bottom, var(--chart-4), var(--secondary));
+	--gradient-secondary-2: linear-gradient(to bottom, var(--secondary), var(--chart-4));
+	--muted-gradient-2: linear-gradient(to bottom, var(--background), var(--border));
+}
+@utility container {
+	@apply max-w-7xl
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+	body {
+		@apply bg-app-spotlight bg-fixed text-foreground;
+	}
+	button:not(:disabled),
+	[role="button"]:not(:disabled) {
+		cursor: pointer;
+	}
+}

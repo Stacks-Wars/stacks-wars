@@ -1,0 +1,192 @@
+---
+title: Lobbies & Wagering
+description: Understand Normal and Sponsored lobbies, vault escrow, and how your STX is protected
+---
+
+## Game Lobbies
+
+Stacks Wars uses two lobby types to balance competitive play with risk management.
+
+### Normal Lobbies (Wager-Based)
+
+In Normal lobbies, players put up real STX as a wager. The winner takes the pot.
+
+**How It Works:**
+1. A host creates a lobby with a specific wager amount (e.g., 10 STX)
+2. Players join and deposit their wager into the **Game Vault**
+3. The game is played
+4. Winner claims the prize from the vault
+5. Losers' stakes are locked until the game concludes
+
+**Wager Amounts:**
+- Minimum: 0.01 STX
+- Maximum: No hard limit, but gas costs increase with large amounts
+- Available tiers: 0.1, 0.5, 1, 5, 10, 25, 50, 100+ STX
+
+**Example:**
+```
+4 players join a 5 STX Normal lobby
+Total pot: 20 STX
+Winner receives: 20 STX
+Losers lose: 5 STX each
+```
+
+### Sponsored Lobbies (Playgrounds)
+
+Sponsored lobbies are risk-free playgrounds perfect for learning, warming up, or casual play.
+
+**How It Works:**
+1. Stacks Wars sponsors the game with a small prize pool
+2. Players compete with zero risk
+3. Winner receives a small STX reward
+4. No wager required; all players can join freely
+
+**Prize Pool:**
+- Varies by game and player count
+- Typically 0.1-1 STX for winners
+- Losers receive participation rewards sometimes
+- Funded by protocol and sponsors
+
+**Best For:**
+- Learning the game rules
+- Testing strategies
+- Casual weekend play
+- Newer players building confidence
+
+---
+
+## The Vault System (Escrow)
+
+Your STX is protected by **Game Vaults**, smart contract escrow accounts that ensure fair play and honest payouts.
+
+### How Vaults Work
+
+```
+1. Player Deposits → Stacks Vault (locked)
+                     ↓
+2. Game Plays → Smart Contract Validates
+                     ↓
+3. Winner Determined → Vault Releases to Winner
+                     ↓
+4. Loser Funds → Distributed or Returned
+```
+
+### Vault Security Features
+
+**Cryptographic Signature Verification**
+- All game outcomes are verified by smart contract signatures
+- Impossible to claim false victories
+- Cheating attempts are automatically rejected
+
+**Role-Based Access Control**
+- Only the winner can withdraw their prize
+- Only losers' funds can be distributed
+- Vault contract enforces all rules
+
+**Fraud Prevention**
+- All transactions are on-chain and immutable
+- Complete audit trail for every game
+- Network validators confirm all payouts
+
+### Trust Rating System
+
+Every player has a **Trust Rating** that tracks fair play and reliable participation.
+
+**Trust Rating Benefits:**
+- Gain entry to exclusive high-stakes lobbies
+- Build reputation in the community
+- Unlock VIP tournaments and events
+- Better matchmaking with trustworthy opponents
+
+**Factors That Affect Trust Rating:**
+- **Completing games** (even losses)
+- **Quick claim times** (not holding funds)
+- **No transaction failures**
+- **Consistent participation**
+- **Community reports** (handled fairly)
+
+**How to Maintain High Trust:**
+1. Always complete the games you join
+2. Claim your winnings promptly
+3. Play on reputable lobbies
+4. Help report actual cheating (not rage quits)
+
+---
+
+## Creating a Lobby
+
+### Step-by-Step
+
+1. **Click "Create Lobby"** on the dashboard
+2. **Choose lobby type:**
+   - Normal (set wager amount)
+   - Sponsored (no setup needed)
+3. **Select game:**
+   - Lexi Wars
+   - Ludo
+4. **Set player count:** 2-4 players
+5. **Configure timeout:** How long to wait for other players (30s-5m)
+6. **Review & confirm:**
+   - Confirm wager amount (Normal only)
+   - Approve vault deposit in your wallet
+7. **Share invite code** or invite players directly
+8. **Wait for players** to join
+
+### Lobby Settings
+
+| Setting | Normal | Sponsored |
+|---------|--------|-----------|
+| Wager amount | Configurable | Not applicable |
+| Vault escrow | Required | Optional |
+| Player count | 2-4 | 2-4 |
+| Timeout | 30 seconds - 5 minutes | 30 seconds - 5 minutes |
+| Invite | Public or Private | Public or Private |
+
+---
+
+## Claiming Your Winnings
+
+After the game concludes and the winner is validated by the smart contract:
+
+1. Navigate to "My Lobbies" → Recent games
+2. Find your winning game
+3. Click "Claim Winnings"
+4. Confirm the transaction in your wallet
+5. STX is transferred to your balance instantly
+6. Your Trust Rating increases
+
+**Note:** Unclaimed winnings remain in the vault for up to 30 days before automatic return.
+
+---
+
+## Fees & Costs
+
+### What You Pay
+
+| Transaction | Cost | When |
+|------------|------|------|
+| Creating a lobby | ~50,000 microSTX (~0.05 STX, gas) | Upfront |
+| Claiming winnings | ~75,000 microSTX (~0.075 STX, gas) | After game ends |
+| Vault deposit | ~50,000 microSTX (~0.05 STX, gas) | When joining |
+| Vault withdrawal | ~40,000 microSTX (~0.04 STX, gas) | When claiming |
+
+**Note:** Gas costs vary based on network congestion. Higher Stacks fees mean higher transaction costs.
+
+### Stacks Wars Revenue Model
+
+- **Platform fee:** 2% of winning pot (keeping games sustainable)
+- **Gas subsidies:** Stacks Wars covers some gas costs
+- **Sponsor payouts:** Covered by sponsors (you pay 0%)
+
+---
+
+## Responsible Wagering
+
+Play within your means. Stacks Wars implements safeguards:
+
+- **Daily loss limit:** Set a max you're willing to lose
+- **Session timer:** Get reminded after 2+ hours of play
+- **Cooling-off period:** Take breaks between games
+- **Support resources:** Access gambling harm resources anytime
+
+Remember: Games are for entertainment. Never wager more than you can afford to lose.

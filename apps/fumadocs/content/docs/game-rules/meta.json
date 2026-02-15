@@ -1,0 +1,5 @@
+{
+	"name": "Game Rules",
+	"pages": ["lexi-wars", "ludo"],
+	"defaultOpen": true
+}

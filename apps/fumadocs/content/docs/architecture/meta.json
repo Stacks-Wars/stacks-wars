@@ -1,0 +1,5 @@
+{
+	"name": "Architecture",
+	"pages": ["smart-contracts", "plugin-system"],
+	"defaultOpen": true
+}
