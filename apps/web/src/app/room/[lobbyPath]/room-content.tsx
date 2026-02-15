@@ -21,7 +21,8 @@ function RoomContentInner({
 	const autoView =
 		!lobbyData ||
 		lobbyData.status === "waiting" ||
-		lobbyData.status === "starting"
+		lobbyData.status === "starting" ||
+		lobbyData.status === "finished"
 			? "lobby"
 			: "game";
 
@@ -35,6 +36,8 @@ function RoomContentInner({
 	return (
 		<RoomViewProvider value={{ currentView, setView: setManualView }}>
 			<div>{showLobby ? lobby : game}</div>
+			<GameOverModal />
+			<FinalStandingsModal />
 		</RoomViewProvider>
 	);
 }
@@ -54,8 +57,6 @@ export default function RoomContent({
 		<RoomProvider lobbyPath={lobbyPath}>
 			<RoomContentInner lobby={lobby} game={game} />
 			{children}
-			<GameOverModal />
-			<FinalStandingsModal />
 		</RoomProvider>
 	);
 }

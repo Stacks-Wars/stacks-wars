@@ -4,7 +4,7 @@ use uuid::Uuid;
 use crate::{
     errors::AppError,
     http::bot::broadcasts::broadcast_lobby_creation_to_tg,
-    models::{BotNewLobbyPayload, Lobby, LobbyState, LobbyStatus, PlayerState, WalletAddress, player_state::ClaimState},
+    models::{BotNewLobbyPayload, Lobby, LobbyState, LobbyStatus, PlayerState, WalletAddress, player_state::{ClaimState, PlayerStatus}},
     state::{AppState, RedisClient},
 };
 
@@ -115,6 +115,14 @@ impl LobbyRepository {
         let creator_username = creator.username.clone();
         let creator_display_name = creator.display_name.clone();
 
+        // Sponsored lobby creators start as spectators (NotJoined) and can opt-in to participate.
+        // Normal lobby creators are automatically joined.
+        let creator_status = if is_sponsored {
+            PlayerStatus::NotJoined
+        } else {
+            PlayerStatus::Joined
+        };
+
         let creator_pstate = PlayerState::new(
             creator_id,
             lobby.id(),
@@ -124,6 +132,7 @@ impl LobbyRepository {
             creator.trust_rating,
             claim_state,
             true,
+            creator_status,
         );
         if let Err(e) = player_repo.create_state(creator_pstate, None).await {
             let _ = self.delete_lobby(lobby.id(), None).await;

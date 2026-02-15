@@ -54,6 +54,11 @@ pub enum RoomClientMessage {
     ClaimReward {
         tx_id: String,
     },
+    /// Toggle participation for sponsored lobby creator (spectator <-> participant)
+    #[serde(rename_all = "camelCase")]
+    ToggleParticipation {
+        participate: bool,
+    },
     /// Heartbeat from client; `ts` is client's timestamp in milliseconds
     Ping {
         ts: u64,
@@ -182,6 +187,13 @@ pub enum RoomServerMessage {
 
     /// Claim reward success
     ClaimSuccess,
+
+    /// Participation toggled for sponsored lobby creator
+    #[serde(rename_all = "camelCase")]
+    ParticipationToggled {
+        user_id: Uuid,
+        participating: bool,
+    },
 
     Error {
         code: String,

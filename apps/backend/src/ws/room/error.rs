@@ -17,6 +17,7 @@ pub enum RoomError {
     SendMessageFailed(String),
     ReactionFailed(String),
     ClaimFailed(String),
+    ParticipationFailed(String),
     /// Postgres metadata for the lobby is missing.
     MetadataMissing,
     /// Lobby runtime state or lobby itself was not found.
@@ -48,6 +49,7 @@ impl fmt::Display for RoomError {
             RoomError::InvalidMessage => write!(f, "invalid message"),
             RoomError::Internal(s) => write!(f, "internal error: {}", s),
             RoomError::ClaimFailed(s) => write!(f, "claim reward failed: {}", s),
+            RoomError::ParticipationFailed(s) => write!(f, "participation toggle failed: {}", s),
         }
     }
 }
@@ -73,6 +75,7 @@ impl RoomError {
             RoomError::InvalidMessage => "INVALID_MESSAGE",
             RoomError::Internal(_) => "INTERNAL_ERROR",
             RoomError::ClaimFailed(_) => "CLAIM_FAILED",
+            RoomError::ParticipationFailed(_) => "PARTICIPATION_FAILED",
         }
     }
 }

@@ -26,7 +26,24 @@ export default function Participants() {
 	const lobbyActions = useLobbyActions();
 
 	const isCreator = user?.id === lobby?.creatorId;
-	const acceptedPlayers = players.filter((p) => p.state === "accepted");
+
+	// Disable approve/reject/kick when lobby is starting, inProgress, or finished
+	const disableCreatorActions =
+		lobby?.status === "starting" ||
+		lobby?.status === "inProgress" ||
+		lobby?.status === "finished";
+
+	// Filter out the sponsored lobby creator when they are spectating (notJoined)
+	const acceptedPlayers = players.filter((p) => {
+		if (p.state !== "accepted") return false;
+		if (
+			lobby?.isSponsored &&
+			p.userId === lobby.creatorId &&
+			p.status === "notJoined"
+		)
+			return false;
+		return true;
+	});
 	const pendingPlayers = joinRequests.filter((jr) => jr.state === "pending");
 
 	const handleApprove = (userId: string) => {
@@ -90,6 +107,7 @@ export default function Participants() {
 							isCreator={isCreator}
 							onKick={handleKick}
 							kickActionKey={`kick-${player.userId}`}
+							disableActions={disableCreatorActions}
 						/>
 					))}
 				</div>
@@ -110,6 +128,7 @@ export default function Participants() {
 								onReject={handleReject}
 								approveActionKey={`approve-${pendingPlayer.userId}`}
 								rejectActionKey={`reject-${pendingPlayer.userId}`}
+								disableActions={disableCreatorActions}
 							/>
 						))}
 					</div>

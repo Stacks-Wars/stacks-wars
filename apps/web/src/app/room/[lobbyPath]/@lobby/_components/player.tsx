@@ -65,6 +65,7 @@ interface PlayerProps {
 	kickActionKey?: string;
 	approveActionKey?: string;
 	rejectActionKey?: string;
+	disableActions?: boolean;
 }
 
 export default function Player({
@@ -76,6 +77,7 @@ export default function Player({
 	kickActionKey,
 	approveActionKey,
 	rejectActionKey,
+	disableActions,
 }: PlayerProps) {
 	// Get loading states from store if action keys are provided
 	const isKickLoading = kickActionKey
@@ -146,7 +148,9 @@ export default function Player({
 							<Button
 								className="h-8 rounded-full px-3 text-xs font-medium sm:h-9 sm:px-4 sm:text-sm lg:h-10 lg:text-base"
 								onClick={() => onApprove?.(player.userId)}
-								disabled={isApproving || isRejecting}
+								disabled={
+									isApproving || isRejecting || disableActions
+								}
 							>
 								{isApproving ? "Accepting..." : "Accept"}
 							</Button>
@@ -154,7 +158,9 @@ export default function Player({
 								variant={"outline"}
 								className="h-8 rounded-full px-3 text-xs font-medium sm:h-9 sm:px-4 sm:text-sm lg:h-10 lg:text-base"
 								onClick={() => onReject?.(player.userId)}
-								disabled={isApproving || isRejecting}
+								disabled={
+									isApproving || isRejecting || disableActions
+								}
 							>
 								{isRejecting ? "Declining..." : "Decline"}
 							</Button>
@@ -167,7 +173,7 @@ export default function Player({
 							onClick={() =>
 								onKick?.(player.userId, player.walletAddress)
 							}
-							disabled={isKickLoading}
+							disabled={isKickLoading || disableActions}
 						>
 							{isKickLoading ? "Removing..." : "Remove"}
 						</Button>

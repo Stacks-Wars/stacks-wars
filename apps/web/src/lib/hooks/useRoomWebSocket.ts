@@ -293,6 +293,20 @@ export function useRoomWebSocket({
 				lobbyActions.setPlayers(message.players);
 				break;
 
+			case "participationToggled":
+				if (pendingActionsRef.current.has("toggleParticipation")) {
+					pendingActionsRef.current.delete("toggleParticipation");
+					lobbyActions.clearActionLoading("toggleParticipation");
+				}
+				if (message.userId === userRef.current?.id) {
+					toast.info(
+						message.participating
+							? "You are now participating in the game"
+							: "You are now spectating"
+					);
+				}
+				break;
+
 			// Shared game events
 			case "gameStarted":
 				toast.info("Game has started!");
@@ -359,6 +373,7 @@ export function useRoomWebSocket({
 					SEND_MESSAGE_FAILED: "sendMessage",
 					REACTION_FAILED: "reaction",
 					CLAIM_FAILED: "claimReward",
+					PARTICIPATION_FAILED: "toggleParticipation",
 				};
 				const action = errorCodeToAction[message.code];
 				if (action) {
@@ -469,6 +484,10 @@ export function useRoomWebSocket({
 			case "claimReward":
 				pendingActionsRef.current.add("claimReward");
 				lobbyActions.setActionLoading("claimReward", true);
+				break;
+			case "toggleParticipation":
+				pendingActionsRef.current.add("toggleParticipation");
+				lobbyActions.setActionLoading("toggleParticipation", true);
 				break;
 		}
 

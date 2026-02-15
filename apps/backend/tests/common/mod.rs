@@ -1,4 +1,5 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
+use stacks_wars_be::models::player_state::PlayerStatus;
 use tokio::sync::oneshot;
 
 use testcontainers_modules::postgres::Postgres;
@@ -330,6 +331,7 @@ impl TestFactory {
             creator.trust_rating,
             None,
             true,
+            PlayerStatus::Joined,
         );
         let phash_map = pstate.to_redis_hash();
         let phash: Vec<(String, String)> = phash_map.into_iter().collect();

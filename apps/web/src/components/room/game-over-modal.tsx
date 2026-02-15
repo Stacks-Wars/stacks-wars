@@ -53,6 +53,9 @@ export default function GameOverModal() {
 	};
 
 	const handleClaim = async () => {
+		console.log(
+			`lobby: ${lobby}, user: ${user}, prize: ${gameOverData?.prize}, CA: ${lobby?.contractAddress}`
+		);
 		if (!lobby || !user || !gameOverData?.prize || !lobby.contractAddress) {
 			toast.error("Missing data for claim.");
 			return;
