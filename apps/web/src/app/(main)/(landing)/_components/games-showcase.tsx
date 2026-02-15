@@ -45,15 +45,15 @@ function ShowcaseGameCard({ game }: { game: Game }) {
 	return (
 		<Link
 			href={`/game/${game.path}`}
-			className="group border-border/50 relative h-[186px] w-[240px] shrink-0 overflow-hidden rounded-2xl border md:h-[334px] md:w-[445px]"
+			className="group border-border/50 relative h-[186px] w-[200px] shrink-0 overflow-hidden rounded-2xl border md:h-[280px] md:w-[360px]"
 		>
 			<Image
 				src={game.imageUrl}
 				alt={game.name}
 				fill
-				className="object-cover transition-transform duration-300 group-hover:scale-105"
+				className="object-cover transition-transform duration-300 group-hover:scale-102"
 			/>
-			<div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 transition-opacity duration-300 group-hover:opacity-100 md:p-6">
+			<div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 to-transparent p-4 md:p-6">
 				<h3 className="text-lg font-bold text-white md:text-2xl">
 					{game.name}
 				</h3>
@@ -79,7 +79,7 @@ export function GamesShowcaseSkeleton() {
 						{[1, 2, 3, 4, 5].map((i) => (
 							<Skeleton
 								key={i}
-								className="h-[186px] w-[240px] shrink-0 rounded-2xl md:h-[334px] md:w-[445px]"
+								className="h-[186px] w-[200px] shrink-0 rounded-2xl md:h-[280px] md:w-[360px]"
 							/>
 						))}
 					</div>
