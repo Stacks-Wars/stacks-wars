@@ -17,6 +17,8 @@ export default function GameCard({
 	isJoinRequestPending,
 	isJoinRequestAccepted,
 	isAuthenticated,
+	lobbyStatus,
+	playerStatus,
 }: {
 	game: Game;
 	action?: "gamePage" | "createLobbyPage" | "joinLobby";
@@ -26,6 +28,8 @@ export default function GameCard({
 	isJoinRequestPending?: boolean;
 	isJoinRequestAccepted?: boolean;
 	isAuthenticated?: boolean;
+	lobbyStatus?: string;
+	playerStatus?: string;
 }) {
 	// Get loading states from store
 	const user = useUser();
@@ -98,12 +102,19 @@ export default function GameCard({
 							: undefined
 					}
 					disabled={
-						action === "joinLobby" &&
-						isAuthenticated &&
-						(isJoinRequestPending ||
-							isJoinLoading ||
-							isLeaveLoading ||
-							isJoinRequestLoading)
+						(action === "joinLobby" &&
+							isAuthenticated &&
+							(isJoinRequestPending ||
+								isJoinLoading ||
+								isLeaveLoading ||
+								isJoinRequestLoading)) ||
+						(action === "joinLobby" &&
+							lobbyStatus === "inProgress") ||
+						(action === "joinLobby" &&
+							lobbyStatus === "finished" &&
+							(!isInLobby || playerStatus !== "notJoined")) ||
+						(action === "joinLobby" &&
+							lobbyStatus === "starting")
 					}
 				>
 					{action === "createLobbyPage" ? (

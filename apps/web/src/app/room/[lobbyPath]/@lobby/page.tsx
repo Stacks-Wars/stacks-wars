@@ -263,6 +263,10 @@ export default function LobbySlot() {
 					isJoinRequestPending={isJoinRequestPending}
 					isJoinRequestAccepted={isJoinRequestAccepted}
 					isAuthenticated={isAuthenticated}
+					lobbyStatus={lobby.status}
+					playerStatus={
+						players.find((p) => p.userId === user?.id)?.status
+					}
 				/>
 				<LobbyDetails />
 				<SponsorParticipation />

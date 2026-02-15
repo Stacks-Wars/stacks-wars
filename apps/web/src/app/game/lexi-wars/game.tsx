@@ -72,7 +72,7 @@ export default function LexiWarsGame({
 			<RoomHeader />
 			<div className="mx-auto max-w-2xl space-y-6 py-6">
 				{/* Game Header */}
-				<div className="bg-card rounded-lg border p-4">
+				<div className="rounded-lg border p-4">
 					<div className="flex items-center justify-between">
 						<div>
 							<h2 className="text-xl font-bold">{lobby.name}</h2>
@@ -92,7 +92,7 @@ export default function LexiWarsGame({
 				</div>
 
 				{/* Turn Indicator with Timer */}
-				<div className="bg-card rounded-lg border p-4">
+				<div className="rounded-lg border p-4">
 					{state.currentPlayer ? (
 						<div className="flex items-center justify-between">
 							<div>

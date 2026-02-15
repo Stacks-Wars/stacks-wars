@@ -87,10 +87,10 @@ pub async fn handle_room_message(
             }
         }
 
-        // LOBBY-ONLY: Block if game is in progress (i guess ...)
+        // Block joins when game is in progress or finished
         RoomClientMessage::Join => {
-            if lobby_status == LobbyStatus::InProgress {
-                let err = RoomError::JoinFailed("Cannot join during active game".to_string());
+            if lobby_status == LobbyStatus::InProgress || lobby_status == LobbyStatus::Finished {
+                let err = RoomError::JoinFailed("Cannot join during active or finished game".to_string());
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
                 return;
@@ -281,6 +281,22 @@ pub async fn handle_room_message(
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
                 return;
+            }
+
+            // When finished, only players with NotJoined status can leave (for refunds)
+            if lobby_status == LobbyStatus::Finished {
+                if let Some(uid) = auth_user_id {
+                    if let Ok(ps) = player_repo.get_state(lobby_id, uid).await {
+                        if ps.status != PlayerStatus::NotJoined {
+                            let err = RoomError::LeaveFailed(
+                                "Only inactive players can leave a finished game".to_string(),
+                            );
+                            let msg = RoomServerMessage::from(err);
+                            let _ = manager::send_to_connection(conn, &msg).await;
+                            return;
+                        }
+                    }
+                }
             }
 
             let user_id = match require_auth(conn, auth_user_id).await {
@@ -750,9 +766,9 @@ pub async fn handle_room_message(
         }
 
         RoomClientMessage::JoinRequest => {
-            if lobby_status == LobbyStatus::InProgress {
+            if lobby_status == LobbyStatus::InProgress || lobby_status == LobbyStatus::Finished {
                 let err =
-                    RoomError::JoinFailed("Cannot request to join during active game".to_string());
+                    RoomError::JoinFailed("Cannot request to join during active or finished game".to_string());
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
                 return;
@@ -810,9 +826,9 @@ pub async fn handle_room_message(
         RoomClientMessage::ApproveJoin {
             user_id: approved_user_id,
         } => {
-            if lobby_status == LobbyStatus::InProgress {
+            if matches!(lobby_status, LobbyStatus::InProgress | LobbyStatus::Starting | LobbyStatus::Finished) {
                 let err =
-                    RoomError::ApproveFailed("Cannot approve joins during active game".to_string());
+                    RoomError::ApproveFailed("Cannot approve joins at this time".to_string());
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
                 return;
@@ -874,9 +890,9 @@ pub async fn handle_room_message(
         RoomClientMessage::RejectJoin {
             user_id: rejected_user_id,
         } => {
-            if lobby_status == LobbyStatus::InProgress {
+            if matches!(lobby_status, LobbyStatus::InProgress | LobbyStatus::Starting | LobbyStatus::Finished) {
                 let err =
-                    RoomError::RejectFailed("Cannot reject joins during active game".to_string());
+                    RoomError::RejectFailed("Cannot reject joins at this time".to_string());
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
                 return;
@@ -938,9 +954,9 @@ pub async fn handle_room_message(
         RoomClientMessage::Kick {
             user_id: kicked_user_id,
         } => {
-            if lobby_status == LobbyStatus::InProgress {
+            if matches!(lobby_status, LobbyStatus::InProgress | LobbyStatus::Starting | LobbyStatus::Finished) {
                 let err =
-                    RoomError::KickFailed("Cannot kick players during active game".to_string());
+                    RoomError::KickFailed("Cannot kick players at this time".to_string());
                 let msg = RoomServerMessage::from(err);
                 let _ = manager::send_to_connection(conn, &msg).await;
                 return;
@@ -1047,6 +1063,13 @@ pub async fn handle_room_message(
         }
 
         RoomClientMessage::SendMessage { content, reply_to } => {
+            if lobby_status == LobbyStatus::Finished {
+                let err = RoomError::SendMessageFailed("Cannot send messages in a finished lobby".to_string());
+                let msg = RoomServerMessage::from(err);
+                let _ = manager::send_to_connection(conn, &msg).await;
+                return;
+            }
+
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
                 Err(_) => return,
@@ -1087,6 +1110,13 @@ pub async fn handle_room_message(
         }
 
         RoomClientMessage::AddReaction { message_id, emoji } => {
+            if lobby_status == LobbyStatus::Finished {
+                let err = RoomError::ReactionFailed("Cannot react in a finished lobby".to_string());
+                let msg = RoomServerMessage::from(err);
+                let _ = manager::send_to_connection(conn, &msg).await;
+                return;
+            }
+
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
                 Err(_) => {
@@ -1136,6 +1166,13 @@ pub async fn handle_room_message(
         }
 
         RoomClientMessage::RemoveReaction { message_id, emoji } => {
+            if lobby_status == LobbyStatus::Finished {
+                let err = RoomError::ReactionFailed("Cannot react in a finished lobby".to_string());
+                let msg = RoomServerMessage::from(err);
+                let _ = manager::send_to_connection(conn, &msg).await;
+                return;
+            }
+
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
                 Err(_) => {
@@ -1186,6 +1223,13 @@ pub async fn handle_room_message(
         }
 
         RoomClientMessage::ClaimReward { tx_id } => {
+            if matches!(lobby_status, LobbyStatus::Waiting | LobbyStatus::Starting) {
+                let err = RoomError::ClaimFailed("Cannot claim reward before game ends".to_string());
+                let msg = RoomServerMessage::from(err);
+                let _ = manager::send_to_connection(conn, &msg).await;
+                return;
+            }
+
             let user_id = match require_auth(conn, auth_user_id).await {
                 Ok(uid) => uid,
                 Err(_) => return,
@@ -1264,9 +1308,9 @@ pub async fn handle_room_message(
         }
 
         RoomClientMessage::ToggleParticipation { participate } => {
-            if lobby_status == LobbyStatus::InProgress {
+            if matches!(lobby_status, LobbyStatus::Starting | LobbyStatus::InProgress | LobbyStatus::Finished) {
                 let err = RoomError::ParticipationFailed(
-                    "Cannot toggle participation during active game".to_string(),
+                    "Cannot toggle participation at this time".to_string(),
                 );
                 let _ = manager::send_to_connection(conn, &RoomServerMessage::from(err)).await;
                 return;

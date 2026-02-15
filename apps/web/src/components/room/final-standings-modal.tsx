@@ -19,6 +19,7 @@ import { IoStar } from "react-icons/io5";
 import { Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useRoomView } from "@/lib/contexts/room-view-context";
 
 const rankColors: Record<number, string> = {
 	1: "bg-yellow-500/10 border-yellow-500/50",
@@ -36,12 +37,14 @@ export default function FinalStandingsModal() {
 	const finalStandings = useFinalStandings();
 	const gameOverData = useGameOverData();
 	const lobbyActions = useLobbyActions();
+	const { setView } = useRoomView();
 
 	// Only show when we have standings AND gameOver modal is closed
 	const isOpen = !!finalStandings && !gameOverData;
 
 	const handleClose = () => {
 		lobbyActions.setFinalStandings(null);
+		setView("lobby");
 	};
 
 	if (!finalStandings) return null;

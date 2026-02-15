@@ -25,8 +25,12 @@ export default function SponsorParticipation() {
 	// Only show for sponsored lobby creators
 	if (!isCreator || !isSponsored) return null;
 
-	// Don't show during active game or finished state
-	if (lobby.status === "inProgress" || lobby.status === "finished")
+	// Don't show during starting, active game, or finished state
+	if (
+		lobby.status === "starting" ||
+		lobby.status === "inProgress" ||
+		lobby.status === "finished"
+	)
 		return null;
 
 	const creatorPlayer = players.find((p) => p.userId === user.id);

@@ -20,6 +20,7 @@ import {
 	useChatHistory,
 	usePlayers,
 	useIsActionLoading,
+	useLobby,
 } from "@/lib/stores/room";
 import { useUser } from "@/lib/stores/user";
 import { useRoom } from "@/lib/contexts/room-context";
@@ -46,6 +47,7 @@ export default function ChatDialog({
 	const messages = useChatHistory();
 	const players = usePlayers();
 	const user = useUser();
+	const lobby = useLobby();
 	const { sendLobbyMessage } = useRoom();
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [showReactionPicker, setShowReactionPicker] = useState<string | null>(
@@ -54,6 +56,7 @@ export default function ChatDialog({
 
 	const [newMessage, setNewMessage] = useState("");
 	const isSending = useIsActionLoading("sendMessage");
+	const isFinished = lobby?.status === "finished";
 
 	// Auto-scroll to bottom when new messages arrive
 	useEffect(() => {
@@ -231,57 +234,60 @@ export default function ChatDialog({
 										>
 											{msg.content}
 
-											{/* Reaction button (shows on hover) */}
-											<button
-												onClick={() =>
-													setShowReactionPicker(
-														showReactionPicker ===
-															msg.messageId
-															? null
-															: msg.messageId
-													)
-												}
-												className={cn(
-													"absolute -bottom-2 opacity-0 transition-opacity group-hover:opacity-100",
-													"bg-background flex h-6 w-6 items-center justify-center rounded-full border shadow-sm",
-													"hover:bg-muted",
-													isOwn
-														? "left-0 -translate-x-1/2"
-														: "right-0 translate-x-1/2"
-												)}
-											>
-												<Smile className="text-muted-foreground size-3" />
-											</button>
-
-											{/* Quick reaction picker */}
-											{showReactionPicker ===
-												msg.messageId && (
-												<div
+											{/* Reaction button (shows on hover, hidden when finished) */}
+											{!isFinished && (
+												<button
+													onClick={() =>
+														setShowReactionPicker(
+															showReactionPicker ===
+																msg.messageId
+																? null
+																: msg.messageId
+														)
+													}
 													className={cn(
-														"bg-background absolute -bottom-9 z-10 flex gap-1 rounded-full border px-2 py-1 shadow-lg",
+														"absolute -bottom-2 opacity-0 transition-opacity group-hover:opacity-100",
+														"bg-background flex h-6 w-6 items-center justify-center rounded-full border shadow-sm",
+														"hover:bg-muted",
 														isOwn
-															? "right-0"
-															: "left-0"
+															? "left-0 -translate-x-1/2"
+															: "right-0 translate-x-1/2"
 													)}
 												>
-													{QUICK_REACTIONS.map(
-														(emoji) => (
-															<button
-																key={emoji}
-																onClick={() =>
-																	handleAddReaction(
-																		msg.messageId,
-																		emoji
-																	)
-																}
-																className="text-base transition-transform hover:scale-125"
-															>
-																{emoji}
-															</button>
-														)
-													)}
-												</div>
+													<Smile className="text-muted-foreground size-3" />
+												</button>
 											)}
+
+											{/* Quick reaction picker */}
+											{!isFinished &&
+												showReactionPicker ===
+													msg.messageId && (
+													<div
+														className={cn(
+															"bg-background absolute -bottom-9 z-10 flex gap-1 rounded-full border px-2 py-1 shadow-lg",
+															isOwn
+																? "right-0"
+																: "left-0"
+														)}
+													>
+														{QUICK_REACTIONS.map(
+															(emoji) => (
+																<button
+																	key={emoji}
+																	onClick={() =>
+																		handleAddReaction(
+																			msg.messageId,
+																			emoji
+																		)
+																	}
+																	className="text-base transition-transform hover:scale-125"
+																>
+																	{emoji}
+																</button>
+															)
+														)}
+													</div>
+												)}
 										</div>
 
 										{/* Reactions */}
@@ -300,6 +306,8 @@ export default function ChatDialog({
 														key={emoji}
 														className={cn(
 															"rounded-full border px-2 py-0.5 text-xs transition-colors",
+															isFinished &&
+																"pointer-events-none opacity-60",
 															user?.id &&
 																userIds.includes(
 																	user.id
@@ -307,6 +315,7 @@ export default function ChatDialog({
 																? "bg-primary/10 border-primary/30"
 																: "bg-muted/50 hover:border-muted-foreground/20 border-transparent"
 														)}
+														disabled={isFinished}
 														onClick={() =>
 															toggleReaction(
 																msg.messageId,
@@ -331,17 +340,24 @@ export default function ChatDialog({
 				<div className="shrink-0 border-t p-3">
 					<div className="flex gap-2">
 						<Input
-							placeholder="Type a message..."
+							placeholder={
+								isFinished
+									? "Chat is closed"
+									: "Type a message..."
+							}
 							value={newMessage}
 							onChange={(e) => setNewMessage(e.target.value)}
 							onKeyDown={handleKeyPress}
+							disabled={isFinished}
 							className="bg-muted flex-1 rounded-full border-0 focus-visible:ring-1"
 						/>
 						<Button
 							onClick={handleSend}
 							size="icon"
 							className="shrink-0 rounded-full"
-							disabled={!newMessage.trim() || isSending}
+							disabled={
+								!newMessage.trim() || isSending || isFinished
+							}
 						>
 							<Send className="size-4" />
 						</Button>
