@@ -1,13 +1,13 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ApiClient } from "@/lib/api/client";
 import type { User } from "@/lib/definitions";
 import { useUser, useUserActions } from "@/lib/stores/user";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { toast } from "sonner";
 
 let connect: typeof import("@stacks/connect").connect;
 let disconnect: typeof import("@stacks/connect").disconnect;
@@ -21,6 +21,8 @@ if (typeof window !== "undefined") {
 
 export default function HandleConnect() {
 	const router = useRouter();
+	const searchParams = useSearchParams();
+	const redirectUrl = searchParams.get("redirect");
 	const [isLoading, setIsLoading] = useState(false);
 	const { setUser, clearUser } = useUserActions();
 	const user = useUser();
@@ -48,10 +50,23 @@ export default function HandleConnect() {
 
 			setUser(authResponse.data);
 
-			router.back();
+			if (redirectUrl) {
+				const isValidRedirect =
+					redirectUrl.startsWith("/") &&
+					!redirectUrl.startsWith("//") &&
+					!redirectUrl.match(/^https?:\/\//i);
+
+				if (isValidRedirect) {
+					router.push(redirectUrl as any);
+				} else {
+					router.push("/");
+				}
+			} else {
+				router.back();
+			}
 		} catch (err) {
 			toast.error(
-				err instanceof Error ? err.message : "Failed to connect wallet"
+				err instanceof Error ? err.message : "Failed to connect wallet",
 			);
 		} finally {
 			setIsLoading(false);
