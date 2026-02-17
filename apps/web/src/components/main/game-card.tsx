@@ -7,6 +7,7 @@ import type { Game } from "@/lib/definitions";
 import { useIsActionLoading } from "@/lib/stores/room";
 import { useUser } from "@/lib/stores/user";
 import { Loader2 } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 export default function GameCard({
 	game,
@@ -33,6 +34,7 @@ export default function GameCard({
 }) {
 	// Get loading states from store
 	const user = useUser();
+	const pathname = usePathname();
 	const isJoinLoading = useIsActionLoading(`join-${user?.id}`);
 	const isLeaveLoading = useIsActionLoading(`leave-${user?.id}`);
 	const isJoinRequestLoading = useIsActionLoading("joinRequest");
@@ -125,7 +127,7 @@ export default function GameCard({
 						</Link>
 					) : action === "joinLobby" ? (
 						!isAuthenticated ? (
-							<Link href="/login">Login to Join Lobby</Link>
+							<Link href={`/login?redirect=${encodeURIComponent(pathname)}`}>Login to Join Lobby</Link>
 						) : isJoinLoading ? (
 							<span className="flex items-center gap-2">
 								<Loader2 className="size-4 animate-spin" />
