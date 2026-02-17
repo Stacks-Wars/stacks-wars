@@ -51,7 +51,16 @@ export default function HandleConnect() {
 			setUser(authResponse.data);
 
 			if (redirectUrl) {
-				router.push(redirectUrl as any);
+				const isValidRedirect =
+					redirectUrl.startsWith("/") &&
+					!redirectUrl.startsWith("//") &&
+					!redirectUrl.match(/^https?:\/\//i);
+
+				if (isValidRedirect) {
+					router.push(redirectUrl as any);
+				} else {
+					router.push("/");
+				}
 			} else {
 				router.back();
 			}
