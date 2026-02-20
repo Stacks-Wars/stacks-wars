@@ -1,0 +1,819 @@
+---
+title: Building a Game
+description: Step-by-step guide to building a new game for Stacks Wars — from engine to UI.
+---
+
+This guide walks you through creating a new game for Stacks Wars. You'll build both the **backend engine** (Rust) and the **frontend plugin** (TypeScript/React), using Lexi Wars and Ludo as reference implementations.
+
+---
+
+## Overview
+
+Every game in Stacks Wars has two halves:
+
+| Layer               | Language         | Location                  | Responsibility                                   |
+| ------------------- | ---------------- | ------------------------- | ------------------------------------------------ |
+| **Backend Engine**  | Rust             | `apps/backend/src/games/` | Game logic, turn management, validation, scoring |
+| **Frontend Plugin** | TypeScript/React | `apps/web/src/app/game/`  | UI rendering, message handling, player input     |
+
+They communicate through WebSocket messages using a simple pattern:
+
+```
+Client → Server:  Actions   (e.g., SubmitWord, RollDice, MovePawn)
+Server → Client:  Events    (e.g., Turn, Countdown, Eliminated, BoardUpdate)
+```
+
+---
+
+## Part 1: Backend Engine
+
+### Step 1 — Plan Your Game
+
+Before writing code, answer these questions:
+
+- **Player count**: Min/max players (e.g., Lexi Wars: 2–20, Ludo: 2–4)
+- **Turn structure**: Sequential turns? Simultaneous? Phases per turn?
+- **Win condition**: Last player standing? First to finish? Highest score?
+- **Actions**: What can players do? (submit a word, roll dice, move a piece)
+- **Events**: What does the server broadcast? (turn changes, countdowns, eliminations)
+- **Timing**: Turn duration? Roll timeout? Move timeout?
+
+### Step 2 — Create the Game Folder
+
+```
+apps/backend/src/games/
+└── my_game/
+    ├── mod.rs          # Module exports
+    ├── engine.rs       # GameEngine implementation
+    └── message.rs      # Action and Event enums
+```
+
+### Step 3 — Define Messages
+
+Messages are the contract between your backend and frontend. Define two enums:
+
+- **Actions** — what the client sends to the server
+- **Events** — what the server sends to the client
+
+#### Example: Lexi Wars Messages
+
+```rust
+// message.rs
+
+use serde::{Deserialize, Serialize};
+use crate::models::player_state::PlayerState;
+
+/// Client → Server
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum LexiWarsAction {
+    SubmitWord { word: String },
+}
+
+/// Server → Client
+#[derive(Debug, Serialize, Clone)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum LexiWarsEvent {
+    Turn { player: PlayerState, timeout_secs: u64 },
+    Rule { rule: Option<ClientRule> },
+    Countdown { time: u64 },
+    WordEntry { word: String, player: PlayerState },
+    UsedWord { word: String },
+    Invalid { reason: String },
+    PlayersCount { remaining: usize, total: usize },
+    Eliminated { player: PlayerState, reason: String },
+}
+```
+
+#### Example: Ludo Messages
+
+```rust
+// message.rs
+
+/// Client → Server
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum LudoAction {
+    RollDice,
+    SelectDiceValue { dice_value: u8 },
+    MovePawn { pawn_id: usize },
+}
+
+/// Server → Client
+#[derive(Debug, Serialize, Clone)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum LudoEvent {
+    BoardUpdate { board: LudoBoard },
+    Turn { player: PlayerState, timeout_secs: u64 },
+    DiceRolled { player: PlayerState, dice1: u8, dice2: u8, playable_values: Vec<u8> },
+    MovablePawns { dice_value: u8, pawns: Vec<usize> },
+    DiceValueUsed { dice_value: u8, remaining_values: Vec<u8> },
+    PawnMoved { player: PlayerState, pawn_id: usize, from: PawnPosition, to: PawnPosition, dice_value: u8 },
+    PawnCaptured { attacker: PlayerState, victim: PlayerState, pawn_id: usize },
+    PawnFinished { player: PlayerState, pawn_id: usize, pawns_remaining: usize },
+    NoValidMoves { player: PlayerState },
+    BonusTurn { player: PlayerState },
+    PlayerQuit { player: PlayerState, reason: String },
+    Countdown { time: u64 },
+    Invalid { reason: String },
+}
+```
+
+**Key conventions:**
+
+- Use `#[serde(tag = "type", rename_all = "camelCase")]` so messages serialize as `{ "type": "rollDice", ... }`
+- Include `PlayerState` in events so the frontend knows which player is affected
+- Always include `Invalid { reason }` and `Countdown { time }` events
+
+### Step 4 — Implement the Engine
+
+Every game engine implements the `GameEngine` trait. The pattern uses `Arc<RwLock<Inner>>` for thread-safe mutable state:
+
+```rust
+// engine.rs
+
+use std::sync::Arc;
+use tokio::sync::{RwLock, Notify};
+use async_trait::async_trait;
+use uuid::Uuid;
+
+use crate::games::{GameEngine, GameAction, GameEvent};
+use crate::state::AppState;
+use crate::errors::AppError;
+
+// Internal mutable state
+struct MyGameInner {
+    lobby_id: Uuid,
+    state: AppState,
+    // Your game state fields here:
+    // turn_rotation: TurnRotation,
+    // players: HashMap<Uuid, PlayerGameState>,
+    // is_finished: bool,
+    // ...
+    turn_advance_notify: Arc<Notify>,
+}
+
+pub struct MyGameEngine {
+    inner: Arc<RwLock<MyGameInner>>,
+}
+
+impl MyGameEngine {
+    pub fn new(lobby_id: Uuid, state: AppState) -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(MyGameInner {
+                lobby_id,
+                state,
+                turn_advance_notify: Arc::new(Notify::new()),
+                // ... initialize fields
+            })),
+        }
+    }
+}
+```
+
+#### The GameEngine Trait
+
+Implement these required methods:
+
+```rust
+#[async_trait]
+impl GameEngine for MyGameEngine {
+    /// Called once when the game starts. Set up initial state.
+    async fn initialize(&mut self, player_ids: Vec<Uuid>) -> Result<Vec<Value>, AppError> {
+        let mut inner = self.inner.write().await;
+        // Set up TurnRotation, initial game state, etc.
+        // Return initial events to broadcast
+        Ok(vec![])
+    }
+
+    /// Handle a player action. Validate, update state, return events.
+    async fn handle_action(
+        &mut self,
+        user_id: Uuid,
+        action: Value,
+    ) -> Result<Vec<Value>, AppError> {
+        let action: MyGameAction = serde_json::from_value(action)
+            .map_err(|_| AppError::from(GameError::InvalidAction("Unknown action".into())))?;
+
+        let mut inner = self.inner.write().await;
+
+        match action {
+            MyGameAction::DoSomething { .. } => {
+                // 1. Validate (is it their turn? is the action valid?)
+                // 2. Update state
+                // 3. Broadcast events
+                // 4. Notify the game loop if the turn should advance
+                inner.turn_advance_notify.notify_one();
+                Ok(vec![])
+            }
+        }
+    }
+
+    /// Return the current game state for a specific player (used for reconnection).
+    async fn get_game_state(&self, user_id: Option<Uuid>) -> Result<Value, AppError> {
+        let inner = self.inner.read().await;
+        // Return whatever state the client needs to rebuild the UI
+        Ok(serde_json::json!({}))
+    }
+
+    /// Start the background game loop (turn timers, countdowns, auto-elimination).
+    fn start_loop(&mut self, state: AppState) {
+        let inner = self.inner.clone();
+        tokio::spawn(async move {
+            run_game_loop(inner, state).await;
+        });
+    }
+
+    /// Handle a player disconnecting or quitting mid-game.
+    async fn handle_player_quit(&mut self, user_id: Uuid) -> Result<Vec<Value>, AppError> {
+        let mut inner = self.inner.write().await;
+        // Eliminate the player, save their result, advance turn if needed
+        Ok(vec![])
+    }
+
+    /// Check if the game has ended.
+    fn is_finished(&self) -> bool {
+        // This is called synchronously — use a simple atomic or cached flag
+        false
+    }
+
+    /// Receive lobby context (entry amount, sponsored status, etc.)
+    async fn set_lobby_context(
+        &mut self,
+        entry_amount: Option<f64>,
+        current_amount: Option<f64>,
+        is_sponsored: bool,
+        creator_id: Uuid,
+        token_symbol: Option<String>,
+        token_contract_id: Option<String>,
+    ) {
+        let mut inner = self.inner.write().await;
+        // Store these for prize calculation later
+    }
+}
+```
+
+#### The Game Loop
+
+The game loop runs in a background task, managing turn timers and auto-actions:
+
+```rust
+async fn run_game_loop(inner: Arc<RwLock<MyGameInner>>, state: AppState) {
+    loop {
+        // 1. Check if game is over
+        {
+            let inner = inner.read().await;
+            if inner.is_finished {
+                break;
+            }
+        }
+
+        // 2. Start a new turn — broadcast Turn event
+        let (lobby_id, notify) = {
+            let mut inner = inner.write().await;
+            // Broadcast Turn event with current player
+            (inner.lobby_id, inner.turn_advance_notify.clone())
+        };
+
+        // 3. Countdown loop
+        let timeout_secs = 15; // your turn duration
+        for remaining in (0..timeout_secs).rev() {
+            tokio::select! {
+                // Player took action → advance immediately
+                _ = notify.notified() => break,
+                // One second passed → broadcast countdown
+                _ = tokio::time::sleep(Duration::from_secs(1)) => {
+                    let inner = inner.read().await;
+                    broadcast::broadcast_game_message(
+                        &state, lobby_id,
+                        serde_json::to_value(&MyGameEvent::Countdown { time: remaining }).unwrap()
+                    ).await;
+                }
+            }
+        }
+
+        // 4. If time ran out, auto-action (eliminate, skip, etc.)
+        {
+            let mut inner = inner.write().await;
+            // Handle timeout: eliminate player, auto-move, etc.
+        }
+    }
+}
+```
+
+#### Prize Calculation & Finishing
+
+When the game ends, calculate prizes and save results:
+
+```rust
+use crate::games::common::{
+    WarsPointContext, calculate_wars_point, save_player_result, finish_lobby
+};
+use crate::ws::broadcast;
+use crate::models::room_message::RoomServerMessage;
+
+async fn end_game(inner: &mut MyGameInner) {
+    let rankings = /* determine final rankings */;
+    let participants = rankings.len();
+
+    for (rank, player_id) in rankings.iter().enumerate() {
+        let rank = rank + 1; // 1-indexed
+
+        // Calculate prize share based on your game's distribution
+        let prize = calculate_prize(rank, participants, inner.current_amount);
+
+        let ctx = WarsPointContext {
+            user_id: *player_id,
+            rank,
+            prize: Some(prize),
+            participants,
+            entry_amount: inner.entry_amount,
+            current_amount: inner.current_amount,
+            is_sponsored: inner.is_sponsored,
+            creator_id: Some(inner.creator_id),
+            active_players: participants,
+            token_symbol: inner.token_symbol.clone(),
+            token_contract_id: inner.token_contract_id.clone(),
+        };
+
+        let wars_point = calculate_wars_point(&ctx);
+
+        // Save to database
+        save_player_result(&inner.state, inner.lobby_id, &ctx).await.ok();
+
+        // Send GameOver to this player
+        broadcast::broadcast_user(
+            &inner.state, *player_id,
+            &RoomServerMessage::GameOver { rank, prize: Some(prize), wars_point }
+        ).await;
+    }
+
+    // Broadcast final standings to the room
+    broadcast::broadcast_room(
+        &inner.state, inner.lobby_id,
+        &RoomServerMessage::FinalStanding { standings: /* PlayerState vec */ }
+    ).await;
+
+    // Mark lobby as finished
+    finish_lobby(&inner.state, inner.lobby_id).await.ok();
+
+    inner.is_finished = true;
+}
+```
+
+### Step 5 — Create the Factory & Module
+
+```rust
+// mod.rs
+mod engine;
+mod message;
+
+pub use engine::{MyGameEngine, create_my_game};
+```
+
+```rust
+// In engine.rs, add the factory function:
+pub fn create_my_game(lobby_id: Uuid, state: AppState) -> Box<dyn GameEngine> {
+    Box::new(MyGameEngine::new(lobby_id, state))
+}
+```
+
+### Step 6 — Register the Game
+
+Add your game to the registry in `apps/backend/src/games/registry.rs`:
+
+```rust
+use super::my_game::create_my_game;
+
+pub const MY_GAME_ID: Uuid = uuid::uuid!("generate-a-new-uuid-here");
+
+pub fn create_game_registry() -> HashMap<Uuid, GameFactory> {
+    let mut registry = HashMap::new();
+    registry.insert(LEXI_WARS_GAME_ID, create_lexi_wars as GameFactory);
+    registry.insert(LUDO_GAME_ID, create_ludo as GameFactory);
+    registry.insert(MY_GAME_ID, create_my_game as GameFactory); // ← Add this
+    registry
+}
+```
+
+Export the module in `apps/backend/src/games/mod.rs`:
+
+```rust
+pub mod my_game; // ← Add this
+```
+
+### Step 7 — Register the Game in the Database
+
+Your game needs a row in the `games` table with a matching UUID. Use the **Create Game** form in the web app:
+
+- **Development:** [http://localhost:4002/create-game](http://localhost:4002/create-game) (requires running the web app)
+- **Production:** [https://www.stackswars.com/create-game](https://www.stackswars.com/create-game)
+
+> **Important:** After creating the game, the form will display the **Game UUID**. Copy and save this — you'll need it for `registry.rs` as the UUID constant.
+
+Fill in the form:
+
+| Field               | Description                                  |
+| ------------------- | -------------------------------------------- |
+| **Name**            | Display name (e.g., "My Game")               |
+| **Description**     | Short description                            |
+| **Image URL**       | Path like `/games/my-game.png` or a full URL |
+| **Min/Max Players** | Player count range                           |
+| **Categories**      | 1–3 categories from the list                 |
+
+The game `path` is auto-generated from the name (e.g., "My Game" → `my-game`). This path determines the frontend URL (`/game/my-game`) and must match the `path` field in your frontend plugin.
+
+---
+
+## Part 2: Frontend Plugin
+
+### Step 1 — Create the Game Folder
+
+```
+apps/web/src/app/game/
+└── my-game/
+    ├── plugin.tsx      # Plugin definition (ties everything together)
+    ├── handler.ts      # Message handler (state reducer)
+    ├── game.tsx        # React game component (UI)
+    ├── types.ts        # TypeScript types for state & messages
+    ├── page.tsx        # Game info/landing page
+    └── _components/    # Game-specific UI components
+```
+
+### Step 2 — Define Types
+
+Mirror your backend messages in TypeScript:
+
+```typescript
+// types.ts
+
+import type { PlayerState } from "@/lib/definitions/room";
+
+// Your game's client-side state
+export interface MyGameState {
+	currentPlayer: PlayerState | null;
+	timeRemaining: number;
+	// ... your game-specific state
+	finished: boolean;
+	standings: PlayerState[] | null;
+}
+
+// Union of all possible server → client messages
+export type MyGameMessage = TurnMessage | CountdownMessage | InvalidMessage;
+// ... add all your event types
+
+export interface TurnMessage {
+	type: "turn";
+	player: PlayerState;
+	timeoutSecs: number;
+}
+
+export interface CountdownMessage {
+	type: "countdown";
+	time: number;
+}
+
+export interface InvalidMessage {
+	type: "invalid";
+	reason: string;
+}
+```
+
+### Step 3 — Create the Message Handler
+
+The handler is a pure reducer function — it takes the current state and a message, and returns the new state:
+
+```typescript
+// handler.ts
+
+import { toast } from "sonner";
+import type { MyGameState, MyGameMessage } from "./types";
+
+export const handleMyGameMessage = (
+	state: MyGameState,
+	message: MyGameMessage,
+): MyGameState => {
+	switch (message.type) {
+		case "turn":
+			return {
+				...state,
+				currentPlayer: message.player,
+				timeRemaining: message.timeoutSecs,
+			};
+
+		case "countdown":
+			return { ...state, timeRemaining: message.time };
+
+		case "invalid":
+			toast.warning(message.reason);
+			return state;
+
+		// Handle all your event types...
+
+		default:
+			console.warn("Unknown message type:", message);
+			return state;
+	}
+};
+
+// Used when reconnecting — hydrates state from server snapshot
+export const applyMyGameState = (
+	state: MyGameState,
+	rawGameState: unknown,
+): MyGameState => {
+	const gs = rawGameState as Record<string, unknown>;
+	let newState = { ...state };
+
+	// Apply whatever state fields the server sends
+	// This mirrors get_game_state() from your backend engine
+
+	return newState;
+};
+```
+
+#### How Lexi Wars handles messages
+
+Lexi Wars shows the common patterns:
+
+- **Turn**: update `currentPlayer` and `timeRemaining`
+- **Rule**: update `currentRule` (only sent to the active player)
+- **Countdown**: update `timeRemaining`
+- **WordEntry**: show a toast notification (word was accepted)
+- **Invalid**: show a warning toast (word was rejected)
+- **Eliminated**: show an error toast
+- **PlayersCount**: update `remainingPlayers` and `totalPlayers`
+
+#### How Ludo handles messages
+
+Ludo demonstrates multi-phase turns:
+
+- **BoardUpdate**: replace the entire board state
+- **DiceRolled**: store dice values, update UI to show dice
+- **MovablePawns**: highlight which pawns can move
+- **PawnMoved/PawnCaptured/PawnFinished**: animate the move on the board
+- **BonusTurn**: show a bonus turn indicator
+- **NoValidMoves**: auto-advance (show a toast)
+
+### Step 4 — Build the Game Component
+
+The game component receives state and a `sendMessage` function:
+
+```tsx
+// game.tsx
+
+"use client";
+
+import type { GamePluginProps } from "@/lib/definitions/room";
+import type { MyGameState } from "./types";
+import { useUser } from "@/hooks/use-user";
+import RoomHeader from "@/components/room/room-header";
+
+export default function MyGame({
+	state,
+	sendMessage,
+	lobby,
+	game,
+}: GamePluginProps<MyGameState>) {
+	const user = useUser();
+	const isMyTurn = state.currentPlayer?.userId === user?.id;
+
+	const handleAction = () => {
+		// Send an action to the server
+		// The "type" must match your backend Action enum variant (camelCase)
+		sendMessage("doSomething", { value: "hello" });
+	};
+
+	return (
+		<div className="flex flex-col h-full">
+			<RoomHeader />
+
+			{/* Turn indicator */}
+			<div className="text-center py-4">
+				{isMyTurn
+					? "Your turn!"
+					: `${state.currentPlayer?.username}'s turn`}
+			</div>
+
+			{/* Timer */}
+			<div className="text-center text-2xl font-mono">
+				{state.timeRemaining}s
+			</div>
+
+			{/* Your game UI here */}
+			{isMyTurn && (
+				<button onClick={handleAction} className="btn-primary">
+					Take Action
+				</button>
+			)}
+		</div>
+	);
+}
+```
+
+**Sending messages:** Call `sendMessage(type, payload)` where:
+
+- `type` is the camelCase action name (e.g., `"submitWord"`, `"rollDice"`, `"movePawn"`)
+- `payload` is the action data (e.g., `{ word: "hello" }`, `{ pawnId: 2 }`)
+
+The system wraps this into `{ "game": { "type": "submitWord", "word": "hello" } }` automatically.
+
+### Step 5 — Create the Plugin
+
+The plugin ties together your types, handler, and component:
+
+```tsx
+// plugin.tsx
+
+import type { GamePlugin } from "@/lib/definitions/room";
+import type { MyGameState, MyGameMessage } from "./types";
+import { handleMyGameMessage, applyMyGameState } from "./handler";
+import MyGame from "./game";
+
+const createInitialState = (): MyGameState => ({
+	currentPlayer: null,
+	timeRemaining: 0,
+	finished: false,
+	standings: null,
+	// ... your defaults
+});
+
+const handleMessage = (
+	state: MyGameState,
+	message: { game: MyGameMessage },
+): MyGameState => {
+	// Messages arrive wrapped: { game: { type: "...", ... } }
+	if (!message.game) return state;
+	return handleMyGameMessage(state, message.game);
+};
+
+export const MyGamePlugin: GamePlugin<MyGameState, { game: MyGameMessage }> = {
+	path: "my-game", // Must match the `path` in the games table
+	name: "My Game",
+	description: "A short description of your game",
+	createInitialState,
+	handleMessage,
+	applyGameState: applyMyGameState,
+	GameComponent: MyGame,
+};
+```
+
+### Step 6 — Register the Plugin
+
+Add your plugin to the registry in `apps/web/src/app/game/registry.ts`:
+
+```typescript
+import { MyGamePlugin } from "./my-game/plugin";
+
+export const gamePlugins: PluginRegistry = {
+	[LexiWarsPlugin.path]: LexiWarsPlugin as GamePlugin,
+	[LudoPlugin.path]: LudoPlugin as GamePlugin,
+	[MyGamePlugin.path]: MyGamePlugin as GamePlugin, // ← Add this
+};
+```
+
+That's it. The room system will automatically use your plugin when a lobby is created for your game.
+
+---
+
+## How It All Connects
+
+Here's the full message flow during a game:
+
+```
+1. Lobby starts → Server calls engine.initialize(player_ids)
+2. Server calls engine.start_loop() → Game loop begins
+
+3. Game loop broadcasts → Turn { player, timeout_secs }
+                        → Countdown { time } (every second)
+
+4. Client receives Turn → handler updates state.currentPlayer
+                        → component re-renders with "Your turn!"
+
+5. Player clicks button → sendMessage("doSomething", { ... })
+                        → WebSocket sends { "game": { "type": "doSomething", ... } }
+
+6. Server receives      → engine.handle_action(user_id, action)
+                        → validates, updates state
+                        → broadcasts events back
+                        → notifies game loop to advance
+
+7. Game ends            → Server broadcasts GameOver to each player
+                        → Server broadcasts FinalStanding to room
+                        → Results saved, prizes allocated
+```
+
+---
+
+## Common Utilities
+
+### TurnRotation
+
+Manages sequential turn order with elimination support:
+
+```rust
+use crate::games::common::TurnRotation;
+
+let mut rotation = TurnRotation::new(player_ids);
+
+rotation.current_player();    // Who's turn is it?
+rotation.next_turn();         // Advance to next active player
+rotation.eliminate_player(id); // Remove from rotation
+rotation.active_count();      // How many players remain?
+rotation.is_game_over();      // Only 1 (or 0) players left?
+rotation.get_winner();        // The last remaining player
+```
+
+### Broadcasting
+
+Send events to players via the WebSocket broadcast system:
+
+```rust
+use crate::ws::broadcast;
+
+// To all players in the lobby (game events wrapped in { "game": { ... } })
+broadcast::broadcast_game_message(&state, lobby_id, event_value).await;
+
+// To one specific player only (e.g., Invalid, MovablePawns)
+broadcast::broadcast_game_message_to_user(&state, user_id, event_value).await;
+
+// Room-level messages (GameOver, FinalStanding — NOT wrapped in game envelope)
+broadcast::broadcast_user(&state, user_id, &RoomServerMessage::GameOver { ... }).await;
+broadcast::broadcast_room(&state, lobby_id, &RoomServerMessage::FinalStanding { ... }).await;
+```
+
+### Wars Points
+
+Calculate ranking points (earned by every participant):
+
+```rust
+use crate::games::common::{WarsPointContext, calculate_wars_point, save_player_result};
+
+// Formula: (participants - rank + 1) × 2, capped at 50
+let wars_point = calculate_wars_point(&ctx);
+
+// Save to database (creates PlayerResult row)
+save_player_result(&state, lobby_id, &ctx).await?;
+```
+
+---
+
+## Registering Your Game on the Platform
+
+Once you've implemented both the backend engine and frontend plugin, you need to **register the game** on the platform so it appears in the game catalog and players can create lobbies for it.
+
+<Callout type="warn">
+	Game creation is an admin/developer action. Navigate to the Create Game page
+	on the platform — it is not available from user profiles.
+</Callout>
+
+### Steps
+
+1. Go to [`/create-game`](https://stackswars.com/create-game) on the platform (requires authentication)
+2. Fill in the game details:
+    - **Name** — Display name (e.g., "Lexi Wars")
+    - **Path** — URL slug (e.g., `lexi-wars`) — must match your frontend `game/` folder name
+    - **Description** — Short description shown on the game card
+    - **Image** — Cover image for the game card
+    - **Min/Max Players** — Must match your engine's player limits
+    - **Categories** — Tag your game (e.g., "Word", "Strategy", "Board")
+3. Submit the form — the platform generates a **UUID** for your game
+4. Copy this UUID into your backend engine's `GAME_UUID` constant and `registry.rs` entry
+
+<Callout type="info">
+	The UUID from the Create Game form **must** match the one registered in
+	`registry.rs` — this is how the backend routes lobbies to your game engine.
+</Callout>
+
+---
+
+## Checklist
+
+Use this checklist when building a new game:
+
+**Backend:**
+
+- [ ] Create `games/my_game/` folder with `mod.rs`, `engine.rs`, `message.rs`
+- [ ] Define Action and Event enums with serde tags
+- [ ] Implement `GameEngine` trait (initialize, handle_action, get_game_state, start_loop, is_finished)
+- [ ] Implement the game loop with countdowns and auto-actions
+- [ ] Handle player quit / disconnection
+- [ ] Calculate prizes and save results on game end
+- [ ] Create factory function and export module
+- [ ] Add UUID constant and register in `registry.rs`
+- [ ] Create game via the Create Game form and copy the UUID
+
+**Frontend:**
+
+- [ ] Create `game/my-game/` folder with `types.ts`, `handler.ts`, `game.tsx`, `plugin.tsx`
+- [ ] Define state interface and message union type
+- [ ] Implement message handler (state reducer)
+- [ ] Implement `applyGameState` for reconnection
+- [ ] Build the game component with `sendMessage`
+- [ ] Create plugin object with all required fields
+- [ ] Register plugin in `registry.ts`
+- [ ] Create the game info `page.tsx`
+
+**Testing:**
+
+- [ ] `cargo test` — backend tests pass
+- [ ] Manual test: create lobby → join → play → finish → verify prizes

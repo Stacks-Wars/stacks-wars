@@ -1,245 +1,112 @@
 ---
 title: Leaderboard & Seasons
-description: How Wars Points, rank badges, and Trust Rating work in Stacks Wars
+description: How Wars Points, seasonal rankings, and Trust Rating work in Stacks Wars
 icon: Trophy
 ---
 
 ## Wars Points System
 
-**Wars Points** measure your competitive standing across all games and lobbies.
+**Wars Points** measure your competitive standing across all games in a season.
 
-### Earning Points
+### How Points Are Earned
 
-You earn points based on:
+Points are awarded after every game based on your final placement:
 
-| Action | Points | Notes |
-|--------|--------|-------|
-| Win a game | 10-50 | More points for harder opponents |
-| Play a game | 2 | Participation points |
-| Wager match | +10% bonus | Win with higher wager |
-| Win streak | 2x multiplier | 3+ consecutive wins |
-| Fair play | +5 | Trust Rating bonus |
-
-**Example:**
 ```
-You beat 3 opponents in a 10 STX Lexi Wars lobby:
-- Base win: 25 points
-- Wager bonus: +2.5 points  
-- Trust bonus: +5 points
-- Total: 32.5 points per round
+wars_point = (total_participants - your_rank + 1) × 2
 ```
 
-### Losing Points
+Points are **capped at 50** per game.
 
-You don't lose points for losses, but inactivity resets streaks:
+**Examples:**
 
-- **Losing a game:** 0 points (no penalty)
-- **Not playing for 7 days:** Streak resets
-- **Forfeiting:** -10 points (discouraged but allowed)
+| Game Size | Your Rank | Calculation     | Points |
+| --------- | --------- | --------------- | ------ |
+| 2 players | 1st       | (2 - 1 + 1) × 2 | 4      |
+| 2 players | 2nd       | (2 - 2 + 1) × 2 | 2      |
+| 4 players | 1st       | (4 - 1 + 1) × 2 | 8      |
+| 4 players | 4th       | (4 - 4 + 1) × 2 | 2      |
+| 8 players | 1st       | (8 - 1 + 1) × 2 | 16     |
+
+> Every player earns points — even last place gets 2 points. You never lose points for losing.
+
+### What Is Tracked
+
+Each player's seasonal stats include:
+
+| Stat              | Description                                              |
+| ----------------- | -------------------------------------------------------- |
+| **Points**        | Total Wars Points for the season                         |
+| **Total Matches** | Number of games played                                   |
+| **Total Wins**    | Number of 1st place finishes                             |
+| **Win Rate**      | `total_wins / total_matches × 100`                       |
+| **Total PnL**     | Net profit/loss in STX (`prize - entry_amount` per game) |
+| **Rank Badge**    | Display badge based on standing                          |
 
 ---
 
 ## Trust Rating
 
-Every player has a **Trust Rating** (0-100) that prevents cheating and rewards honest play.
+Every player has a **Trust Rating** stored as part of their user profile.
 
-### What Trust Rating Measures
+### How It Works
 
-**Fair Play:**
-- Completing games (not rage quitting)
-- Following game rules
-- No exploit attempts
-- No wallet manipulation
+- New accounts start with a Trust Rating of **10.0**
+- The rating is a persistent value associated with your account
+- It is displayed on your profile, leaderboard entries, and in-game player cards
+- Trust Rating is synced across all active lobbies when your profile is updated
 
-**Reliability:**
-- Claiming winnings on time
-- Quick transaction confirmations
-- No dispute escalations
-- Consistent participation
+### Where It Appears
 
-**Community Standing:**
-- Reports from other players (verified)
-- Mod reviews of flagged games
-- Dispute resolution outcomes
-
-### Your Trust Score
-
-- **90-100:** Legendary (VIP tournament access)
-- **75-89:** Trusted (priority matchmaking)
-- **50-74:** Neutral (standard play)
-- **25-49:** Caution (limited to lower stakes)
-- **0-24:** Restricted (limited to Sponsored lobbies)
-
-### How to Improve Trust Rating
-
-1. **Complete every game** (even if you lose)
-2. **Claim winnings quickly** (within 24 hours)
-3. **Play fair** (no exploits, no cheating)
-4. **Help the community** (report actual issues)
-5. **Maintain consistency** (play regularly)
-
-### Trust Rating Penalties
-
-- **Rage quitting:** -5 points (once per season)
-- **Unresolved disputes:** -10 points
-- **Reported cheating (confirmed):** -25 points
-- **Account compromise:** Auto-reset + recovery protocol
+- **Player cards** in lobbies — other players see your rating
+- **Leaderboard** — shown alongside Wars Points and win rate
+- **Final standings** — displayed next to each player after a game ends
+- **Profile page** — visible to anyone viewing your profile
 
 ---
 
 ## Seasonal Leaderboards
 
-Stacks Wars runs **seasonal competitions** with reset points and special rewards.
+Stacks Wars organizes competition into **seasons**. Each season has a name, start date, and end date.
 
-### Season Structure
+### How Seasons Work
 
-| Timeframe | Duration | Typical Dates |
-|-----------|----------|----------------|
-| Spring | 3 months | March - May |
-| Summer | 3 months | June - August |
-| Fall | 3 months | September - November |
-| Winter | 3 months | December - February |
+- Seasons are defined in the database with a `name`, `start_date`, and `end_date`
+- Your Wars Points, matches, wins, PnL, and win rate are tracked **per season**
+- When a new season starts, your seasonal stats reset to zero
+- All-time stats (Trust Rating, total games across all seasons) persist
 
-### Seasonal Rewards
+### Leaderboard Columns
 
-**Top 100 Players:**
-- Prize pool: 500-1000 STX per season
-- Distributed by rank (1st gets more)
-- Paid out within 7 days of season end
+The leaderboard shows every player's seasonal performance:
 
-**Top 10 Players:**
-- Exclusive badge: "Legend of [Season]"
-- VIP tournament invites
-- Bonus 50 STX prize
-- Featured on hall of fame
+| Column        | Sortable | Description                                    |
+| ------------- | -------- | ---------------------------------------------- |
+| Rank          | —        | Position based on sort order                   |
+| Player        | —        | Username, display name, wallet address, avatar |
+| Wars Points   | ✓        | Total seasonal points                          |
+| Total Matches | ✓        | Games played this season                       |
+| Win Rate      | ✓        | Win percentage                                 |
+| Total PnL     | ✓        | Net profit/loss in STX                         |
+| Trust Rating  | —        | Account trust score                            |
 
-**Everyone Who Plays:**
-- Seasonal participation badge
-- Snapshot of your best rank
-- Stats carry to next season (optional)
+The default sort is by **Wars Points** (descending). You can also sort by total matches, win rate, or PnL.
 
-### Leaderboard Rankings
+### Viewing Your Stats
 
-The global leaderboard shows:
+Navigate to your **profile** to see:
 
-1. **Your rank** (position among all players)
-2. **Your Wars Points** (seasonal total)
-3. **Win rate** (% of games won)
-4. **Trust Rating** (0-100 score)
-5. **Games played** (seasonal count)
-6. **Favorite game** (Lexi Wars or Ludo)
-
----
-
-## Viewing Your Stats
-
-### Personal Dashboard
-
-Navigate to your profile to see:
-
-**Current Season:**
-- Wars Points
-- Current rank (e.g., #247)
-- Win rate
-- Games played
-- Favorite game
-- Recent game history
-
-**All-Time Stats:**
-- Total games played (all seasons)
-- All-time win rate
-- Highest rank achieved
-- Total winnings
-- Preferred game
-
-**Recent Games:**
-- Last 20 games with outcomes
-- Points earned/lost
-- Opponents faced
-- Game duration
-- Timestamp
+- **Current season** stats — points, rank, matches, wins, PnL, win rate
+- **Rank badge** — visual indicator of your standing
+- **Trust Rating** — your current account rating
 
 ### Viewing Other Players
 
-Click any player's name to see:
+Click any player's name on the leaderboard or in a game to see:
 
-- Current rank and points
-- Trust Rating (public)
-- Win rate
-- Games this season
-- Favorite game
-- Profile created date
-
----
-
-## Leaderboard Tiers
-
-Players are grouped into **tier brackets** for fairer competition.
-
-### How Tiers Work
-
-| Tier | Wars Points | Typical Opponents |
-|------|-------------|-------------------|
-| Rookie | 0-100 | New players |
-| Amateur | 101-500 | Regulars |
-| Competitor | 501-1000 | Dedicated players |
-| Elite | 1001-2000 | Expert players |
-| Legendary | 2000+ | Top 1% |
-
-**Tier Matching:**
-- Lobbies preferentially match similar tier players
-- Prevents new players facing veterans
-- Bonus points for "tier up" wins
-- Balanced competitive experience
-
----
-
-## Seasonal Challenges
-
-Each season features **mini-challenges** for bonus points.
-
-### Example Challenges (Spring Season)
-
-| Challenge | Reward | Difficulty |
-|-----------|--------|------------|
-| Play 10 games | +25 points | Easy |
-| Win 5 in a row | +50 points | Medium |
-| Master all words (Lexi Wars) | +75 points | Hard |
-| Perfect game (Ludo) | +100 points | Very Hard |
-| Reach Trusted badge | +40 points | Medium |
-
-### Claiming Challenge Rewards
-
-1. Complete the challenge criteria
-2. Navigate to "Challenges" in your dashboard
-3. Click "Claim Reward"
-4. Points auto-add to your seasonal total
-
----
-
-## Preventing Cheating
-
-The Trust Rating system includes built-in anti-cheat:
-
-**Anomaly Detection:**
-- Unusual win patterns flagged
-- Statistical analysis of outcomes
-- Automated alerts for suspicious activity
-
-**Human Review:**
-- Mods review flagged accounts
-- Game replay analysis available
-- Fair judgment process
-
-**Blockchain Verification:**
-- All game outcomes recorded on-chain
-- Smart contracts validate winners
-- Immutable proof of fair play
-
-**Community Reports:**
-- Other players can report suspected cheating
-- Mods investigate reports
-- Confirmed cheaters lose Trust Rating instantly
+- Their current season stats
+- Trust Rating
+- Username and wallet address
 
 ---
 
@@ -247,37 +114,29 @@ The Trust Rating system includes built-in anti-cheat:
 
 At the end of each season:
 
-1. **Final payouts** are distributed to top players
-2. **Your Wars Points reset to 0** (new season)
-3. **Your Trust Rating persists** (doesn't reset)
-4. **All-time stats** are archived and visible
-5. **New season challenges** begin
-
-### Carrying Forward
-
-- Trust Rating is permanent (only resets on major violations)
-- All-time stats are always visible on your profile
-- Previous season badges remain in your collection
-- Points are seasonal (fresh start each time)
+1. **Seasonal stats reset** — Wars Points, matches, wins, PnL, win rate go to zero
+2. **Trust Rating persists** — It does not reset between seasons
+3. **Historical data is preserved** — Previous season data is stored and queryable
+4. **New season begins** — Fresh competition with the same ranking system
 
 ---
 
 ## FAQ
 
-**Q: Do I lose points for losses?**  
-A: No, you earn 0 points for losses but don't lose existing points. Only forfeits cost points.
+**Q: Do I lose points for losing?**
+No. Every player earns at least 2 points per game regardless of placement.
 
-**Q: How is rank calculated?**  
-A: Rank = Your position when sorted by Wars Points (highest first). Tiebreaker is join date (earlier is better).
+**Q: Is there a maximum number of points per game?**
+Yes — points are capped at 50 per game.
 
-**Q: Can I improve my Trust Rating if it's low?**  
-A: Yes! Play fair, complete games, claim winnings promptly, and it will gradually improve over 4-8 weeks.
+**Q: How is rank calculated?**
+By your total Wars Points for the current season. Higher points = higher rank. Ties go to whoever achieved the points first.
 
-**Q: What happens if my Trust Rating hits 0?**  
-A: You're restricted to Sponsored lobbies (no wagering) until your rating improves.
+**Q: Are leaderboards per-game or global?**
+Global — Lexi Wars and Ludo points are combined into a single seasonal leaderboard.
 
-**Q: Do seasonal points carry over?**  
-A: No, Wars Points reset each season, but all-time stats are preserved.
+**Q: How is PnL calculated?**
+`PnL = prize_amount - entry_amount` per game. For non-STX tokens, amounts are converted to STX equivalent.
 
-**Q: Are leaderboards per-game or global?**  
-A: Global leaderboards mix Lexi Wars and Ludo players. Game-specific leaderboards coming soon!
+**Q: What happens to my Trust Rating between seasons?**
+It persists. Trust Rating is a permanent account-level value and does not reset.

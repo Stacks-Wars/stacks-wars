@@ -27,9 +27,9 @@ pub async fn start_server() {
     tracing_subscriber::fmt::init();
 
     // Run database migrations
-    run_migrations()
-        .await
-        .expect("Failed to run database migrations");
+    //run_migrations()
+    //    .await
+    //    .expect("Failed to run database migrations");
 
     // Initialize application state (PostgreSQL, Redis, Bot)
     let state = AppState::new()

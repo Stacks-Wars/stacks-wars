@@ -1,0 +1,290 @@
+---
+title: Local Development Setup
+description: Get Stacks Wars running locally — backend, frontend, and all required services.
+---
+
+import {
+	Callout,
+	Steps,
+	Step,
+	Tab,
+	Tabs,
+} from "fumadocs-ui/components/callout";
+
+## Prerequisites
+
+Before starting, make sure you have the following installed:
+
+| Tool           | Version       | Purpose                   |
+| -------------- | ------------- | ------------------------- |
+| **Rust**       | Latest stable | Backend server            |
+| **Node.js**    | 20+           | Frontend apps             |
+| **Bun**        | 1.x           | Package manager & runtime |
+| **Redis**      | 7+            | Real-time state & pub/sub |
+| **PostgreSQL** | 15+           | Persistent storage        |
+| **Git**        | Any           | Source control            |
+
+## Clone & Install
+
+```bash
+git clone https://github.com/Stacks-Wars/stacks-wars/
+cd stacks-wars
+bun install
+```
+
+This installs dependencies for all workspaces (web, fumadocs, native, and shared packages).
+
+---
+
+## Backend Setup
+
+The backend is a Rust server using Axum, PostgreSQL, and Redis. Configuration lives in `apps/backend/.env`.
+
+### 1. Create your environment file
+
+```bash
+cp apps/backend/.env.example apps/backend/.env
+```
+
+### 2. Configure Redis
+
+Redis handles real-time lobby state, player state, WebSocket pub/sub, and chat.
+
+**Option A: Local Redis**
+
+Install and start Redis locally:
+
+```bash
+# macOS
+brew install redis && brew services start redis
+
+# Linux (Ubuntu/Debian)
+sudo apt install redis-server && sudo systemctl start redis
+```
+
+Your `REDIS_URL` will be:
+
+```dotenv
+REDIS_URL=redis://127.0.0.1:6379
+```
+
+**Option B: Redis Cloud (Free Tier)**
+
+1. Go to [Redis Cloud](https://cloud.redis.io/#/databases) and create a free database
+2. Copy the connection string into your `.env`:
+
+```dotenv
+REDIS_URL=redis://default:your-password@your-host.redis.cloud:port
+```
+
+> **Tip:** Install [Redis Insight](https://redis.io/docs/latest/operate/redisinsight/) to visually browse your Redis data during development.
+
+### 3. Configure PostgreSQL
+
+PostgreSQL stores users, lobbies, games, seasons, leaderboards, and player results.
+
+**Option A: Local PostgreSQL**
+
+```bash
+# macOS
+brew install postgresql && brew services start postgresql
+
+# Linux
+sudo apt install postgresql && sudo systemctl start postgresql
+```
+
+Create a database:
+
+```bash
+createdb stacks_wars
+```
+
+```dotenv
+DATABASE_URL=postgres://your_user:your_password@localhost/stacks_wars
+```
+
+**Option B: Neon (Free Tier)**
+
+1. Go to [neon.tech](https://neon.tech) and create a free serverless Postgres database
+2. Copy the connection string:
+
+```dotenv
+DATABASE_URL=postgres://user:password@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require
+```
+
+### 4. Configure Authentication
+
+The JWT secret is used to sign and verify authentication tokens:
+
+```dotenv
+JWT_SECRET="any-strong-random-string-here"
+TOKEN_EXPIRY_DAYS="14"
+```
+
+### 5. Configure Hiro API Key
+
+The [Hiro API](https://www.hiro.so/blog/increase-your-api-rate-limits-with-an-api-key) is used for on-chain verification and token lookups on the Stacks blockchain.
+
+1. Visit the [Hiro Platform](https://platform.hiro.so/) and create an API key
+2. Add it to your `.env`:
+
+```dotenv
+HIRO_API_KEY=your-hiro-api-key
+```
+
+### 6. Telegram Bot (Optional)
+
+The backend can send lobby creation notifications to a Telegram group.
+
+1. Message [@BotFather](https://t.me/BotFather) on Telegram to create a new bot
+2. Add the bot to your target group and get the chat ID
+
+```dotenv
+TELEGRAM_BOT_TOKEN=your-bot-token
+TELEGRAM_CHAT_ID=-your-group-chat-id
+```
+
+### 7. Start the Backend
+
+```bash
+cd apps/backend
+cargo run
+```
+
+The server will start on `http://localhost:3001` (or whatever `PORT` you set).
+
+---
+
+## Frontend Setup
+
+The web frontend is a Next.js app at `apps/web/`.
+
+### 1. Create your environment file
+
+```bash
+cp apps/web/.env.example apps/web/.env.local
+```
+
+### 2. Configure API URLs
+
+Point the frontend at your local backend:
+
+```dotenv
+NEXT_PUBLIC_HTTP_URL=http://localhost:3001
+NEXT_PUBLIC_WS_URL=ws://localhost:3001
+```
+
+### 3. Configure the Network
+
+Set the Stacks network (use `testnet` for development unless you need mainnet):
+
+```dotenv
+NEXT_PUBLIC_NETWORK="testnet"
+```
+
+### 4. Configure the Trusted Signer Key
+
+The `TRUSTED_SECRET_KEY` is a BIP39 mnemonic passphrase used to sign game results. The smart contracts verify these signatures to authorize prize claims.
+
+```dotenv
+TRUSTED_SECRET_KEY="your 12/24 word mnemonic passphrase goes here"
+```
+
+#### Derive the Public Key
+
+After setting your passphrase, you need to derive the corresponding public key and update the smart contracts. Run this script:
+
+```typescript
+import { generateWallet } from "@stacks/wallet-sdk";
+import { privateKeyToPublic } from "@stacks/transactions";
+
+const wallet = await generateWallet({
+	secretKey: "your 12/24 word mnemonic passphrase goes here",
+	password: "",
+});
+
+const publicKey = privateKeyToPublic(wallet.accounts[0].stxPrivateKey);
+console.log(`0x${publicKey}`);
+```
+
+#### Update the Smart Contracts
+
+Take the public key output (starting with `0x`) and update the `TRUSTED-PUBLIC-KEY` constant in each vault contract:
+
+- `apps/backend/contract/stacks/contracts/stx-vault.clar`
+- `apps/backend/contract/stacks/contracts/ft-vault.clar`
+- `apps/backend/contract/stacks/contracts/sponsored-stx-vault.clar`
+- `apps/backend/contract/stacks/contracts/sponsored-ft-vault.clar`
+
+Find the line:
+
+```clarity
+(define-constant TRUSTED-PUBLIC-KEY 0x...)
+```
+
+Replace the existing key with your derived public key.
+
+### 5. Start the Frontend
+
+From the repository root:
+
+```bash
+bun run dev:web
+```
+
+The web app will start on `http://localhost:4002`.
+
+---
+
+## Running Everything Together
+
+From the repository root, you can start all apps at once:
+
+```bash
+# Start all apps (frontend + docs)
+bun run dev
+
+# Start only the web frontend
+bun run dev:web
+
+# Start the backend separately (in another terminal)
+cd apps/backend && cargo run
+```
+
+### Other Useful Commands
+
+```bash
+# Backend
+cargo test             # Run all backend tests
+cargo check            # Type-check without building
+cargo run --bin hydrate # Hydrate Redis from PostgreSQL
+
+# Frontend
+bun run build          # Build all apps
+bun run check-types    # Type-check all TypeScript apps
+```
+
+---
+
+## Troubleshooting
+
+### Redis connection refused
+
+Make sure Redis is running. Check with:
+
+```bash
+redis-cli ping
+# Should return: PONG
+```
+
+### Database migration errors
+
+Ensure your `DATABASE_URL` is correct and the database exists. For Neon, make sure `?sslmode=require` is in the connection string.
+
+### WebSocket connection failing
+
+Check that `NEXT_PUBLIC_WS_URL` matches your backend's address and port. If using CORS, ensure `ALLOWED_ORIGINS` in the backend `.env` includes your frontend URL.
+
+### Contract key mismatch
+
+If prize claims fail on-chain, verify that the public key in the vault contracts matches the private key derived from your `TRUSTED_SECRET_KEY` passphrase.

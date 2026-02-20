@@ -1,192 +1,203 @@
 ---
 title: Lobbies & Wagering
-description: Understand Normal and Sponsored lobbies, vault escrow, and how your STX is protected
+description: Understand Normal and Sponsored lobbies, vault escrow, and how your funds are protected
 ---
 
 ## Game Lobbies
 
-Stacks Wars uses two lobby types to balance competitive play with risk management.
+Stacks Wars has two lobby types — **Normal** and **Sponsored** — each with different fund flows and risk profiles.
 
 ### Normal Lobbies (Wager-Based)
 
-In Normal lobbies, players put up real STX as a wager. The winner takes the pot.
+In Normal lobbies every player deposits the same entry fee. The total pool goes to the winners.
 
 **How It Works:**
-1. A host creates a lobby with a specific wager amount (e.g., 10 STX)
-2. Players join and deposit their wager into the **Game Vault**
-3. The game is played
-4. Winner claims the prize from the vault
-5. Losers' stakes are locked until the game concludes
 
-**Wager Amounts:**
-- Minimum: 0.01 STX
-- Maximum: No hard limit, but gas costs increase with large amounts
-- Available tiers: 0.1, 0.5, 1, 5, 10, 25, 50, 100+ STX
+1. The creator deploys a vault contract and creates the lobby with an entry amount
+2. Each player deposits the entry fee into the vault contract when joining
+3. The game plays out
+4. Winners claim their share from the vault using a server-signed message
+5. A **2% platform fee** is deducted on-chain during the claim
+
+**Amount Rules:**
+
+- The creator sets the `entry_amount` when creating the lobby
+- `current_amount` equals `entry_amount` at creation (the creator has already joined)
+- As more players join, the pool grows: `current_amount = entry_amount × participant_count`
+- Minimum and maximum amounts are determined by the token's USD value (minimum ≈ $10 equivalent)
 
 **Example:**
+
 ```
 4 players join a 5 STX Normal lobby
-Total pot: 20 STX
-Winner receives: 20 STX
-Losers lose: 5 STX each
+Total pool (current_amount): 20 STX
+1st place (Lexi Wars, 3+ players): 10 STX (50%)
+2nd place: 6 STX (30%)
+3rd place: 4 STX (20%)
+
+Each claim deducts 2% platform fee on-chain.
 ```
 
-### Sponsored Lobbies (Playgrounds)
+### Sponsored Lobbies
 
-Sponsored lobbies are risk-free playgrounds perfect for learning, warming up, or casual play.
+Sponsored lobbies are funded by a sponsor (the lobby creator). Players join for free and compete for the sponsored pool.
 
 **How It Works:**
-1. Stacks Wars sponsors the game with a small prize pool
-2. Players compete with zero risk
-3. Winner receives a small STX reward
-4. No wager required; all players can join freely
 
-**Prize Pool:**
-- Varies by game and player count
-- Typically 0.1-1 STX for winners
-- Losers receive participation rewards sometimes
-- Funded by protocol and sponsors
+1. The sponsor deploys a vault contract and deposits the full prize pool (`current_amount`)
+2. Players join **without paying an entry fee** — `entry_amount` is not set
+3. The sponsor starts as a **spectator** (NotJoined status) and can optionally toggle participation
+4. If the sponsor participates, they play like any other player
+5. Winners claim their share from the vault with server-signed messages
+
+**Amount Rules:**
+
+- `entry_amount` must be **null** (no player entry fee)
+- `current_amount` must be a positive value (the sponsored pool)
+- When the sponsor participates, their leaving refunds the full `current_amount`
 
 **Best For:**
-- Learning the game rules
-- Testing strategies
-- Casual weekend play
-- Newer players building confidence
+
+- Tournaments and promotional events
+- Community engagement and onboarding
+- Risk-free competitive play
 
 ---
 
-## The Vault System (Escrow)
+## Vault Contracts (Escrow)
 
-Your STX is protected by **Game Vaults**, smart contract escrow accounts that ensure fair play and honest payouts.
+All funds are held in **Clarity smart contracts** on the Stacks blockchain. The server never holds player funds.
+
+### Contract Types
+
+| Contract              | Use Case                                       |
+| --------------------- | ---------------------------------------------- |
+| `stx-vault`           | Normal STX lobbies — players deposit entry fee |
+| `ft-vault`            | Normal fungible token lobbies (e.g., SWT)      |
+| `sponsored-stx-vault` | Sponsored STX lobbies — sponsor funds the pool |
+| `sponsored-ft-vault`  | Sponsored fungible token lobbies               |
 
 ### How Vaults Work
 
 ```
-1. Player Deposits → Stacks Vault (locked)
-                     ↓
-2. Game Plays → Smart Contract Validates
-                     ↓
-3. Winner Determined → Vault Releases to Winner
-                     ↓
-4. Loser Funds → Distributed or Returned
+1. Creator deploys vault contract on-chain
+2. Players join → deposit entry fee to contract (Normal)
+   OR Sponsor deposits pool (Sponsored)
+3. Game completes → Server signs result with private key
+4. Player calls claim() → Contract verifies signature with TRUSTED-PUBLIC-KEY
+5. Contract transfers reward minus 2% fee to player
 ```
 
-### Vault Security Features
+### Signature Verification
 
-**Cryptographic Signature Verification**
-- All game outcomes are verified by smart contract signatures
-- Impossible to claim false victories
-- Cheating attempts are automatically rejected
+Every claim requires a **secp256k1 signature** from the Stacks Wars server:
 
-**Role-Based Access Control**
-- Only the winner can withdraw their prize
-- Only losers' funds can be distributed
-- Vault contract enforces all rules
+1. The server creates a message hash from the reward `amount` and `recipient` address
+2. Signs using SHA256 with the server's private key
+3. The contract verifies the signature against the embedded `TRUSTED-PUBLIC-KEY`
+4. Only matching signatures allow fund transfers
 
-**Fraud Prevention**
-- All transactions are on-chain and immutable
-- Complete audit trail for every game
-- Network validators confirm all payouts
+This means:
 
-### Trust Rating System
+- The server cannot steal funds (contract logic is on-chain and auditable)
+- Players cannot claim false amounts (signature verification prevents it)
+- Each claim is a one-time operation (the `claimed-rewards` map prevents double claims)
 
-Every player has a **Trust Rating** that tracks fair play and reliable participation.
+### Contract Functions
 
-**Trust Rating Benefits:**
-- Gain entry to exclusive high-stakes lobbies
-- Build reputation in the community
-- Unlock VIP tournaments and events
-- Better matchmaking with trustworthy opponents
-
-**Factors That Affect Trust Rating:**
-- **Completing games** (even losses)
-- **Quick claim times** (not holding funds)
-- **No transaction failures**
-- **Consistent participation**
-- **Community reports** (handled fairly)
-
-**How to Maintain High Trust:**
-1. Always complete the games you join
-2. Claim your winnings promptly
-3. Play on reputable lobbies
-4. Help report actual cheating (not rage quits)
+| Function | Description                                                  |
+| -------- | ------------------------------------------------------------ |
+| `join`   | Deposit entry fee and register as a player                   |
+| `leave`  | Withdraw deposit with server signature (before game starts)  |
+| `claim`  | Claim reward after game, signature verified, 2% fee deducted |
+| `kick`   | Creator-only: remove a player with server signature          |
 
 ---
 
 ## Creating a Lobby
 
+### Requirements
+
+1. **Connect your wallet** (Leather or Xverse)
+2. **Have sufficient tokens** for the entry fee + gas
+3. **Choose a game** (Lexi Wars or Ludo)
+
 ### Step-by-Step
 
-1. **Click "Create Lobby"** on the dashboard
-2. **Choose lobby type:**
-   - Normal (set wager amount)
-   - Sponsored (no setup needed)
-3. **Select game:**
-   - Lexi Wars
-   - Ludo
-4. **Set player count:** 2-4 players
-5. **Configure timeout:** How long to wait for other players (30s-5m)
-6. **Review & confirm:**
-   - Confirm wager amount (Normal only)
-   - Approve vault deposit in your wallet
-7. **Share invite code** or invite players directly
-8. **Wait for players** to join
+1. Select a game and click **Create Lobby**
+2. Choose **Normal** or **Sponsored**
+3. Set the entry amount (Normal) or pool amount (Sponsored)
+4. Choose token (STX or a supported fungible token)
+5. Set visibility — **Public** (anyone can join) or **Private** (approval required)
+6. Set max players (within the game's min/max range)
+7. Deploy the vault contract through your wallet
+8. Wait for the contract transaction to confirm
+9. The lobby is created and players can join
 
-### Lobby Settings
+### Private Lobbies
 
-| Setting | Normal | Sponsored |
-|---------|--------|-----------|
-| Wager amount | Configurable | Not applicable |
-| Vault escrow | Required | Optional |
-| Player count | 2-4 | 2-4 |
-| Timeout | 30 seconds - 5 minutes | 30 seconds - 5 minutes |
-| Invite | Public or Private | Public or Private |
+Private lobbies require creator approval before a player can join:
+
+1. Player sends a **Join Request**
+2. Creator sees the request in the participant list
+3. Creator can **Approve** or **Reject** the request
+4. Approved players can then deposit and join
+5. Creator can also **Kick** players from the lobby before the game starts
 
 ---
 
-## Claiming Your Winnings
+## Claiming Winnings
 
-After the game concludes and the winner is validated by the smart contract:
+After the game ends, the **Game Over** modal shows your rank, prize amount, and Wars Points earned.
 
-1. Navigate to "My Lobbies" → Recent games
-2. Find your winning game
-3. Click "Claim Winnings"
-4. Confirm the transaction in your wallet
-5. STX is transferred to your balance instantly
-6. Your Trust Rating increases
+1. Click **Claim Reward** on the Game Over screen
+2. Approve the claim transaction in your wallet
+3. The vault contract verifies the server's signature
+4. Your reward (minus 2% fee) is transferred to your wallet
+5. Your `claimState` updates to `Claimed` with the transaction ID
 
-**Note:** Unclaimed winnings remain in the vault for up to 30 days before automatic return.
+### Prize Distribution by Game
 
----
+**Lexi Wars:**
 
-## Fees & Costs
+| Rank | 2 Players | 3+ Players |
+| ---- | --------- | ---------- |
+| 1st  | 70%       | 50%        |
+| 2nd  | 30%       | 30%        |
+| 3rd  | —         | 20%        |
 
-### What You Pay
+**Ludo:**
 
-| Transaction | Cost | When |
-|------------|------|------|
-| Creating a lobby | ~50,000 microSTX (~0.05 STX, gas) | Upfront |
-| Claiming winnings | ~75,000 microSTX (~0.075 STX, gas) | After game ends |
-| Vault deposit | ~50,000 microSTX (~0.05 STX, gas) | When joining |
-| Vault withdrawal | ~40,000 microSTX (~0.04 STX, gas) | When claiming |
-
-**Note:** Gas costs vary based on network congestion. Higher Stacks fees mean higher transaction costs.
-
-### Stacks Wars Revenue Model
-
-- **Platform fee:** 2% of winning pot (keeping games sustainable)
-- **Gas subsidies:** Stacks Wars covers some gas costs
-- **Sponsor payouts:** Covered by sponsors (you pay 0%)
+| Rank | Prize |
+| ---- | ----- |
+| 1st  | 100%  |
 
 ---
 
-## Responsible Wagering
+## Lobby Status Flow
 
-Play within your means. Stacks Wars implements safeguards:
+Lobbies progress through four statuses:
 
-- **Daily loss limit:** Set a max you're willing to lose
-- **Session timer:** Get reminded after 2+ hours of play
-- **Cooling-off period:** Take breaks between games
-- **Support resources:** Access gambling harm resources anytime
+```
+Waiting → Starting → InProgress → Finished
+```
 
-Remember: Games are for entertainment. Never wager more than you can afford to lose.
+| Status         | Description                                                                    |
+| -------------- | ------------------------------------------------------------------------------ |
+| **Waiting**    | Players can join, leave, send join requests. Creator can start.                |
+| **Starting**   | Countdown before game begins. No new joins. Players can cancel (creator only). |
+| **InProgress** | Game is active. No joining/leaving/kicking. Chat and reactions are available.  |
+| **Finished**   | Game complete. Players can claim rewards. Chat is read-only.                   |
+
+---
+
+## Fees
+
+| Action           | Cost                                     |
+| ---------------- | ---------------------------------------- |
+| Creating a lobby | Contract deployment gas (~0.01–0.05 STX) |
+| Joining          | Entry fee + gas                          |
+| Leaving          | Gas (signature required)                 |
+| Claiming         | 2% platform fee + gas                    |
+
+Gas costs depend on Stacks network congestion.

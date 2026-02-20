@@ -66,18 +66,18 @@ The signature system is critical to preventing fraud. Here's how it works:
 
 1. **Game Completes** - Server calculates final results
 2. **Create Message** - Server prepares a message containing:
-   - Game ID
-   - Winner's wallet address
-   - Payout amount
-   - Timestamp
-   - Nonce (prevents replay attacks)
+    - Game ID
+    - Winner's wallet address
+    - Payout amount
+    - Timestamp
+    - Nonce (prevents replay attacks)
 
 3. **Sign Message** - Server signs the message with its private key
 4. **Verify Claim** - When player claims, Vault contract:
-   - Extracts the signer's public key from the signature
-   - Checks that the key matches the registered server key
-   - Verifies the message hasn't been tampered with
-   - Transfers funds only if signature is valid
+    - Extracts the signer's public key from the signature
+    - Checks that the key matches the registered server key
+    - Verifies the message hasn't been tampered with
+    - Transfers funds only if signature is valid
 
 ### Why This Matters
 
@@ -110,17 +110,20 @@ Vault Contract Permissions:
 ### Anti-Fraud Measures
 
 **Deposits**
+
 - Deposits have a maximum limit (prevents mega-bets)
 - Minimum deposit enforced (prevents dust attacks)
 - All deposits are logged on-chain
 
 **Claims**
+
 - Signature verification required
 - Only registered players can claim
 - Each game has a claim window (72 hours default)
 - Unclaimed prizes return to deposits
 
 **Withdrawals**
+
 - Only pending (unclaimed) deposits can be withdrawn
 - Withdrawal has a cooldown period
 - Withdrawal amount limited per transaction
@@ -141,11 +144,11 @@ The Vault contract uses a proxy pattern allowing safe upgrades:
 ```
 
 When upgrading:
+
 1. New implementation contract is audited
 2. Governance votes on the upgrade
 3. Proxy is updated to point to new implementation
 4. User balances remain untouched
-
 
 ### Public Contract Code
 
@@ -160,6 +163,7 @@ Files:
 ```
 
 You can verify the deployed contract matches the source code using:
+
 - Stacks Explorer contract verification
 - Local compilation and comparison
 
@@ -168,28 +172,30 @@ You can verify the deployed contract matches the source code using:
 ### Deposit Transaction
 
 - **Cost:** ~50,000 microSTX (~$0.05)
-- **Time:** 10 blocks (~30 minutes on mainnet)
+- **Time:** ~5 seconds (Nakamoto fast blocks)
 - **Includes:** Vault fee tracking
 
 ### Claim Transaction
 
 - **Cost:** ~75,000 microSTX (~$0.07)
-- **Time:** 10 blocks (~30 minutes on mainnet)
+- **Time:** ~5 seconds (Nakamoto fast blocks)
 - **Includes:** Server signature verification
 
 ### Withdraw Transaction
 
 - **Cost:** ~40,000 microSTX (~$0.04)
-- **Time:** 10 blocks (~30 minutes on mainnet)
+- **Time:** ~5 seconds (Nakamoto fast blocks)
 - **Restriction:** Only pending deposits
 
 ## Troubleshooting
 
 **Q: My signature claim was rejected**
+
 - Ensure the game result shows you as the winner
 - Verify your wallet address in the signature
 
 **Q: Why is my deposit still pending?**
-- Deposits need 1 confirmation (~6 minutes)
+
+- Deposits need 1 confirmation (~5 seconds with Nakamoto fast blocks)
 - Check Stacks Explorer for transaction status
-- Contact support if delayed over 30 minutes
+- Contact support if delayed over 2 minutes
