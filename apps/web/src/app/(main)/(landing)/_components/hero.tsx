@@ -21,12 +21,14 @@ export default function Hero() {
 
 				{/* Content */}
 				<div className="relative z-10 flex flex-col items-center gap-4 lg:gap-6">
-					<h1 className="text-center text-4xl font-bold capitalize text-white md:text-6xl lg:text-8xl">
-						battle of words
+					<h1 className="text-center text-4xl font-bold text-white md:text-6xl lg:text-8xl">
+						<span className="block">Stacks Wars</span>
+						<span className="block">X</span>
+						<span className="block md:inline"> DeGrant</span>
 					</h1>
 					<p className="max-w-3xl px-4 text-center text-base font-medium text-white/90 md:text-xl lg:text-2xl">
-						Experience the thrill of Stacks Wars with our first game. Dive in,
-						test your skills, and claim victory!
+						Experience the thrill of Stacks Wars with our first
+						game. Dive in, test your skills, and claim victory!
 					</p>
 				</div>
 
@@ -40,7 +42,7 @@ export default function Hero() {
 					alt=""
 				/>
 				<Image
-					className="absolute -right-4 top-[50%] z-10 h-20 w-20 shrink-0 object-contain min-[500px]:-right-8 min-[500px]:h-32 min-[500px]:w-32 md:-right-12 md:h-56 md:w-56 lg:-right-16 lg:h-72 lg:w-72"
+					className="absolute top-[50%] -right-4 z-10 h-20 w-20 shrink-0 object-contain min-[500px]:-right-8 min-[500px]:h-32 min-[500px]:w-32 md:-right-12 md:h-56 md:w-56 lg:-right-16 lg:h-72 lg:w-72"
 					src="/images/ruby1.png"
 					width={288}
 					height={288}
