@@ -6,5 +6,6 @@ pub mod lobby;
 pub mod platform_rating;
 pub mod season;
 pub mod stacks;
+pub mod stats;
 pub mod user;
 pub mod player_stats;

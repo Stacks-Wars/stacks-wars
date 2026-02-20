@@ -4,8 +4,8 @@ description: Frequently asked questions about Stacks Wars, wallets, transactions
 icon: FileQuestionMark
 ---
 
-import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
-import { Callout } from 'fumadocs-ui/components/callout';
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import { Callout } from "fumadocs-ui/components/callout";
 
 # Frequently Asked Questions
 
@@ -33,6 +33,7 @@ Get answers to common questions about Stacks Wars, wallet management, transactio
     ### Can I use a hardware wallet with Leather?
 
     Yes! Leather supports hardware wallets like Ledger and Trezor. Connect your hardware wallet through Leather's setup process and approve transactions directly on your device.
+
   </Tab>
 
   <Tab value="Xverse">
@@ -51,17 +52,18 @@ Get answers to common questions about Stacks Wars, wallet management, transactio
     ### Can I use Xverse on desktop?
 
     Xverse is primarily a mobile wallet, but you can use it through the desktop browser extension for Chrome/Firefox. Install the Xverse extension and follow the same connection steps as the mobile app.
+
   </Tab>
 </Tabs>
 
 ## Transactions & Payments
 
-| Aspect | Normal Lobby | Sponsored Lobby |
-|--------|--------------|-----------------|
-| **Entry Fee** | You pay STX | Sponsor pays gas |
-| **Wallet Requirement** | Full wallet connection | Read-only connection |
-| **Settlement** | Player-to-player escrow | Smart contract escrow |
-| **Best For** | Competitive play | Low-barrier entry |
+| Aspect                 | Normal Lobby            | Sponsored Lobby       |
+| ---------------------- | ----------------------- | --------------------- |
+| **Entry Fee**          | You pay STX             | Sponsor pays gas      |
+| **Wallet Requirement** | Full wallet connection  | Read-only connection  |
+| **Settlement**         | Player-to-player escrow | Smart contract escrow |
+| **Best For**           | Competitive play        | Low-barrier entry     |
 
 ### How do I claim my winnings?
 
@@ -71,7 +73,7 @@ Winnings are held in your Vault (escrow contract) until you claim them:
 2. View pending payouts and completed winnings
 3. Click **Claim Winnings** for available amounts
 4. Approve the transaction in your wallet
-5. STX will be transferred to your wallet in 5-10 minutes
+5. STX will be transferred to your wallet in ~5 seconds (Nakamoto fast blocks)
 
 ### Is there a transaction fee to claim winnings?
 
@@ -80,6 +82,7 @@ Yes, claiming winnings requires a small STX transaction fee to pay for network g
 ### Why is my payout pending?
 
 Payouts may be pending due to:
+
 - **Recent game completion** - Settlement takes ~30 seconds after game ends
 - **Opponent verification** - Both players must be verified (see game rules for anti-cheat)
 - **Network delays** - Check back in 1-2 minutes
@@ -90,12 +93,14 @@ Payouts may be pending due to:
 ### What is the Trust Rating system?
 
 The Trust Rating (0-100) tracks player reliability and compliance:
+
 - **90-100**: Excellent standing, priority matchmaking
 - **70-89**: Good standing
 - **50-69**: Under observation (excessive disconnects/timeouts)
 - **Below 50**: Restricted (may face payout delays or suspension)
 
 **Tips to maintain high Trust Rating:**
+
 - Complete games without disconnecting
 - Accept invitations within 2 minutes
 - Play fair (no exploits or manipulation)
@@ -131,7 +136,8 @@ You can connect your wallet from different devices, but you can only play **one 
 5. Our moderation team reviews within 24 hours
 
 <Callout type="info">
-Never share personal information or engage in arguments in chat. Let our moderation team handle reports professionally.
+	Never share personal information or engage in arguments in chat. Let our
+	moderation team handle reports professionally.
 </Callout>
 
 ## Leaderboards & Seasons
@@ -139,6 +145,7 @@ Never share personal information or engage in arguments in chat. Let our moderat
 ### How are Wars Points calculated?
 
 Wars Points are awarded based on:
+
 - **Game outcome** - Win/loss (primary factor)
 - **Opponent rating** - Beating higher-rated players = more points
 - **Game type** - Multiplayer games award more than 1v1
@@ -155,6 +162,7 @@ Seasons run for **30 days** and reset automatically. Your top-10 season achievem
 ### How do I earn seasonal rewards?
 
 Top finishers receive rewards at season end:
+
 - **Top 10**: Exclusive badge + 50 STX bonus
 - **Top 50**: In-game cosmetics
 - **Top 100**: Special season title
@@ -166,6 +174,7 @@ Rewards are distributed within 48 hours of season conclusion.
 ### The game keeps freezing or lagging
 
 **Quick fixes:**
+
 - Close other browser tabs and apps
 - Ensure stable internet connection (WiFi or strong 4G)
 - Clear browser cache: Settings → More Tools → Clear Browsing Data
@@ -180,17 +189,19 @@ The app fetches your balance every 10 seconds. If it seems wrong:
 
 1. Manually refresh the page
 2. Check the [Stacks explorer](https://explorer.stacks.co) for the true balance
-3. Wait 5-10 minutes for blockchain confirmation
+3. Wait a few seconds for blockchain confirmation (Nakamoto fast blocks)
 4. Try reconnecting your wallet
 
 ### I'm getting a "Network Error" message
 
 This usually means:
+
 - Your internet connection dropped
 - The Stacks network is experiencing congestion
 - Your wallet provider's service is temporarily down
 
 **What to do:**
+
 1. Check your internet connection
 2. Wait 30 seconds and refresh
 3. Try switching wallets if you have both Leather and Xverse
@@ -204,6 +215,7 @@ We're most responsive on **Telegram**. Join our community:
 **[Join Stacks Wars Telegram Support Group](https://t.me/stackswars)**
 
 Our moderation and support team monitors 24/7. Expected response time: 5-30 minutes during active hours.
+
 </Callout>
 
 ## Account & Security
@@ -219,16 +231,19 @@ Usernames are permanent and tied to your wallet address. Choose carefully during
 ### What happens if I lose access to my wallet?
 
 Your STX funds are secure in your wallet. However:
+
 - Pending payouts in your Vault may be inaccessible
 - You cannot claim winnings without connecting that wallet
 
 **Recovery steps:**
+
 1. Restore your wallet using your seed phrase
 2. Reconnect to Stacks Wars
 3. Access your Vault and claim pending payouts
 
 <Callout type="warning">
-Never share your seed phrase with anyone, including support staff. We will never ask for it.
+	Never share your seed phrase with anyone, including support staff. We will
+	never ask for it.
 </Callout>
 
 ---

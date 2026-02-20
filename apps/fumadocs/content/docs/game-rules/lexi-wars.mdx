@@ -1,129 +1,115 @@
 ---
 title: Lexi Wars
-description: Rules and strategy for the Lexi Wars word game
+description: Rules and strategy for the Lexi Wars word elimination game
 ---
 
 # Lexi Wars
 
-Lexi Wars is a fast-paced word elimination game where players compete to be the last one standing.
+Lexi Wars is a fast-paced, turn-based word elimination game where players compete to submit valid words that satisfy changing rules. The last player standing wins.
 
 ## Objective
 
-Survive rounds of word challenges by correctly answering prompts faster than your opponents. The last player remaining wins the pot.
+Survive elimination rounds by submitting valid English words that follow the current rule before the timer expires. Players who fail are eliminated. The last player remaining wins the pot.
 
 ## Game Setup
 
-- **Players:** 2-8 players per game
-- **Round Time:** 30-60 seconds per round (depends on lobby settings)
-- **Lives:** Each player starts with 3 lives
-- **Total Rounds:** Best of 5, 7, or 11 rounds
+- **Players:** 2–8 per game
+- **Turn Timer:** 15 seconds per turn
+- **Starting Word Length:** Minimum 4 characters
+- **Rules Per Cycle:** 4 rules cycle sequentially
 
 ## How to Play
 
-### Round Structure
+### Turn Flow
 
-1. **Prompt Appears** - A category and starting letter are displayed
-   - Example: "Animals starting with 'D'"
-   - Example: "Movies from the 2000s starting with 'T'"
+1. **A rule is shown** — Only the current player sees the active rule (e.g. "Word must contain the letter 'A'")
+2. **Submit a word** — Type a valid English word that satisfies the rule within 15 seconds
+3. **Validation** — The server checks the word against a dictionary, the rule, minimum length, and used-word list
+4. **Success** — Your word is broadcast to the room and the turn passes to the next player
+5. **Failure** — If the timer expires or you submit an invalid word, you are eliminated
 
-2. **Submit Your Answer** - Type a valid word matching the prompt
-   - Must match the category and starting letter
-   - Cannot be a proper noun (unless specified)
-   - Each answer can only be used once per game
+### Rule Cycling
 
-3. **Server Validation** - The system checks answers in real-time
-   - Valid answers are confirmed with a checkmark
-   - Invalid answers show a red X
+The game has 17 possible rules, but only **4 are active** per cycle. Rules cycle in order:
 
-4. **Elimination** - Players who don't answer in time lose a life
-   - The timer counts down visibly
-   - Last second submissions are allowed
+- After all 4 rules have been used, the cycle restarts
+- Each time a full cycle completes, the **minimum word length increases by 2** (4 → 6 → 8 → …)
+- This ensures the game gets progressively harder
 
-5. **Next Round** - A new prompt appears for surviving players
+### Available Rule Types
 
-### Elimination Rules
+| Rule                      | Description                                                    |
+| ------------------------- | -------------------------------------------------------------- |
+| Minimum Length            | Word must be at least N characters                             |
+| Contains Letter           | Word must contain a specific letter                            |
+| Not Contains Letter       | Word must NOT contain a specific letter                        |
+| Starts With Letter        | Word must start with a specific letter                         |
+| Ends With Letter          | Word must end with a specific letter                           |
+| Ends With "-tion"         | Word must end with "tion"                                      |
+| Starts With "co-"         | Word must start with "co"                                      |
+| Double Letters            | Word must contain consecutive double letters (e.g. "oo", "ll") |
+| Exact Length              | Word must be exactly N characters                              |
+| Consonant Start & End     | Word must start and end with consonants                        |
+| Vowel Start & End         | Word must start and end with vowels                            |
+| Triple Letter             | Word must contain the same letter 3+ times                     |
+| Palindrome                | Word must read the same forwards and backwards                 |
+| No Repeating Letters      | Every letter in the word must be unique                        |
+| Exact Vowels & Consonants | Word must have exactly N vowels and M consonants               |
+| Same Letter Three Times   | Word must contain a specific letter at least 3 times           |
+| Equal Vowels & Consonants | Word must have the same number of vowels and consonants        |
 
-- **Time Expired** - If you don't submit an answer before the timer ends, you lose 1 life
-- **Invalid Answer** - Submitting a word that doesn't match the category or letter costs 1 life
-- **No Response** - If you're AFK (away from keyboard) for 2 consecutive rounds, you're eliminated
-- **Game Over** - When you lose all 3 lives, you're out and win is calculated by your placement
+### Elimination
+
+- If the 15-second timer expires without a valid submission, you are **eliminated**
+- Your rank is determined by how many players remain when you're eliminated
+- You receive a `GameOver` message with your rank, prize (if any), and Wars Points earned
+- The game continues until only **1 player remains**
 
 ## Word Validation
 
-The word checker uses a comprehensive dictionary including:
+Words are validated against a compiled English dictionary. A word must:
 
-- Common English words
-- Modern slang and internet terminology
-- Brand names (if they've become common words, e.g., "google")
-- Plural forms and past tenses
-- Words from all English dialects (US, UK, Australian, etc.)
+1. **Exist in the dictionary** — Common English words including plurals and tenses
+2. **Satisfy the current rule** — Match the active rule criteria
+3. **Meet minimum length** — At least 4 characters initially (increases each cycle)
+4. **Not be previously used** — Each word can only be used once per game across all players
 
-> **Excluded:** Proper nouns, abbreviations, single letters, numbers, and non-English words
+> Proper nouns, abbreviations, and non-English words are **not** in the dictionary.
+
+## Prize Distribution
+
+Prizes are calculated from the total pool (`current_amount`):
+
+| Rank | 2 Players | 3+ Players |
+| ---- | --------- | ---------- |
+| 1st  | 70%       | 50%        |
+| 2nd  | 30%       | 30%        |
+| 3rd  | —         | 20%        |
+| 4th+ | —         | 0%         |
+
+A **2% platform fee** is deducted on-chain when claiming via the vault contract.
+
+## Wars Points
+
+Points are awarded based on your placement:
+
+```
+wars_point = (total_participants - your_rank + 1) × 2
+```
+
+Points are capped at a maximum of **50** per game.
+
+**Examples:**
+
+- 4-player game, 1st place: `(4 - 1 + 1) × 2 = 8 points`
+- 4-player game, 4th place: `(4 - 4 + 1) × 2 = 2 points`
+- 8-player game, 1st place: `(8 - 1 + 1) × 2 = 16 points`
 
 ## Strategy Tips
 
-**Speed Over Perfection**
-- First correct answer wins the round
-- Common answers beat obscure ones (less chance of duplication)
-
-**Avoid Common Words**
-- If many players submit "Dog" for animals, you're all safe
-- Unique answers guarantee a point if correct
-
-**Read the Prompt Carefully**
-- Check the starting letter requirement
-- Verify the category limits
-- Some categories have tricky sub-rules
-
-**Manage Your Lives**
-- Don't take risky answers late in the game
-- When ahead, play conservatively
-- When behind, take calculated risks
-
-**Watch Your Opponents**
-- Note what words they've used
-- Try to find different categories or letters
-- Learn their answer patterns
-
-## Scoring
-
-- **Round Win:** 1 point
-- **Perfect Round** (answered in under 5 seconds): +1 bonus point
-- **Final Victory:** Win the game for maximum payout
-- **Leaderboard Points:** Wars Points based on your placement
-
-## Example Game
-
-```
-Round 1: "Birds starting with 'E'"
-- Player 1: Eagle ✓ (wins round)
-- Player 2: Emu ✓
-- Player 3: (timeout) ✗ - loses 1 life
-- Player 4: Ibis ✗ (wrong letter) - loses 1 life
-
-Round 2: "Movie titles starting with 'S'"
-- Players eliminated from R1: 2 lives remaining
-- Player 1: Shrek ✓ (wins round)
-- Player 2: Spirited Away ✓
-- Player 3: Spider-Man (accepted) ✓
-- Player 4: (timeout) ✗ - loses final life, ELIMINATED
-
-Rounds 3-5 continue with remaining players...
-```
-
-## Common Questions
-
-**Q: Can I use the same word twice?**
-- No, each word can only be submitted once per entire game across all categories
-
-**Q: What if two players submit the same answer?**
-- Both get the point and the round continues (no elimination)
-
-**Q: Can I use brand names?**
-- Only if they've become generic terms (like "kleenex" or "band-aid" in some regions)
-
-**Q: Are abbreviations allowed?**
-- No abbreviations (USA, FBI, etc.) or acronyms
-
-**Q: How long do I have to answer?**
-- Depends on difficulty: Easy (60s), Medium (45s), Hard (30s)
+- **Only you see the rule** — Opponents don't know what rule you're playing against
+- **Speed matters** — You have exactly 15 seconds; no extensions
+- **Plan ahead** — Think of words for common rules before your turn
+- **Watch used words** — Words broadcast to the room are permanently unavailable
+- **Longer words survive longer** — As minimum length increases each cycle, having a strong vocabulary for 6+ letter words is critical
+- **Copy/paste is blocked** — You must type your word manually

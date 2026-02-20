@@ -59,7 +59,7 @@ export const metadata: Metadata = {
 		siteName: "Stacks Wars",
 		title: "Stacks Wars - Real-Time Competitive Gaming",
 		description:
-			"Compete in fast-paced multiplayer games with transparent, on-chain rewards. Stacks Wars combines real-time gameplay with trustless payouts on Stacks.",
+			"Compete in multiplayer games with transparent, on-chain rewards. Stacks Wars combines real-time gameplay with trustless payouts on Stacks.",
 		images: [
 			{
 				url: "/logo.webp",

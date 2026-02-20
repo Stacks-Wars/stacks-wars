@@ -86,17 +86,18 @@ export default async function LudoPage() {
 						<p>
 							Ludo is a classic strategy board game for 2-4
 							players where each player races to move their four
-							pawns from their starting area, around the board,
-							and into their home column. It's a game of luck and
-							strategy that has entertained families for
-							generations!
+							pawns from their starting area, around the 52-square
+							board track, through a 5-square home stretch, and
+							into the finish. It's a game of luck and strategy!
 						</p>
 						<p>
-							Players take turns rolling a dice and moving their
-							pawns. Rolling a 6 lets you bring a new pawn onto
-							the board and grants you another roll. Land on an
-							opponent's pawn to send them back to start! The
-							first player to get all four pawns home wins.
+							Players roll two dice each turn and choose which
+							value to use — die 1, die 2, or their sum. A roll
+							including a 6 lets you bring a new pawn onto the
+							board. Rolling double sixes earns a bonus turn. Land
+							on an opponent's pawn to send them back to start!
+							The first player to get all four pawns home wins —
+							winner takes all.
 						</p>
 					</div>
 
@@ -109,11 +110,11 @@ export default async function LudoPage() {
 								1
 							</div>
 							<div>
-								<h4 className="font-semibold">Roll to Start</h4>
+								<h4 className="font-semibold">Roll the Dice</h4>
 								<p className="text-muted-foreground">
-									Roll a 6 to move a pawn from your home base
-									onto the starting square. Each player has
-									four pawns that begin in their colored home
+									You have 5 seconds to roll two dice. Choose
+									which value to use — die 1, die 2, or their
+									sum. Roll a 6 to bring a pawn out of home
 									base.
 								</p>
 							</div>
@@ -127,10 +128,10 @@ export default async function LudoPage() {
 									Move Your Pawns
 								</h4>
 								<p className="text-muted-foreground">
-									Roll the dice and move one of your pawns by
-									the number shown. Pawns move clockwise
-									around the 52-square track. Rolling a 6
-									gives you a bonus turn!
+									You have 15 seconds to pick a pawn and move
+									it. Pawns move clockwise around the
+									52-square track. Rolling double sixes gives
+									you a bonus turn!
 								</p>
 							</div>
 						</div>
@@ -158,9 +159,9 @@ export default async function LudoPage() {
 								<h4 className="font-semibold">Race to Home</h4>
 								<p className="text-muted-foreground">
 									After completing a full circuit, your pawns
-									enter the home stretch - a 6-square path
+									enter the home stretch — a 5-square path
 									leading to the finish. Get all four pawns
-									home to win!
+									home to win! Winner takes the entire pot.
 								</p>
 							</div>
 						</div>
@@ -191,29 +192,30 @@ export default async function LudoPage() {
 							<li className="flex items-start gap-2">
 								<span className="text-yellow-500">•</span>
 								<span>
-									<strong>Rolling 6:</strong> Get a pawn out
-									of home base OR get a bonus turn
+									<strong>Dual Dice:</strong> Roll two dice
+									and choose die 1, die 2, or their sum
 								</span>
 							</li>
 							<li className="flex items-start gap-2">
 								<span className="text-yellow-500">•</span>
 								<span>
-									<strong>Safe Squares:</strong> Pawns on star
-									squares cannot be captured
+									<strong>Double Sixes:</strong> Roll two 6s
+									to earn a bonus turn
 								</span>
 							</li>
 							<li className="flex items-start gap-2">
 								<span className="text-yellow-500">•</span>
 								<span>
-									<strong>Exact Landing:</strong> You must
-									roll the exact number to enter the finish
+									<strong>Safe Squares:</strong> Pawns at
+									positions 0, 8, 13, 21, 26, 34, 39, 47
+									cannot be captured
 								</span>
 							</li>
 							<li className="flex items-start gap-2">
 								<span className="text-yellow-500">•</span>
 								<span>
-									<strong>Turn Timer:</strong> You have 30
-									seconds to roll the dice and make your move
+									<strong>Timers:</strong> 5 seconds to roll,
+									15 seconds to move — auto-move on timeout
 								</span>
 							</li>
 						</ul>

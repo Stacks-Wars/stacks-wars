@@ -8,3 +8,4 @@ export * from "./room";
 export * from "./room-message";
 export * from "./stacks";
 export * from "./player-stats";
+export * from "./stats";

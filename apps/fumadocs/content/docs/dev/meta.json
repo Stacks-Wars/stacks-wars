@@ -1,0 +1,5 @@
+{
+	"name": "Developer Guide",
+	"pages": ["local-setup", "building-a-game", "api-reference"],
+	"defaultOpen": true
+}

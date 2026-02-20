@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2 } from "lucide-react";
+import { Loader2, Copy, Check } from "lucide-react";
 
 import {
 	Form,
@@ -96,6 +96,8 @@ interface CreateGameFormProps {
 
 export default function CreateGameForm({ onSuccess }: CreateGameFormProps) {
 	const [error, setError] = useState<string | null>(null);
+	const [createdGame, setCreatedGame] = useState<Game | null>(null);
+	const [copied, setCopied] = useState(false);
 	const router = useRouter();
 
 	const form = useForm<CreateGameFormValues>({
@@ -135,9 +137,9 @@ export default function CreateGameForm({ onSuccess }: CreateGameFormProps) {
 				return;
 			}
 
-			// Success - redirect to game page
+			// Success — show the game UUID so the user can copy it
 			if (response.data) {
-				router.push(`/game/${response.data.path}`);
+				setCreatedGame(response.data);
 				onSuccess?.();
 			}
 		} catch (err) {
@@ -146,6 +148,65 @@ export default function CreateGameForm({ onSuccess }: CreateGameFormProps) {
 			setError(errorMessage);
 		}
 	};
+
+	const copyGameId = async () => {
+		if (!createdGame) return;
+		await navigator.clipboard.writeText(createdGame.id);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
+	};
+
+	if (createdGame) {
+		return (
+			<div className="space-y-6 text-center">
+				<div className="space-y-2">
+					<div className="text-3xl">🎮</div>
+					<h3 className="text-xl font-bold">Game Created!</h3>
+					<p className="text-muted-foreground text-sm">
+						<strong>{createdGame.name}</strong> has been created
+						successfully.
+					</p>
+				</div>
+
+				<div className="bg-muted/50 rounded-xl p-4">
+					<p className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">
+						Game UUID
+					</p>
+					<div className="flex items-center justify-center gap-2">
+						<code className="bg-background rounded-lg px-3 py-2 font-mono text-sm">
+							{createdGame.id}
+						</code>
+						<Button
+							variant="outline"
+							size="icon"
+							className="h-9 w-9 shrink-0"
+							onClick={copyGameId}
+						>
+							{copied ? (
+								<Check className="h-4 w-4 text-green-500" />
+							) : (
+								<Copy className="h-4 w-4" />
+							)}
+						</Button>
+					</div>
+					<p className="text-muted-foreground mt-3 text-xs">
+						Copy and save this UUID — you&apos;ll need it for your
+						game registry in{" "}
+						<code className="text-xs">registry.rs</code>
+					</p>
+				</div>
+
+				<div className="flex justify-center gap-3">
+					<Button
+						className="rounded-full"
+						onClick={() => router.push(`/game/${createdGame.path}`)}
+					>
+						View Game Page
+					</Button>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<Form {...form}>

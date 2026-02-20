@@ -4,7 +4,7 @@ use crate::{
         WalletAddress,
         stacks::{Token, TokenInfo},
     },
-    state::AppState,
+    state::{AppState, RedisClient},
 };
 use axum::{
     Json,
@@ -12,8 +12,9 @@ use axum::{
     http::StatusCode,
 };
 use hex;
+use redis::AsyncCommands;
 use reqwest::Client;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing;
 
@@ -52,7 +53,103 @@ struct StxToolsMetrics {
 /// StxTools API response
 #[derive(Debug, Deserialize)]
 struct StxToolsResponse {
+    image_url: Option<String>,
     metrics: StxToolsMetrics,
+}
+
+/// Cached token price data (stored in Redis)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CachedTokenPrice {
+    pub price_usd: f64,
+    pub image_url: Option<String>,
+}
+
+/// Fetch token price + image from stxtools.io with Redis caching (5-min TTL).
+///
+/// Returns `CachedTokenPrice` with price_usd and image_url.
+/// On any failure, returns price 0.0 and no image.
+pub async fn get_token_price_data(
+    token_contract_id: &str,
+    redis_pool: &RedisClient,
+) -> CachedTokenPrice {
+    let cache_key = format!("price:data:{}", token_contract_id);
+    let default = CachedTokenPrice { price_usd: 0.0, image_url: None };
+
+    // Try cache first
+    if let Ok(mut conn) = redis_pool.get().await {
+        let cached: Result<Option<String>, _> = conn.get(&cache_key).await;
+        if let Ok(Some(json_str)) = cached {
+            if let Ok(data) = serde_json::from_str::<CachedTokenPrice>(&json_str) {
+                return data;
+            }
+        }
+    }
+
+    // Fetch from API
+    let client = Client::new();
+    let url = format!("https://api.stxtools.io/tokens/{}", token_contract_id);
+
+    let resp = match client.get(&url).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("Failed to fetch token price for {}: {}", token_contract_id, e);
+            return default;
+        }
+    };
+
+    if !resp.status().is_success() {
+        return default;
+    }
+
+    let body = match resp.text().await {
+        Ok(t) => t,
+        Err(_) => return default,
+    };
+
+    let parsed: StxToolsResponse = match serde_json::from_str(&body) {
+        Ok(d) => d,
+        Err(e) => {
+            tracing::warn!("Failed to parse token price for {}: {}", token_contract_id, e);
+            return default;
+        }
+    };
+
+    let result = CachedTokenPrice {
+        price_usd: parsed.metrics.price_usd,
+        image_url: parsed.image_url,
+    };
+
+    // Cache for 5 minutes
+    if let Ok(mut conn) = redis_pool.get().await {
+        if let Ok(json_str) = serde_json::to_string(&result) {
+            let _: Result<(), _> = conn.set_ex(&cache_key, &json_str, 300).await;
+        }
+    }
+
+    result
+}
+
+/// Get token price in USD from stxtools.io with Redis caching (5-min TTL).
+pub async fn get_token_price_usd(
+    token_contract_id: &str,
+    redis_pool: &RedisClient,
+) -> f64 {
+    get_token_price_data(token_contract_id, redis_pool).await.price_usd
+}
+
+/// Convert a token amount to USD using stxtools.io prices.
+///
+/// Returns 0.0 on any failure (network error, missing price, etc.)
+pub async fn convert_to_usd(
+    token_contract_id: &str,
+    amount: f64,
+    redis_pool: &RedisClient,
+) -> f64 {
+    if amount <= 0.0 {
+        return 0.0;
+    }
+    let price = get_token_price_usd(token_contract_id, redis_pool).await;
+    amount * price
 }
 
 /// Convert a token amount to its STX equivalent using stxtools.io prices.

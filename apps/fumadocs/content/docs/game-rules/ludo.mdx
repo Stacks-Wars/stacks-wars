@@ -5,159 +5,127 @@ description: Classic board game rules adapted for Stacks Wars
 
 # Ludo
 
-Ludo is a timeless strategy board game adapted for Stacks Wars. Race your four pawns around the board and be the first to get all pawns home.
+Ludo is a classic strategy board game adapted for Stacks Wars. Race your four pawns around the board and be the first to get all pawns home.
 
 ## Objective
 
-Move all four of your pawns from the starting position, around the board, and into your home zone before your opponents do. The first player to get all pawns home wins!
+Move all four of your pawns from your home base, around the 52-square track, through the home stretch, and into the finish. The first player to finish all pawns wins.
 
 ## Game Setup
 
-- **Players:** 2-4 players per game
-- **Board Size:** Standard Ludo board with 4 colored zones
-- **Pawns:** 4 pawns per player (red, green, blue, or yellow)
-- **Dice:** Virtual 6-sided die
-- **Starting Position:** All pawns begin in their home base
+- **Players:** 2–4 per game
+- **Pawns:** 4 per player
+- **Board:** 52 main squares + 5 home stretch squares per player
+- **Dice:** Two 6-sided dice rolled together
+- **Roll Timeout:** 5 seconds to roll
+- **Move Timeout:** 15 seconds to select a pawn and move
+- **Player Positions:** 2 players start at diagonal corners (indices 0 and 2); 3–4 players fill corners sequentially
 
 ## How to Play
 
-### Moving Pawns
+### Turn Phases
 
-1. **Roll the Dice** - Click the virtual die to roll (1-6)
-2. **Move a Pawn** - Move any of your pawns forward by the number rolled
-3. **Select Destination** - Click on the pawn you want to move, then click the destination
-4. **Complete Your Turn** - Your move automatically validates; next player's turn begins
+Each turn has two phases:
 
-### Key Movement Rules
+1. **Roll Phase** (5 seconds) — Click to roll both dice. If you don't roll in time, the dice are auto-rolled.
+2. **Move Phase** (15 seconds) — Select which dice value to use (die 1, die 2, or the sum), then select which pawn to move. If you don't move in time, an auto-move is made.
 
-**Entering the Board**
-- To bring a pawn out of your home base, you must roll a **6**
-- Rolling a 6 gives you an extra turn immediately
-- You can enter multiple pawns if you roll consecutive 6s
+### Dice Mechanics
 
-**Moving Around the Board**
-- Pawns move clockwise around the board's outer track
-- The board has 52 spaces per circuit
-- Each player has a designated color section
+You roll **two dice** every turn. You can use:
 
-**Home Zone**
-- The home zone is a straight 6-space track at the end of your board section
-- To enter your home zone, your pawn must complete the circuit
-- You can only enter the home zone if you have an exact roll
+- **Die 1 value** alone
+- **Die 2 value** alone
+- **Sum of both dice** (die 1 + die 2)
 
-**Landing Exactly**
-- You must land exactly on the final home space to win with a pawn
-- If your roll would overshoot home, your pawn bounces back (still in home zone)
-- Example: 4 spaces from home and you roll 6 = you land on home space 2, not beyond
+After selecting a dice value, the server shows which of your pawns can legally move that many squares. Select one to move.
 
-### Capturing Opponent Pawns
+### Entering the Board
 
-**Safe Zones**
-- Certain spaces on the board are marked as **safe zones** (usually colored spots)
-- Pawns on safe zones cannot be captured
-- Safe zones typically appear at:
-  - Starting position
-  - Every 6th square on the main board
-  - The home zone
+- To bring a pawn out of your home base, you need a roll that includes a **6** (die 1, die 2, or sum)
+- If **all 4 pawns are still at home**, one of your dice is automatically fixed to 6 so you can always enter
 
-**Capturing**
-- If you land on an opponent's pawn (on a non-safe space), you **capture** it
-- The captured pawn returns to its home base
-- Capturing is automatic - no choice required
-- You get to roll again after capturing
+### Bonus Turns
 
-**Multiple Pawns on One Space**
-- Only one of your own pawns can occupy a space
-- If you have multiple pawns, they must be on different spaces
+You get a **bonus turn** only when **both dice show 6** (double sixes).
 
-## Gameplay Examples
+### Moving Around the Board
 
-### Example 1: Rolling a 6
+- Pawns move clockwise around the 52-square outer track
+- After completing a full circuit, pawns enter your **home stretch** (5 squares)
+- You must land with an **exact roll** to reach the finish square
 
-```
-Your Turn: Roll = 6
-- Bring one pawn from home base to space 1 on the board
-- You get an extra roll
+### Safe Squares
 
-Extra Roll: Roll = 4
-- Move the same pawn 4 spaces forward to space 5
-- Your turn ends, next player plays
-```
+Pawns on safe squares **cannot be captured**. Safe squares are at positions:
 
-### Example 2: Capturing an Opponent
+**0, 8, 13, 21, 26, 34, 39, 47**
 
-```
-Your Pawn: Currently on space 23
-Opponent's Pawn: On space 25 (not a safe zone)
-Your Roll: 2
+These are the starting positions and midpoints of each player's section.
 
-- Move your pawn from 23 → 25
-- You land on the opponent's pawn
-- Opponent's pawn captured and returns home
-- You get an extra roll immediately
-```
+### Capturing
 
-### Example 3: Entering Home Zone
+- If your pawn lands on a square occupied by an opponent's pawn (not a safe square), the opponent's pawn is **sent back to their home base**
+- Capturing is automatic; you get a bonus roll after capturing
+
+### Auto-Move on Timeout
+
+If you don't move within 15 seconds, the server makes an automatic move:
+
+1. Prefers using the **sum** of both dice
+2. Falls back to **die 1**
+3. Falls back to **die 2**
+4. If no valid moves exist, the turn is skipped
+
+## Prize Distribution
+
+Ludo uses **winner-takes-all**:
+
+| Rank | Prize |
+| ---- | ----- |
+| 1st  | 100%  |
+| 2nd+ | 0%    |
+
+A **2% platform fee** is deducted on-chain when claiming via the vault contract.
+
+## Wars Points
+
+Points are awarded based on your placement:
 
 ```
-Your Pawn: About to complete the circuit (52 spaces traveled)
-Your Roll: 3
-
-- Move pawn from space 51 → space 52 → home space 1 → home space 2
-- Pawn is now safely in your home zone
-- Continue with remaining pawns or next turn
+wars_point = (total_participants - your_rank + 1) × 2
 ```
+
+Points are capped at a maximum of **50** per game.
 
 ## Strategy Tips
 
-**Early Game**
-- Roll 6s to bring multiple pawns out quickly
-- Position pawns to block opponents' paths when possible
-- Take safe spaces when you can
-
-**Mid Game**
-- Focus on one pawn at a time to advance toward home
-- Use safe zones strategically to protect leading pawns
-- Capture opponents' pawns when they're near safe zones
-
-**Late Game**
-- Get the exact roll needed to move into home
-- Protect pawns already in the home zone
-- Speed up remaining pawns in the final push
-
-**Advanced Tactics**
-- Create "blockades" with two of your pawns on adjacent spaces
-- Force opponents to use extra dice rolls elsewhere
-- Time your home zone entry carefully
-
-## Scoring
-
-- **First to Home:** Wins the game and receives 100% of the pot
-- **Second Place:** Receives 50% of participation bonus (if applicable)
-- **Third Place:** Receives 25% of participation bonus
-- **Leaderboard Points:** Wars Points awarded based on placement
+- **Get multiple pawns on the board early** — Don't rely on a single pawn
+- **Use the sum wisely** — The combined dice value lets you move further but commits both dice to one pawn
+- **Safe squares are strategic** — Park pawns on safe squares near opponents' paths
+- **Capture when possible** — Sending opponents back wastes their progress and earns you a bonus turn
+- **Plan your home stretch entry** — You need exact rolls, so position accordingly
+- **Watch the auto-move timer** — 15 seconds goes fast, especially on complex board states
 
 ## Common Questions
 
-**Q: What happens if I roll a 6 but can't move?**
-- You still get another turn, but your pawns stay in their current positions
+**Q: How many dice do I roll?**
+Two dice are rolled together every turn. You choose which value to use per move.
+
+**Q: What happens if I roll double sixes?**
+You get a bonus turn after completing your current move.
 
 **Q: Can I move backward?**
-- No, all movement is clockwise only around the board
+No, all movement is clockwise only.
 
-**Q: What if I roll and have no legal moves?**
-- Your turn ends immediately and passes to the next player
-- You do NOT get another roll
+**Q: What if I have no legal moves?**
+Your turn is automatically skipped and passed to the next player.
 
 **Q: Can I land on my own pawn?**
-- No, you cannot move a pawn to a space occupied by another of your pawns
+No, you cannot move a pawn to a square occupied by another of your own pawns.
+
+**Q: What's the time limit?**
+5 seconds to roll, 15 seconds to move. Both have auto-fallbacks on timeout.
 
 **Q: How do ties work?**
-- If two players get all pawns home on the same turn, the player who moved first wins
-
-**Q: Can I choose not to move?**
-- No, you must move if legal moves are available
-
-**Q: What's the time limit per turn?**
-- You have 60 seconds to complete your move
-- After 60 seconds, an automatic move is made
+Ludo is winner-takes-all — there are no ties. The first player to finish all 4 pawns wins.
