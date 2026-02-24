@@ -306,7 +306,7 @@ impl TestFactory {
         let lobby_key = stacks_wars_be::models::RedisKey::lobby_state(lobby_id);
         let player_key = stacks_wars_be::models::RedisKey::lobby_player(lobby_id, creator_id);
 
-        let lstate = stacks_wars_be::models::LobbyState::new(lobby_id);
+        let lstate = stacks_wars_be::models::LobbyState::new(lobby_id, 1);
         let lhash = lstate.to_redis_hash();
         let _: () = conn
             .hset_multiple(&lobby_key, &lhash)

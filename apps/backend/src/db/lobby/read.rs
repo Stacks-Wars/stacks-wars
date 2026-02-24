@@ -240,7 +240,7 @@ impl LobbyRepository {
                 .find(|(id, _)| *id == lobby.id)
                 .map(|(_, s)| s.clone())
                 .flatten();
-            let state = state_opt.unwrap_or_else(|| LobbyState::new(lobby.id));
+            let state = state_opt.unwrap_or_else(|| LobbyState::new(lobby.id, 0));
 
             let extended = LobbyExtended::from_parts(lobby, state);
 
@@ -663,7 +663,7 @@ impl LobbyRepository {
         let mut lobby_info_list = Vec::new();
         for (lobby, game, creator) in joined_data {
             let state_opt = states_batch.iter().find(|(id, _)| *id == lobby.id).map(|(_, s)| s.clone()).flatten();
-            let state = state_opt.unwrap_or_else(|| LobbyState::new(lobby.id));
+            let state = state_opt.unwrap_or_else(|| LobbyState::new(lobby.id, 0));
 
             let extended = LobbyExtended::from_parts(lobby, state);
 

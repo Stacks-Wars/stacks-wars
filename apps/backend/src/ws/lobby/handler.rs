@@ -255,7 +255,7 @@ async fn fetch_lobbies(
     let mut lobby_info_list = Vec::new();
     for (lobby, (lobby_id, state_opt)) in lobbies.into_iter().zip(states_batch.into_iter()) {
         // Use the lobby state from Redis, or create a default state if not found
-        let state = state_opt.unwrap_or_else(|| LobbyState::new(lobby_id));
+        let state = state_opt.unwrap_or_else(|| LobbyState::new(lobby_id, 0));
 
         let extended = LobbyExtended::from_parts(lobby.clone(), state);
 

@@ -16,7 +16,9 @@ export default async function GamesShowcase() {
 		<div className="mt-16 flex flex-col gap-6">
 			<div className="flex flex-wrap justify-center gap-2 self-center md:gap-3">
 				<Button className="rounded-full">Hot Games</Button>
-				<Button className="bg-popover rounded-full">New Releases</Button>
+				<Button className="bg-popover rounded-full">
+					New Releases
+				</Button>
 				<Button className="bg-popover rounded-full">Top Rated</Button>
 				<Button className="bg-popover rounded-full">Recommended</Button>
 			</div>
@@ -36,7 +38,7 @@ export default async function GamesShowcase() {
 function ShowcaseGameCard({ game }: { game: Game }) {
 	return (
 		<Link
-			href={`/game/${game.path}`}
+			href={`/games/${game.path}`}
 			className="group border-border/50 relative h-[186px] w-[200px] shrink-0 overflow-hidden rounded-2xl border md:h-[280px] md:w-[360px]"
 		>
 			<Image

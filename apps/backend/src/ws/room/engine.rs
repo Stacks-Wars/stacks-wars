@@ -1371,6 +1371,19 @@ pub async fn handle_room_message(
                 return;
             }
 
+            // Update participant count: increment when joining, decrement when leaving
+            let participant_count = if participate {
+                lobby_state_repo
+                    .increment_participants(lobby_id)
+                    .await
+                    .unwrap_or(0)
+            } else {
+                lobby_state_repo
+                    .decrement_participants(lobby_id)
+                    .await
+                    .unwrap_or(0)
+            };
+
             // Broadcast participation toggle to room
             let _ = broadcast::broadcast_room(
                 state,
@@ -1391,6 +1404,19 @@ pub async fn handle_room_message(
                 )
                 .await;
             }
+
+            // Broadcast lobby status change with updated participant count
+            let current_amount = db_lobby.current_amount;
+            let _ = broadcast::broadcast_room(
+                state,
+                lobby_id,
+                &RoomServerMessage::LobbyStatusChanged {
+                    status: lobby_status,
+                    participant_count,
+                    current_amount,
+                },
+            )
+            .await;
         }
     }
 }

@@ -223,16 +223,10 @@ export default function LobbySlot() {
 		sendLobbyMessage({ type: "updateLobbyStatus", status: "waiting" });
 	};
 
-	// Count active participants (exclude spectating sponsored creator)
-	const activePlayerCount = players.filter((p) => {
-		if (
-			lobby.isSponsored &&
-			p.userId === lobby.creatorId &&
-			p.status === "notJoined"
-		)
-			return false;
-		return true;
-	}).length;
+	// Count active participants (only players with "joined" status)
+	const activePlayerCount = players.filter(
+		(p) => p.status === "joined"
+	).length;
 
 	const canStartGame =
 		isCreator &&
