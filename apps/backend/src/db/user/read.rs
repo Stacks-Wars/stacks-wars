@@ -173,8 +173,8 @@ impl UserRepository {
                 let game = game?;
                 let creator = creator?;
 
-                let state = state_data.map(|data| LobbyState::from_redis_hash(&data).unwrap_or_else(|_| LobbyState::new(lobby_id)))
-                    .unwrap_or_else(|| LobbyState::new(lobby_id));
+                let state = state_data.map(|data| LobbyState::from_redis_hash(&data).unwrap_or_else(|_| LobbyState::new(lobby_id, 0)))
+                    .unwrap_or_else(|| LobbyState::new(lobby_id, 0));
 
                 let extended = LobbyExtended::from_parts(lobby, state);
                 let lobby_info = LobbyInfo {
@@ -301,7 +301,7 @@ impl UserRepository {
         let mut lobby_info_list = Vec::new();
         for lobby in lobbies {
             let state_opt = states_batch.iter().find(|(id, _)| *id == lobby.id).map(|(_, s)| s.clone()).flatten();
-            let state = state_opt.unwrap_or_else(|| LobbyState::new(lobby.id));
+            let state = state_opt.unwrap_or_else(|| LobbyState::new(lobby.id, 0));
 
             let extended = LobbyExtended::from_parts(lobby, state);
 

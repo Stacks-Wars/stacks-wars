@@ -96,7 +96,10 @@ impl LobbyRepository {
         let lobby_state_repo = LobbyStateRepository::new(redis.clone());
         let player_repo = PlayerStateRepository::new(redis.clone());
 
-        let lstate = LobbyState::new(lobby.id());
+        // Sponsored lobby creators start as spectators (NotJoined), so participant_count starts at 0.
+        // Normal lobby creators are auto-joined, so participant_count starts at 1.
+        let initial_count = if is_sponsored { 0 } else { 1 };
+        let lstate = LobbyState::new(lobby.id(), initial_count);
         if let Err(e) = lobby_state_repo.create_state(lstate).await {
             let _ = self.delete_lobby(lobby.id(), None).await;
             return Err(AppError::RedisError(format!(
