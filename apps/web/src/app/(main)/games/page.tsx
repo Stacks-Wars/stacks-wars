@@ -3,7 +3,7 @@ import { ApiClient } from "@/lib/api/client";
 import type { Game } from "@/lib/definitions";
 
 export default async function GamesPage() {
-	const games = await ApiClient.get<Game[]>("/api/games?order=asc");
+	const games = await ApiClient.get<Game[]>("/api/games?order=desc");
 
 	return (
 		<div className="container mx-auto px-4">

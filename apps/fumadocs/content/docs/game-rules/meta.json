@@ -1,5 +1,5 @@
 {
 	"name": "Game Rules",
-	"pages": ["lexi-wars", "ludo"],
+	"pages": ["lexi-wars", "ludo", "ludo-rush"],
 	"defaultOpen": true
 }

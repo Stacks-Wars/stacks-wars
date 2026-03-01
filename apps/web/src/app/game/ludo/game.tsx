@@ -60,7 +60,8 @@ export default function LudoGame({
 	sendMessage,
 	lobby,
 	game,
-}: GamePluginProps<LudoState>) {
+	safeSquares = SAFE_SQUARES,
+}: GamePluginProps<LudoState> & { safeSquares?: number[] }) {
 	const user = useUser();
 	const roomPlayers = usePlayers();
 
@@ -161,6 +162,7 @@ export default function LudoGame({
 					dice1={state.dice1}
 					dice2={state.dice2}
 					onRollDice={handleRollDice}
+					safeSquares={safeSquares}
 				/>
 
 				{/* Player Legend — outside board, below it */}
@@ -327,6 +329,7 @@ interface LudoBoardProps {
 	dice1: number | null;
 	dice2: number | null;
 	onRollDice: () => void;
+	safeSquares: number[];
 }
 
 // Board layout: 15x15 grid
@@ -447,6 +450,7 @@ function LudoBoard({
 	dice1,
 	dice2,
 	onRollDice,
+	safeSquares,
 }: LudoBoardProps) {
 	if (!board) {
 		return (
@@ -521,6 +525,7 @@ function LudoBoard({
 								onPawnSelect={onPawnSelect}
 								getPlayerInfo={getPlayerInfo}
 								getPlayer={getPlayer}
+								safeSquares={safeSquares}
 							/>
 						);
 					})}
@@ -578,6 +583,7 @@ interface BoardCellProps {
 	selectedPawnId: number | null;
 	onPawnSelect: (pawnId: number) => void;
 	getPlayerInfo: (userId: string) => PlayerState | undefined;
+	safeSquares: number[];
 	getPlayer: (playerIndex: number) => PlayerBoardState | undefined;
 }
 
@@ -594,9 +600,10 @@ function BoardCell({
 	onPawnSelect,
 	getPlayerInfo,
 	getPlayer,
+	safeSquares,
 }: BoardCellProps) {
 	// Determine cell type based on position
-	const cellType = getCellType(row, col);
+	const cellType = getCellType(row, col, safeSquares);
 
 	if (cellType.type === "empty") {
 		return <div className="bg-slate-900" />;
@@ -673,7 +680,7 @@ type CellType =
 	  }
 	| { type: "homeStretch"; playerIndex: number; position: number };
 
-function getCellType(row: number, col: number): CellType {
+function getCellType(row: number, col: number, safeSquares: number[]): CellType {
 	// Home bases (6x6 corners)
 	// Red: top-left (rows 0-5, cols 0-5)
 	if (row <= 5 && col <= 5) {
@@ -719,7 +726,7 @@ function getCellType(row: number, col: number): CellType {
 	const trackPosition = getTrackPosition(row, col);
 	if (trackPosition !== -1) {
 		const isStart = PLAYER_STARTS.includes(trackPosition);
-		const isSafe = SAFE_SQUARES.includes(trackPosition);
+		const isSafe = safeSquares.includes(trackPosition);
 		const startPlayerIndex = PLAYER_STARTS.indexOf(trackPosition);
 		return {
 			type: "track",
