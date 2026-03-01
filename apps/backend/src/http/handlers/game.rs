@@ -5,11 +5,11 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    auth::AuthClaims,
+    auth::extractors::AuthClaims,
     db::game::GameRepository,
     errors::AppError,
     models::game::{Game, Order, Pagination},
@@ -162,4 +162,63 @@ pub async fn list_games(
         .map_err(|e| e.to_response())?;
 
     Ok(Json(games))
+}
+
+// ============================================================================
+// Admin: Toggle Game Active Status
+// ============================================================================
+
+/// Request payload for toggling a game's active status
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToggleActiveRequest {
+    pub is_active: bool,
+}
+
+/// Response for the toggle operation
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToggleActiveResponse {
+    pub id: String,
+    pub name: String,
+    pub is_active: bool,
+}
+
+/// Toggle a game's active status (admin only).
+///
+/// Admin check is handled the same way as season handlers.
+pub async fn toggle_game_active(
+    State(state): State<AppState>,
+    auth: AuthClaims,
+    Path(game_id): Path<Uuid>,
+    Json(payload): Json<ToggleActiveRequest>,
+) -> Result<Json<ToggleActiveResponse>, (StatusCode, String)> {
+    // Admin check
+    if !state.config.is_admin(auth.wallet_address()) {
+        return Err((StatusCode::FORBIDDEN, "Admin access required".to_string()));
+    }
+
+    let repo = GameRepository::new(state.postgres.clone());
+
+    let game = repo
+        .set_active(game_id, payload.is_active)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to toggle game active status: {}", e);
+            e.to_response()
+        })?;
+
+    tracing::info!(
+        "Admin {} toggled game {} ({}) active={}",
+        auth.wallet_address(),
+        game.name,
+        game_id,
+        payload.is_active
+    );
+
+    Ok(Json(ToggleActiveResponse {
+        id: game.id.to_string(),
+        name: game.name,
+        is_active: game.is_active,
+    }))
 }

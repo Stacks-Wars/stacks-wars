@@ -8,11 +8,13 @@
 import type { GamePlugin, PluginRegistry } from "@/lib/definitions";
 import { LexiWarsPlugin } from "./lexi-wars/plugin";
 import { LudoPlugin } from "./ludo/plugin";
+import { LudoRushPlugin } from "./ludo-rush/plugin";
 
 // Registry maps game path to plugin
 export const gamePlugins: PluginRegistry = {
 	[LexiWarsPlugin.path]: LexiWarsPlugin as GamePlugin,
 	[LudoPlugin.path]: LudoPlugin as GamePlugin,
+	[LudoRushPlugin.path]: LudoRushPlugin as GamePlugin,
 };
 
 /**
