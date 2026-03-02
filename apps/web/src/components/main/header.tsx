@@ -19,6 +19,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatAddress } from "@/lib/utils";
+import { playSound } from "@/lib/audio/play-sound";
 
 const navItems: { href: Route; label: string }[] = [
 	{ href: "/games", label: "Games" },
@@ -47,7 +48,11 @@ export default function Header() {
 	return (
 		<header className="container mx-auto px-4">
 			<div className="flex items-center justify-between gap-4 py-6">
-				<Link href={"/"} className="flex items-center gap-3 sm:gap-4">
+				<Link
+					href={"/"}
+					onClick={() => playSound()}
+					className="flex items-center gap-3 sm:gap-4"
+				>
 					<Image
 						src={"/logo.svg"}
 						alt="stacks wars logo"
@@ -68,6 +73,7 @@ export default function Header() {
 							<Link
 								key={item.href}
 								href={item.href}
+								onClick={() => playSound()}
 								className={cn(
 									"hover:text-primary transition-colors",
 									isActive
@@ -88,6 +94,7 @@ export default function Header() {
 					) : isAuthenticated ? (
 						<Link
 							href={`/u/${user.username || user.walletAddress}`}
+							onClick={() => playSound()}
 							className="flex w-full max-w-75 items-center gap-3 truncate"
 						>
 							<Avatar className="size-12.5 border">
@@ -184,7 +191,10 @@ export default function Header() {
 							) : isAuthenticated ? (
 								<Link
 									href={`/u/${user.username || user.walletAddress}`}
-									onClick={() => setOpen(false)}
+									onClick={() => {
+										playSound();
+										setOpen(false);
+									}}
 									className="mx-7 flex w-full max-w-75 items-center gap-3 truncate"
 								>
 									<Avatar className="size-12 border">
