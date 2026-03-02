@@ -20,6 +20,7 @@ export default function GameCard({
 	isAuthenticated,
 	lobbyStatus,
 	playerStatus,
+	isFull,
 }: {
 	game: Game;
 	action?: "gamePage" | "createLobbyPage" | "joinLobby";
@@ -31,6 +32,7 @@ export default function GameCard({
 	isAuthenticated?: boolean;
 	lobbyStatus?: string;
 	playerStatus?: string;
+	isFull?: boolean;
 }) {
 	// Get loading states from store
 	const user = useUser();
@@ -116,7 +118,8 @@ export default function GameCard({
 							lobbyStatus === "finished" &&
 							(!isInLobby || playerStatus !== "notJoined")) ||
 						(action === "joinLobby" &&
-							lobbyStatus === "starting")
+							lobbyStatus === "starting") ||
+						(action === "joinLobby" && !isInLobby && isFull)
 					}
 				>
 					{action === "createLobbyPage" ? (
@@ -127,7 +130,11 @@ export default function GameCard({
 						</Link>
 					) : action === "joinLobby" ? (
 						!isAuthenticated ? (
-							<Link href={`/login?redirect=${encodeURIComponent(pathname)}`}>Login to Join Lobby</Link>
+							<Link
+								href={`/login?redirect=${encodeURIComponent(pathname)}`}
+							>
+								Login to Join Lobby
+							</Link>
 						) : isJoinLoading ? (
 							<span className="flex items-center gap-2">
 								<Loader2 className="size-4 animate-spin" />
@@ -145,6 +152,8 @@ export default function GameCard({
 							</span>
 						) : isInLobby ? (
 							<span>Leave Lobby</span>
+						) : isFull ? (
+							<span>Lobby Full</span>
 						) : isJoinRequestPending ? (
 							<span>Request Pending</span>
 						) : isJoinRequestAccepted ? (

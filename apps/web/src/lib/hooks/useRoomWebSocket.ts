@@ -21,6 +21,7 @@ import { WebSocketClient } from "../websocket/wsClient";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { displayUserIdentifier } from "../utils";
+import { playSound } from "@/lib/audio/play-sound";
 
 interface UseRoomOptions {
 	lobbyPath: string;
@@ -158,6 +159,7 @@ export function useRoomWebSocket({
 			}
 
 			case "lobbyStatusChanged":
+				playSound("/audio/alert.wav");
 				lobbyActions.updateLobbyStatus(
 					message.status,
 					message.participantCount,
@@ -172,10 +174,12 @@ export function useRoomWebSocket({
 				break;
 
 			case "startCountdown":
+				playSound("/audio/beep.wav");
 				lobbyActions.setCountdown(message.secondsRemaining);
 				break;
 
 			case "playerJoined": {
+				playSound("/audio/alert.wav");
 				const joinKey = `join-${message.player.userId}`;
 				if (pendingActionsRef.current.has(joinKey)) {
 					pendingActionsRef.current.delete(joinKey);
@@ -188,6 +192,7 @@ export function useRoomWebSocket({
 			}
 
 			case "playerLeft":
+				playSound("/audio/alert.wav");
 				lobbyActions.removePlayer(message.player.userId);
 				const leaveKey = `leave-${message.player.userId}`;
 				if (pendingActionsRef.current.has(leaveKey)) {
@@ -207,6 +212,7 @@ export function useRoomWebSocket({
 				break;
 
 			case "playerKicked":
+				playSound("/audio/alert.wav");
 				lobbyActions.removePlayer(message.player.userId);
 				const kickKey = `kick-${message.player.userId}`;
 				if (pendingActionsRef.current.has(kickKey)) {
@@ -219,6 +225,7 @@ export function useRoomWebSocket({
 				break;
 
 			case "joinRequestsUpdated":
+				playSound("/audio/alert.wav");
 				lobbyActions.setJoinRequests(message.joinRequests);
 				// Check for pending actions
 				if (pendingActionsRef.current.has("joinRequest")) {
@@ -266,6 +273,7 @@ export function useRoomWebSocket({
 				break;
 
 			case "messageReceived":
+				playSound("/audio/alert.wav");
 				lobbyActions.addChatMessage(message.message);
 				if (pendingActionsRef.current.has("sendMessage")) {
 					pendingActionsRef.current.delete("sendMessage");
@@ -294,6 +302,7 @@ export function useRoomWebSocket({
 				break;
 
 			case "participationToggled":
+				playSound("/audio/alert.wav");
 				if (pendingActionsRef.current.has("toggleParticipation")) {
 					pendingActionsRef.current.delete("toggleParticipation");
 					lobbyActions.clearActionLoading("toggleParticipation");
@@ -309,11 +318,13 @@ export function useRoomWebSocket({
 
 			// Shared game events
 			case "gameStarted":
+				playSound("/audio/alert.wav");
 				toast.info("Game has started!");
 				console.log("[Room] Game started");
 				break;
 
 			case "gameStartFailed":
+				playSound("/audio/alert.wav");
 				console.error("[Room] Game start failed:", message.reason);
 				toast.error(`Game failed to start`, {
 					description: message.reason,
@@ -321,11 +332,13 @@ export function useRoomWebSocket({
 				break;
 
 			case "finalStanding":
+				playSound("/audio/alert.wav");
 				console.log("[Room] Final standings:", message.standings);
 				lobbyActions.setFinalStandings(message.standings);
 				break;
 
 			case "gameOver":
+				playSound("/audio/end.mp3");
 				console.log("[Room] Game over for user:", message);
 				// Store game over data in room store to show modal
 				lobbyActions.setGameOver({
@@ -336,6 +349,7 @@ export function useRoomWebSocket({
 				break;
 
 			case "claimSuccess":
+				playSound("/audio/alert.wav");
 				lobbyActions.setActionLoading("claimReward", false);
 				toast.success("Reward claimed successfully!");
 				break;
@@ -361,6 +375,7 @@ export function useRoomWebSocket({
 				break;
 
 			case "error":
+				playSound("/audio/error.wav");
 				lobbyActions.setError(message.message || "An error occurred");
 				// Map error codes to actions
 				const errorCodeToAction: Record<string, string> = {

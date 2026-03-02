@@ -1,4 +1,5 @@
 import { displayUserIdentifier } from "@/lib/utils";
+import { playSound } from "@/lib/audio/play-sound";
 import type {
 	LudoMessage,
 	LudoState,
@@ -168,6 +169,7 @@ export const handleLudoMessage = (
 		}
 
 		case "pawnMoved": {
+			playSound("/audio/pawn-move.mp3");
 			return {
 				...state,
 				lastEvent: {
@@ -185,6 +187,7 @@ export const handleLudoMessage = (
 		}
 
 		case "pawnCaptured": {
+			playSound("/audio/pawn-capture.wav");
 			toast.warning(
 				`${displayUserIdentifier(message.attacker)} captured ${displayUserIdentifier(message.victim)}'s pawn!`
 			);
@@ -203,6 +206,7 @@ export const handleLudoMessage = (
 		}
 
 		case "pawnFinished": {
+			playSound("/audio/success.mp3");
 			toast.success(
 				`${displayUserIdentifier(message.player)} got a pawn home! ${message.pawnsRemaining} remaining.`
 			);
@@ -265,6 +269,7 @@ export const handleLudoMessage = (
 		}
 
 		case "invalid": {
+			playSound("/audio/invalid.wav");
 			toast.error(message.reason);
 			return state;
 		}

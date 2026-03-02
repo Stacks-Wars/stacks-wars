@@ -786,6 +786,108 @@ Once you've implemented both the backend engine and frontend plugin, you need to
 
 ---
 
+## Adding Sound Effects
+
+Stacks Wars has a built-in audio system that plays sound effects in response to game events and player actions. When building a new game, you should add sounds to make the experience more engaging.
+
+### How It Works
+
+The `playSound` utility reads the user's SFX preference (enabled/disabled, volume) from the app store and plays a one-shot audio file:
+
+```typescript
+import { playSound } from "@/lib/audio/play-sound";
+
+// Play the default click sound
+playSound();
+
+// Play a specific sound
+playSound("/audio/dice-roll.wav");
+```
+
+All sound files live in the `apps/web/public/audio/` directory.
+
+### Where to Add Sounds
+
+There are two places to add sounds:
+
+#### 1. Player Actions (in `game.tsx`)
+
+Play sounds **immediately** when the player interacts — inside your action handlers, before sending the message. This gives instant feedback without waiting for a server round-trip.
+
+```tsx
+const handleRollDice = () => {
+	if (!canRoll) return;
+	playSound("/audio/dice-roll.wav"); // Immediate feedback
+	sendMessage("rollDice", null);
+};
+
+const handleSubmitWord = () => {
+	if (!word.trim()) return;
+	playSound(); // Default click sound
+	sendMessage("submitWord", { word });
+};
+```
+
+#### 2. Server Events (in `handler.ts`)
+
+Play sounds when the server broadcasts events — inside your message handler's switch cases.
+
+```typescript
+import { playSound } from "@/lib/audio/play-sound";
+
+case "pawnMoved": {
+  playSound("/audio/pawn-move.mp3");
+  return { ...state, /* update */ };
+}
+
+case "eliminated": {
+  playSound("/audio/error.wav");
+  toast.error(`${displayUserIdentifier(message.player)} was eliminated`);
+  return state;
+}
+
+case "invalid": {
+  playSound("/audio/invalid.wav");
+  toast.warning(message.reason);
+  return state;
+}
+```
+
+### Available Shared Sounds
+
+These sounds are already available in `public/audio/` and can be reused across games:
+
+| File          | Use case                                                |
+| ------------- | ------------------------------------------------------- |
+| `click.wav`   | Default UI interaction (buttons, selections)            |
+| `alert.wav`   | Notifications (player joined, word entry, game started) |
+| `beep.wav`    | Countdown ticks                                         |
+| `error.wav`   | Errors, eliminations                                    |
+| `invalid.wav` | Invalid actions (bad move, used word)                   |
+| `success.mp3` | Positive outcomes (pawn finished, level complete)       |
+| `end.mp3`     | Game over                                               |
+
+### Adding Game-Specific Sounds
+
+For sounds unique to your game (e.g., dice rolls, piece captures), add `.wav` or `.mp3` files to `apps/web/public/audio/`.
+
+<Callout type="info">
+	[OpenGameArt.org](https://opengameart.org/) is a great source for free,
+	open-licensed game sound effects. Search for keywords like "dice roll",
+	"piece move", "capture", "buzzer", etc.
+</Callout>
+
+**Naming convention:** use lowercase kebab-case — `dice-roll.wav`, `pawn-move.mp3`, `pawn-capture.wav`.
+
+### Sound Guidelines
+
+- **Player actions → `game.tsx`**: Play sounds immediately on click for instant feedback.
+- **Server events → `handler.ts`**: Play sounds when the event arrives so all players hear it.
+- **Skip sounds for**: High-frequency events like `countdown`, `playerUpdated`, `gameState`, `pong`, and `boardUpdate` — these fire too often and would be noisy.
+- **Reuse shared sounds** when possible. Only add game-specific files for distinctive actions (dice rolls, piece movements, captures).
+
+---
+
 ## Checklist
 
 Use this checklist when building a new game:
@@ -812,6 +914,7 @@ Use this checklist when building a new game:
 - [ ] Create plugin object with all required fields
 - [ ] Register plugin in `registry.ts`
 - [ ] Create the game info `page.tsx`
+- [ ] Add sound effects to player actions (`game.tsx`) and server events (`handler.ts`)
 
 **Testing:**
 

@@ -1,4 +1,5 @@
 import { displayUserIdentifier } from "@/lib/utils";
+import { playSound } from "@/lib/audio/play-sound";
 import type {
 	LudoRushMessage,
 	LudoRushState,
@@ -60,10 +61,7 @@ function normalizePosition(pos: unknown): PawnPosition {
 			return { type: "homeStretch", position: p.homeStretch };
 	}
 	// Fallback
-	console.warn(
-		"[LudoRush] Unknown position format, returning as-is:",
-		pos
-	);
+	console.warn("[LudoRush] Unknown position format, returning as-is:", pos);
 	return pos as PawnPosition;
 }
 
@@ -171,6 +169,7 @@ export const handleLudoRushMessage = (
 		}
 
 		case "pawnMoved": {
+			playSound("/audio/pawn-move.mp3");
 			return {
 				...state,
 				lastEvent: {
@@ -188,6 +187,7 @@ export const handleLudoRushMessage = (
 		}
 
 		case "pawnCaptured": {
+			playSound("/audio/pawn-capture.wav");
 			toast.warning(
 				`${displayUserIdentifier(message.attacker)} captured ${displayUserIdentifier(message.victim)}'s pawn and finished theirs! ⚡`
 			);
@@ -207,6 +207,7 @@ export const handleLudoRushMessage = (
 		}
 
 		case "pawnFinished": {
+			playSound("/audio/success.mp3");
 			toast.success(
 				`${displayUserIdentifier(message.player)} got a pawn home! ${message.pawnsRemaining} remaining.`
 			);
@@ -269,6 +270,7 @@ export const handleLudoRushMessage = (
 		}
 
 		case "invalid": {
+			playSound("/audio/invalid.wav");
 			toast.error(message.reason);
 			return state;
 		}
@@ -289,10 +291,7 @@ export const applyLudoRushGameState = (
 ): LudoRushState => {
 	const gameState = parseLudoRushGameState(rawGameState);
 	if (!gameState) {
-		console.warn(
-			"[LudoRush] Invalid game state received:",
-			rawGameState
-		);
+		console.warn("[LudoRush] Invalid game state received:", rawGameState);
 		return state;
 	}
 

@@ -10,6 +10,7 @@ import PlayerStats from "./_components/player-stats";
 import UnclaimedRewards from "./_components/unclaimed-rewards";
 import PlayerLobbies from "./_components/player-lobbies";
 import CreatedGames from "./_components/created-games";
+import AudioSettings from "./_components/audio-settings";
 
 const LogoutButton = dynamic(() => import("./_components/logout-button"));
 
@@ -118,6 +119,7 @@ export default async function UserProfile({
 						</AvatarFallback>
 					</Avatar>
 					<div className="flex gap-2">
+						<AudioSettings userProfile={user} />
 						<EditProfile userProfile={user} />
 
 						<LogoutButton userProfile={user} />

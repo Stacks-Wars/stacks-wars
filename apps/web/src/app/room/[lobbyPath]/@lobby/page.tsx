@@ -233,6 +233,8 @@ export default function LobbySlot() {
 		lobby.status === "waiting" &&
 		activePlayerCount >= game.minPlayers;
 
+	const isFull = activePlayerCount >= game.maxPlayers;
+
 	return (
 		<div className="container mx-auto p-4 pt-0">
 			{/* Countdown Overlay */}
@@ -261,6 +263,7 @@ export default function LobbySlot() {
 					playerStatus={
 						players.find((p) => p.userId === user?.id)?.status
 					}
+					isFull={isFull}
 				/>
 				<LobbyDetails />
 				<SponsorParticipation />

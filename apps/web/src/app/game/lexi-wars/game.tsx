@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/lib/stores/user";
 import { cn, displayUserIdentifier } from "@/lib/utils";
+import { playSound } from "@/lib/audio/play-sound";
 import RoomHeader from "@/components/room/room-header";
 import ChatDialog from "@/components/room/chat";
 import { toast } from "sonner";
@@ -36,6 +37,7 @@ export default function LexiWarsGame({
 
 		if (!word.trim() || !isMyTurn || isSubmitting) return;
 
+		playSound();
 		setIsSubmitting(true);
 		sendMessage("submitWord", { word: word.trim().toLowerCase() });
 		setWord("");
