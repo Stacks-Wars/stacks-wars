@@ -1,4 +1,5 @@
 import { displayUserIdentifier } from "@/lib/utils";
+import { playSound } from "@/lib/audio/play-sound";
 import type { LexiWarsMessage, LexiWarsState } from "./types";
 import { parseLexiWarsGameState } from "./types";
 import { toast } from "sonner";
@@ -39,6 +40,7 @@ export const handleLexiWarsMessage = (
 		}
 
 		case "wordEntry": {
+			playSound("/audio/alert.wav");
 			toast.info(
 				`${displayUserIdentifier(message.player)} entered: ${message.word}`
 			);
@@ -46,11 +48,13 @@ export const handleLexiWarsMessage = (
 		}
 
 		case "usedWord": {
+			playSound("/audio/invalid.wav");
 			toast.warning(`"${message.word}" has already been used`);
 			return state;
 		}
 
 		case "invalid": {
+			playSound("/audio/invalid.wav");
 			toast.warning(message.reason);
 			return state;
 		}
@@ -64,6 +68,7 @@ export const handleLexiWarsMessage = (
 		}
 
 		case "eliminated": {
+			playSound("/audio/error.wav");
 			toast.error(
 				`${displayUserIdentifier(message.player)} was eliminated`,
 				{

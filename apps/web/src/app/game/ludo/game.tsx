@@ -11,6 +11,7 @@ import {
 import { useUser } from "@/lib/stores/user";
 import { usePlayers } from "@/lib/stores/room";
 import { cn, displayUserIdentifier } from "@/lib/utils";
+import { playSound } from "@/lib/audio/play-sound";
 import RoomHeader from "@/components/room/room-header";
 import ChatDialog from "@/components/room/chat";
 import Image from "next/image";
@@ -81,16 +82,19 @@ export default function LudoGame({
 
 	const handleRollDice = () => {
 		if (!canRoll) return;
+		playSound("/audio/dice-roll.wav");
 		sendMessage("rollDice", null);
 	};
 
 	const handleSelectDiceValue = (diceValue: number) => {
 		if (!canMove) return;
+		playSound();
 		sendMessage("selectDiceValue", { diceValue });
 	};
 
 	const handleSelectPawn = (pawnId: number) => {
 		if (!canMove || !state.movablePawns.includes(pawnId)) return;
+		playSound();
 		// Immediately move the pawn (no confirm button)
 		sendMessage("movePawn", { pawnId });
 	};
@@ -680,7 +684,11 @@ type CellType =
 	  }
 	| { type: "homeStretch"; playerIndex: number; position: number };
 
-function getCellType(row: number, col: number, safeSquares: number[]): CellType {
+function getCellType(
+	row: number,
+	col: number,
+	safeSquares: number[]
+): CellType {
 	// Home bases (6x6 corners)
 	// Red: top-left (rows 0-5, cols 0-5)
 	if (row <= 5 && col <= 5) {
