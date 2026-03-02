@@ -198,8 +198,7 @@ export default async function LudoRushPage() {
 								<span className="text-orange-500">•</span>
 								<span>
 									<strong>Only 4 Safe Squares:</strong> Only
-									each player&apos;s entry point (positions 0,
-									13, 26, 39) is safe
+									each player&apos;s entry point is safe
 								</span>
 							</li>
 							<li className="flex items-start gap-2">
