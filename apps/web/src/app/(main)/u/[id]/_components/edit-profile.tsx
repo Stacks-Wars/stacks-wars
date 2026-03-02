@@ -132,7 +132,10 @@ export default function EditProfile({ userProfile }: EditProfileProps) {
 				<Dialog open={open} onOpenChange={setOpen}>
 					<DialogTrigger asChild>
 						<Button className="bg-muted hover:bg-muted/90 h-6 -translate-y-1/2 rounded-full text-xs has-[>svg]:px-3.5 sm:h-12 sm:text-base sm:has-[>svg]:px-7">
-							<FiEdit3 /> Edit Profile
+							<FiEdit3 />{" "}
+							<span className="hidden sm:inline">
+								Edit Profile
+							</span>
 						</Button>
 					</DialogTrigger>
 					<DialogContent className="rounded-4xl sm:max-w-106.25">

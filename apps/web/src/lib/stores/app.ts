@@ -34,6 +34,10 @@ interface AppActions {
 	setLobbyCreationProgress: (progress: LobbyCreationProgress) => void;
 	clearLobbyCreationProgress: () => void;
 	handleContinue: (userWalletAddress: string) => Promise<ApiResponse<Lobby>>;
+	setMusicEnabled: (enabled: boolean) => void;
+	setSfxEnabled: (enabled: boolean) => void;
+	setMusicVolume: (volume: number) => void;
+	setSfxVolume: (volume: number) => void;
 }
 
 interface AppStore {
@@ -41,6 +45,10 @@ interface AppStore {
 	lobbyOffset: number;
 	hasHydrated: boolean;
 	lobbyCreationProgress: LobbyCreationProgress | null;
+	musicEnabled: boolean;
+	sfxEnabled: boolean;
+	musicVolume: number;
+	sfxVolume: number;
 
 	actions: AppActions;
 }
@@ -52,6 +60,10 @@ const useAppStore = create<AppStore>()(
 			lobbyOffset: 0,
 			hasHydrated: false,
 			lobbyCreationProgress: null,
+			musicEnabled: true,
+			sfxEnabled: true,
+			musicVolume: 0.3,
+			sfxVolume: 0.5,
 
 			actions: {
 				setLobbyFilter: (filter) => set({ lobbyFilter: filter }),
@@ -69,6 +81,10 @@ const useAppStore = create<AppStore>()(
 				},
 				clearLobbyCreationProgress: () =>
 					set({ lobbyCreationProgress: null }),
+				setMusicEnabled: (enabled) => set({ musicEnabled: enabled }),
+				setSfxEnabled: (enabled) => set({ sfxEnabled: enabled }),
+				setMusicVolume: (volume) => set({ musicVolume: volume }),
+				setSfxVolume: (volume) => set({ sfxVolume: volume }),
 				handleContinue: async (userWalletAddress: string) => {
 					const progress = get().lobbyCreationProgress;
 					if (!progress) {
@@ -146,6 +162,10 @@ const useAppStore = create<AppStore>()(
 				lobbyFilter: state.lobbyFilter,
 				lobbyOffset: state.lobbyOffset,
 				lobbyCreationProgress: state.lobbyCreationProgress,
+				musicEnabled: state.musicEnabled,
+				sfxEnabled: state.sfxEnabled,
+				musicVolume: state.musicVolume,
+				sfxVolume: state.sfxVolume,
 			}),
 			onRehydrateStorage: () => (state, error) => {
 				if (state && state.lobbyCreationProgress) {
@@ -166,4 +186,14 @@ export const useAppHasHydrated = () =>
 	useAppStore((state) => state.hasHydrated);
 export const useLobbyCreationProgress = () =>
 	useAppStore((state) => state.lobbyCreationProgress);
+export const useMusicEnabled = () => useAppStore((state) => state.musicEnabled);
+export const useSfxEnabled = () => useAppStore((state) => state.sfxEnabled);
+export const useMusicVolume = () => useAppStore((state) => state.musicVolume);
+export const useSfxVolume = () => useAppStore((state) => state.sfxVolume);
 export const useAppActions = () => useAppStore((state) => state.actions);
+
+/** Read audio state outside of React (for playSound utility) */
+export const getAudioState = () => {
+	const { sfxEnabled, sfxVolume } = useAppStore.getState();
+	return { sfxEnabled, sfxVolume };
+};
