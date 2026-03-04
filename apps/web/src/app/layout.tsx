@@ -96,6 +96,10 @@ export const metadata: Metadata = {
 	manifest: "/site.webmanifest",
 	applicationName: "Stacks Wars",
 	category: "Gaming",
+	other: {
+		"talentapp:project_verification":
+			"bb1b5c4ae2f1b27e393e36618d6919d5c70efbc752784e0468cb5a73fa4fb11245bbad53985339ee6b089d7db184e373140b0162eb1d4c6a44bceb3c1150f610",
+	},
 };
 
 export default function RootLayout({
