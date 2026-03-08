@@ -82,6 +82,7 @@ struct LudoInner {
     move_generation: u64,
 
     // Prize/points calculation context
+    game_id: Option<Uuid>,
     entry_amount: Option<f64>,
     current_amount: Option<f64>,
     is_sponsored: bool,
@@ -113,6 +114,7 @@ impl LudoInner {
             selected_dice_value: None,
             movable_pawns: Vec::new(),
             move_generation: 0,
+            game_id: None,
             entry_amount: None,
             current_amount: None,
             is_sponsored: false,
@@ -209,6 +211,7 @@ impl LudoEngine {
     /// Set lobby context for prize/points calculation
     pub async fn set_lobby_context(
         &self,
+        game_id: Uuid,
         entry_amount: Option<f64>,
         current_amount: Option<f64>,
         is_sponsored: bool,
@@ -217,6 +220,7 @@ impl LudoEngine {
         token_contract_id: Option<String>,
     ) {
         let mut inner = self.inner.write().await;
+        inner.game_id = Some(game_id);
         inner.entry_amount = entry_amount;
         inner.current_amount = current_amount;
         inner.is_sponsored = is_sponsored;
@@ -268,6 +272,7 @@ impl LudoInner {
     ) -> WarsPointContext {
         WarsPointContext {
             user_id,
+            game_id: self.game_id,
             rank,
             prize,
             participants: self.total_players,
@@ -930,6 +935,7 @@ impl LudoInner {
 impl GameEngine for LudoEngine {
     async fn set_lobby_context(
         &mut self,
+        game_id: Uuid,
         entry_amount: Option<f64>,
         current_amount: Option<f64>,
         is_sponsored: bool,
@@ -938,6 +944,7 @@ impl GameEngine for LudoEngine {
         token_contract_id: Option<String>,
     ) {
         let mut inner = self.inner.write().await;
+        inner.game_id = Some(game_id);
         inner.entry_amount = entry_amount;
         inner.current_amount = current_amount;
         inner.is_sponsored = is_sponsored;

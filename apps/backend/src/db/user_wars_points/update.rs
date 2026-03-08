@@ -60,88 +60,48 @@ impl UserWarsPointsRepository {
             season_repo.get_current_season_id().await?
         };
 
-        // Try to fetch existing entry
-        let existing = sqlx::query_as::<_, UserWarsPoints>(
-            "SELECT id, user_id, season_id, points, rank_badge, total_matches, total_wins, total_pnl, win_rate, created_at, updated_at
-            FROM user_wars_points
-            WHERE user_id = $1 AND season_id = $2",
+        let points_delta = wars_point.unwrap_or(0.0);
+        let wins_delta = if is_winner { 1 } else { 0 };
+
+        let entry = entry_amount.unwrap_or(0.0);
+        let prize_amount = prize.unwrap_or(0.0);
+        let pnl_delta = prize_amount - entry;
+
+        let initial_win_rate = if wins_delta > 0 { 100.0 } else { 0.0 };
+
+        sqlx::query(
+            "INSERT INTO user_wars_points (
+                user_id,
+                season_id,
+                points,
+                total_matches,
+                total_wins,
+                total_pnl,
+                win_rate
+            )
+            VALUES ($1, $2, $3, 1, $4, $5, $6)
+            ON CONFLICT (user_id, season_id)
+            DO UPDATE SET
+                points = user_wars_points.points + EXCLUDED.points,
+                total_matches = user_wars_points.total_matches + 1,
+                total_wins = user_wars_points.total_wins + EXCLUDED.total_wins,
+                total_pnl = user_wars_points.total_pnl + EXCLUDED.total_pnl,
+                win_rate = CASE
+                    WHEN user_wars_points.total_matches + 1 > 0
+                    THEN ((user_wars_points.total_wins + EXCLUDED.total_wins)::double precision / (user_wars_points.total_matches + 1)::double precision) * 100.0
+                    ELSE 0.0
+                END,
+                updated_at = NOW()",
         )
         .bind(user_id)
         .bind(season_id)
-        .fetch_optional(&self.pool)
+        .bind(points_delta)
+        .bind(wins_delta)
+        .bind(pnl_delta)
+        .bind(initial_win_rate)
+        .execute(&self.pool)
         .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to get user wars points: {}", e)))?;
-
-        if let Some(mut points) = existing {
-            // Apply wars points if provided
-            if let Some(wp) = wars_point {
-                points.points += wp;
-            }
-
-            // Update stats
-            points.total_matches += 1;
-            if is_winner {
-                points.total_wins += 1;
-            }
-
-            let entry = entry_amount.unwrap_or(0.0);
-            let prize_amount = prize.unwrap_or(0.0);
-            let pnl_addition = prize_amount - entry;
-
-            points.total_pnl += pnl_addition;
-            points.win_rate = if points.total_matches > 0 {
-                (points.total_wins as f64 / points.total_matches as f64) * 100.0
-            } else {
-                0.0
-            };
-
-            // Persist
-            sqlx::query(
-                "UPDATE user_wars_points
-                SET points = $1, total_matches = $2, total_wins = $3, total_pnl = $4, win_rate = $5, updated_at = NOW()
-                WHERE id = $6",
-            )
-            .bind(points.points)
-            .bind(points.total_matches)
-            .bind(points.total_wins)
-            .bind(points.total_pnl)
-            .bind(points.win_rate)
-            .bind(points.id)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| AppError::DatabaseError(format!("Failed to update player stats: {}", e)))?;
-        } else {
-            // Create new entry
-            let initial_points = wars_point.unwrap_or(0.0);
-            let total_matches = 1;
-            let total_wins = if is_winner { 1 } else { 0 };
-
-            let entry = entry_amount.unwrap_or(0.0);
-            let prize_amount = prize.unwrap_or(0.0);
-            let total_pnl = prize_amount - entry;
-
-            let win_rate = if total_matches > 0 {
-                (total_wins as f64 / total_matches as f64) * 100.0
-            } else {
-                0.0
-            };
-
-            let _new_id = sqlx::query_scalar::<_, Uuid>(
-                "INSERT INTO user_wars_points (user_id, season_id, points, total_matches, total_wins, total_pnl, win_rate)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                RETURNING id",
-            )
-            .bind(user_id)
-            .bind(season_id)
-            .bind(initial_points)
-            .bind(total_matches)
-            .bind(total_wins)
-            .bind(total_pnl)
-            .bind(win_rate)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| AppError::DatabaseError(format!("Failed to create player stats: {}", e)))?;
-        }
+        .map_err(|e| AppError::DatabaseError(format!("Failed to upsert player stats: {}", e)))?;
 
         tracing::debug!(
             "Updated player stats for {}: season={}, wars_point={:?}",
