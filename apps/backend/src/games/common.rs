@@ -12,6 +12,7 @@ use crate::{
     db::{
         lobby::LobbyRepository, lobby_state::LobbyStateRepository,
         player_state::PlayerStateRepository, season::SeasonRepository,
+        user_game_stats::UserGameStatsRepository,
         user_wars_points::UserWarsPointsRepository,
     },
     errors::AppError,
@@ -335,6 +336,21 @@ pub async fn save_player_result(
                 is_winner,
             )
             .await?;
+
+        if let Some(game_id) = ctx.game_id {
+            let game_stats_repo = UserGameStatsRepository::new(state.postgres.clone());
+            game_stats_repo
+                .update_game_stats(
+                    ctx.user_id,
+                    game_id,
+                    Some(season_id),
+                    Some(wars_point),
+                    stx_entry_amount,
+                    stx_prize,
+                    is_winner,
+                )
+                .await?;
+        }
     }
 
     Ok(PlayerResult {
@@ -409,6 +425,7 @@ pub async fn save_game_summary(
 #[derive(Debug, Clone)]
 pub struct WarsPointContext {
     pub user_id: Uuid,
+    pub game_id: Option<Uuid>,
     pub rank: usize,
     pub prize: Option<f64>,
     pub participants: usize,

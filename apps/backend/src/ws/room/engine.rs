@@ -687,6 +687,7 @@ pub async fn handle_room_message(
                         // Set lobby context with the calculated game amount
                         engine
                             .set_lobby_context(
+                                game_id,
                                 db_lobby.entry_amount,
                                 game_current_amount,
                                 db_lobby.is_sponsored,

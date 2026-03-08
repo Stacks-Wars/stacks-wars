@@ -1,12 +1,19 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ApiClient } from "@/lib/api/client";
-import type { User, Game, LeaderBoard, LobbyInfo } from "@/lib/definitions";
+import type {
+	User,
+	Game,
+	LeaderBoard,
+	LobbyInfo,
+	UserTopGame,
+} from "@/lib/definitions";
 import { formatAddress } from "@/lib/utils";
 import Image from "next/image";
 import type { Metadata } from "next";
 import EditProfile from "./_components/edit-profile";
 import dynamic from "next/dynamic";
 import PlayerStats from "./_components/player-stats";
+import TopGames from "./_components/top-games";
 import UnclaimedRewards from "./_components/unclaimed-rewards";
 import PlayerLobbies from "./_components/player-lobbies";
 import CreatedGames from "./_components/created-games";
@@ -69,13 +76,17 @@ export default async function UserProfile({
 	const user = await getUser(id);
 
 	// Run remaining requests in parallel
-	const [gamesResult, statsResult, lobbiesResult] = await Promise.allSettled([
-		ApiClient.get<Game[]>(`/api/game/by-creator/${user.id}`),
-		ApiClient.get<LeaderBoard>(`/api/leaderboard/${user.id}`),
-		ApiClient.get<{ 0: LobbyInfo[]; 1: number }>(
-			`/api/player-lobby/${user.id}?status=waiting,starting,inProgress&limit=6&offset=0`
-		),
-	]);
+	const [gamesResult, statsResult, lobbiesResult, topGamesResult] =
+		await Promise.allSettled([
+			ApiClient.get<Game[]>(`/api/game/by-creator/${user.id}`),
+			ApiClient.get<LeaderBoard>(`/api/leaderboard/${user.id}`),
+			ApiClient.get<{ 0: LobbyInfo[]; 1: number }>(
+				`/api/player-lobby/${user.id}?status=waiting,starting,inProgress&limit=6&offset=0`
+			),
+			ApiClient.get<UserTopGame[]>(
+				`/api/user/${user.id}/top-games?limit=6`
+			),
+		]);
 
 	const games =
 		gamesResult.status === "fulfilled" ? gamesResult.value.data || [] : [];
@@ -89,6 +100,10 @@ export default async function UserProfile({
 		lobbiesResult.status === "fulfilled"
 			? lobbiesResult.value.data?.[1] || 0
 			: 0;
+	const topGames =
+		topGamesResult.status === "fulfilled"
+			? topGamesResult.value.data || []
+			: [];
 
 	return (
 		<div className="container mx-auto sm:px-4">
@@ -146,6 +161,7 @@ export default async function UserProfile({
 					<PlayerStats stats={playerStats} />
 				</div>
 			)}
+			<TopGames topGames={topGames} />
 			<UnclaimedRewards userId={user.id} />
 			<PlayerLobbies
 				userId={user.id}

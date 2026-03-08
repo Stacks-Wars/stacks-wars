@@ -23,9 +23,11 @@ import { formatAddress, formatAmount } from "@/lib/utils";
 import Link from "next/link";
 import {
 	useLeaderboard,
+	useGameLeaderboard,
 	useLeaderboardTotal,
 	useLeaderboardLoading,
 	useLeaderboardPage,
+	useLeaderboardGameId,
 	useLeaderboardActions,
 } from "@/lib/stores/leaderboard";
 import Image from "next/image";
@@ -62,9 +64,11 @@ export default function LeaderBoardTable({
 	total: initialTotal,
 }: LeaderBoardTableProps) {
 	const leaderboard = useLeaderboard();
+	const gameLeaderboard = useGameLeaderboard();
 	const total = useLeaderboardTotal();
 	const loading = useLeaderboardLoading();
 	const page = useLeaderboardPage();
+	const gameId = useLeaderboardGameId();
 	const actions = useLeaderboardActions();
 
 	useEffect(() => {
@@ -76,6 +80,43 @@ export default function LeaderBoardTable({
 	};
 
 	const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+	// Normalize rows: both LeaderBoard and GameLeaderBoard share the same display fields
+	const rows: Array<{
+		id: string;
+		rankBadge?: string;
+		walletAddress: string;
+		displayName?: string;
+		username?: string;
+		profileImage?: string;
+		points: number;
+		winRate: number;
+		totalMatches: number;
+		totalPnl: number;
+	}> = gameId
+		? gameLeaderboard.map((r) => ({
+				id: r.id,
+				walletAddress: r.walletAddress,
+				displayName: r.displayName,
+				username: r.username,
+				profileImage: r.profileImage,
+				points: r.points,
+				winRate: r.winRate,
+				totalMatches: r.totalMatches,
+				totalPnl: r.totalPnl,
+			}))
+		: leaderboard.map((r) => ({
+				id: r.id,
+				rankBadge: r.rankBadge,
+				walletAddress: r.walletAddress,
+				displayName: r.displayName,
+				username: r.username,
+				profileImage: r.profileImage,
+				points: r.points,
+				winRate: r.winRate,
+				totalMatches: r.totalMatches,
+				totalPnl: r.totalPnl,
+			}));
 
 	return (
 		<div className="">
@@ -126,7 +167,7 @@ export default function LeaderBoardTable({
 					<TableSkeleton />
 				) : (
 					<TableBody>
-						{leaderboard.map((row) => (
+						{rows.map((row) => (
 							<TableRow
 								key={row.id}
 								className={`border-none hover:bg-white/5`}

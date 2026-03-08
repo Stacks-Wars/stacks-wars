@@ -40,6 +40,7 @@ pub trait GameEngine: Send + Sync {
     /// Should be called after creation and before initialize()
     async fn set_lobby_context(
         &mut self,
+        _game_id: Uuid,
         _entry_amount: Option<f64>,
         _current_amount: Option<f64>,
         _is_sponsored: bool,

@@ -1,5 +1,5 @@
 import { ApiClient } from "@/lib/api/client";
-import type { PlatformStats } from "@/lib/definitions";
+import type { PlatformStats, GameStats } from "@/lib/definitions";
 import {
 	Card,
 	CardContent,
@@ -8,6 +8,7 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import Image from "next/image";
 
 function formatNumber(n: number): string {
 	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
@@ -37,8 +38,12 @@ function formatPrice(n: number): string {
 }
 
 export default async function StatsPage() {
-	const res = await ApiClient.get<PlatformStats>("/api/stats");
+	const [res, gameStatsRes] = await Promise.all([
+		ApiClient.get<PlatformStats>("/api/stats"),
+		ApiClient.get<GameStats[]>("/api/stats/games"),
+	]);
 	const stats = res.data;
+	const gameStats = gameStatsRes.data || [];
 
 	if (!stats) {
 		return (
@@ -333,6 +338,130 @@ export default async function StatsPage() {
 						</div>
 					</CardContent>
 				</Card>
+			</div>
+
+			{/* Game Breakdown */}
+			<div className="mt-10">
+				<div className="mb-5">
+					<h2 className="text-xl font-bold md:text-2xl">
+						Game Breakdown
+					</h2>
+					<p className="text-muted-foreground text-sm">
+						Per-game statistics and player engagement
+					</p>
+				</div>
+
+				{gameStats.length > 0 ? (
+					<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+						{gameStats.map((game) => {
+							const matchShare =
+								stats.totalLobbies > 0
+									? (game.totalMatches / stats.totalLobbies) *
+										100
+									: 0;
+
+							return (
+								<Card
+									key={game.gameId}
+									className="overflow-hidden"
+								>
+									<CardHeader className="pb-3">
+										<div className="flex items-center justify-between">
+											<div className="flex items-center gap-3">
+												<Image
+													src={game.gameImageUrl}
+													alt={game.gameName}
+													width={40}
+													height={40}
+													className="size-10 rounded-lg object-cover"
+												/>
+												<div>
+													<CardTitle className="text-lg">
+														{game.gameName}
+													</CardTitle>
+													<p className="text-muted-foreground text-xs">
+														{game.totalPlayers}{" "}
+														active{" "}
+														{game.totalPlayers === 1
+															? "player"
+															: "players"}
+													</p>
+												</div>
+											</div>
+											<Badge
+												variant="secondary"
+												className="text-xs"
+											>
+												{matchShare.toFixed(1)}%
+											</Badge>
+										</div>
+									</CardHeader>
+									<CardContent className="space-y-4">
+										<div className="grid grid-cols-2 gap-4">
+											<div>
+												<p className="text-muted-foreground text-xs">
+													Total Matches
+												</p>
+												<p className="text-sm font-semibold">
+													{formatNumber(
+														game.totalMatches
+													)}
+												</p>
+											</div>
+											<div>
+												<p className="text-muted-foreground text-xs">
+													Total Wins
+												</p>
+												<p className="text-sm font-semibold">
+													{formatNumber(
+														game.totalWins
+													)}
+												</p>
+											</div>
+											<div>
+												<p className="text-muted-foreground text-xs">
+													Avg Win Rate
+												</p>
+												<p className="text-sm font-semibold">
+													{game.avgWinRate.toFixed(1)}
+													%
+												</p>
+											</div>
+											<div>
+												<p className="text-muted-foreground text-xs">
+													Wars Points
+												</p>
+												<p className="text-sm font-semibold">
+													{formatNumber(
+														game.totalPoints
+													)}
+												</p>
+											</div>
+										</div>
+
+										{/* Match share bar */}
+										<div className="bg-muted h-1.5 overflow-hidden rounded-full">
+											<div
+												className="bg-primary h-full rounded-full transition-all"
+												style={{
+													width: `${Math.min(Math.max(matchShare, 1), 100)}%`,
+												}}
+											/>
+										</div>
+									</CardContent>
+								</Card>
+							);
+						})}
+					</div>
+				) : (
+					<Card>
+						<CardContent className="py-12 text-center">
+							<p className="text-muted-foreground text-sm">
+								No game statistics available yet
+							</p>
+						</CardContent>
+					</Card>
+				)}
 			</div>
 
 			{/* Footer */}
