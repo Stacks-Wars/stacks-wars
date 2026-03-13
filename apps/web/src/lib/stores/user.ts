@@ -96,8 +96,9 @@ const useUserStore = create<UserStore>((set, get) => ({
 
 		fetchMinimumAmount: async (contractId) => {
 			try {
-				const response = await ApiClient.get<TokenInfo>(
-					`/api/token/${contractId}`
+				const response = await ApiClient.post<TokenInfo>(
+					`/api/token/${contractId}`,
+					{ stx_amount: 5 }
 				);
 				if (response.data) {
 					set({ minimumAmount: response.data.minimumAmount });

@@ -1,6 +1,6 @@
 // Read-focused API routes mounted under `/api` (public/read-only)
 
-use axum::{Router, middleware::from_fn_with_state, routing::get};
+use axum::{Router, middleware::from_fn_with_state, routing::{get, post}};
 
 use crate::{
     http::handlers::{
@@ -40,7 +40,7 @@ pub fn routes(state_for_layer: AppState) -> Router<AppState> {
         .route("/lobby/my", get(list_my_lobbies))
         .route("/season/current", get(get_current_season))
         .route("/season", get(list_seasons))
-        .route("/token/{contract_address}", get(get_token_info))
+        .route("/token/{contract_address}", post(get_token_info))
         .route("/contract", get(get_contract))
         .route("/sponsored-contract", get(get_sponsored_contract))
         .route("/balance/{wallet_address}", get(get_balance))
