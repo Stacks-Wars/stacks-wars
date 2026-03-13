@@ -114,13 +114,15 @@ export default function SponsoredLobbyForm({
 		setProgress(null);
 		try {
 			const amount = parseFloat(values.poolAmount);
-			if (amount < minimumAmount) {
-				setError(`Pool amount must be at least ${minimumAmount}`);
-				return;
-			}
 			const selectedTokenObj = tokens.find(
 				(t) => t.contractId === values.selectedToken
 			);
+			if (amount < minimumAmount) {
+				setError(
+					`Pool amount must be at least ${formatAmount(minimumAmount)} ${selectedTokenObj?.name}`
+				);
+				return;
+			}
 			const payload: CreateLobbyRequest = {
 				name: values.lobbyName,
 				description:
@@ -379,7 +381,7 @@ export default function SponsoredLobbyForm({
 				</div>
 				<FormDescription>
 					The total prize pool you will fund. Minimum:{" "}
-					{minimumAmount.toFixed(2)} ≈ $10
+					{minimumAmount.toFixed(2)} (equivalent to 5 STX)
 				</FormDescription>
 				{error && <p className="text-destructive text-sm">{error}</p>}
 				{isUserLoading ? (

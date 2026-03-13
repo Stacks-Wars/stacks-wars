@@ -304,13 +304,13 @@ pub async fn save_player_result(
             if let Some(contract_id) = ctx.token_contract_id.as_deref() {
                 let entry = match ctx.entry_amount {
                     Some(amt) if amt > 0.0 => {
-                        Some(convert_to_stx(contract_id, amt).await)
+                        Some(convert_to_stx(contract_id, amt, &state.redis).await)
                     }
                     other => other,
                 };
                 let prize = match ctx.prize {
                     Some(amt) if amt > 0.0 => {
-                        Some(convert_to_stx(contract_id, amt).await)
+                        Some(convert_to_stx(contract_id, amt, &state.redis).await)
                     }
                     other => other,
                 };

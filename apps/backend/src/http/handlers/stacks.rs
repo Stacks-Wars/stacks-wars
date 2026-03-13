@@ -1,7 +1,7 @@
 use crate::{
     errors::AppError,
     models::{
-        WalletAddress,
+        WalletAddress, keys::RedisKey,
         stacks::{Token, TokenInfo},
     },
     state::{AppState, RedisClient},
@@ -64,6 +64,19 @@ pub struct CachedTokenPrice {
     pub image_url: Option<String>,
 }
 
+/// Request body for token info endpoint
+#[derive(Debug, Deserialize)]
+pub struct TokenInfoRequest {
+    /// Optional STX amount to calculate minimum equivalent in this token.
+    /// Defaults to 5 if not provided.
+    #[serde(default = "default_stx_amount")]
+    pub stx_amount: f64,
+}
+
+fn default_stx_amount() -> f64 {
+    5.0
+}
+
 /// Fetch token price + image from stxtools.io with Redis caching (5-min TTL).
 ///
 /// Returns `CachedTokenPrice` with price_usd and image_url.
@@ -72,7 +85,7 @@ pub async fn get_token_price_data(
     token_contract_id: &str,
     redis_pool: &RedisClient,
 ) -> CachedTokenPrice {
-    let cache_key = format!("price:data:{}", token_contract_id);
+    let cache_key = RedisKey::token_price_data(token_contract_id);
     let default = CachedTokenPrice { price_usd: 0.0, image_url: None };
 
     // Try cache first
@@ -129,14 +142,6 @@ pub async fn get_token_price_data(
     result
 }
 
-/// Get token price in USD from stxtools.io with Redis caching (5-min TTL).
-pub async fn get_token_price_usd(
-    token_contract_id: &str,
-    redis_pool: &RedisClient,
-) -> f64 {
-    get_token_price_data(token_contract_id, redis_pool).await.price_usd
-}
-
 /// Convert a token amount to USD using stxtools.io prices.
 ///
 /// Returns 0.0 on any failure (network error, missing price, etc.)
@@ -148,61 +153,37 @@ pub async fn convert_to_usd(
     if amount <= 0.0 {
         return 0.0;
     }
-    let price = get_token_price_usd(token_contract_id, redis_pool).await;
+    let price = get_token_price_data(token_contract_id, redis_pool).await.price_usd;
     amount * price
 }
 
-/// Convert a token amount to its STX equivalent using stxtools.io prices.
+/// Convert a token amount to its STX equivalent using stxtools.io prices with Redis caching.
 ///
-/// Fetches the USD price of both the token and STX, then computes:
+/// Fetches the USD price of both the token and STX (using Redis cache with 5-min TTL),
+/// then computes:
 ///   stx_amount = amount * (token_price_usd / stx_price_usd)
 ///
 /// Returns 0.0 on any failure (network error, missing price, etc.)
-pub async fn convert_to_stx(token_contract_id: &str, amount: f64) -> f64 {
+pub async fn convert_to_stx(
+    token_contract_id: &str,
+    amount: f64,
+    redis_pool: &RedisClient,
+) -> f64 {
     if amount <= 0.0 {
         return 0.0;
     }
 
-    let client = Client::new();
+    // Fetch token price from cache
+    let token_price = get_token_price_data(token_contract_id, redis_pool).await.price_usd;
+    if token_price <= 0.0 {
+        tracing::warn!("Token price is zero for {}, skipping conversion", token_contract_id);
+        return 0.0;
+    }
 
-    let token_url = format!("https://api.stxtools.io/tokens/{}", token_contract_id);
-    let stx_url = "https://api.stxtools.io/tokens/stx".to_string();
-
-    let (token_res, stx_res) = tokio::join!(
-        client.get(&token_url).send(),
-        client.get(&stx_url).send(),
-    );
-
-    let token_price = match token_res {
-        Ok(resp) => match resp.json::<StxToolsResponse>().await {
-            Ok(data) => data.metrics.price_usd,
-            Err(e) => {
-                tracing::warn!("Failed to parse token price for {}: {}", token_contract_id, e);
-                return 0.0;
-            }
-        },
-        Err(e) => {
-            tracing::warn!("Failed to fetch token price for {}: {}", token_contract_id, e);
-            return 0.0;
-        }
-    };
-
-    let stx_price = match stx_res {
-        Ok(resp) => match resp.json::<StxToolsResponse>().await {
-            Ok(data) => data.metrics.price_usd,
-            Err(e) => {
-                tracing::warn!("Failed to parse STX price: {}", e);
-                return 0.0;
-            }
-        },
-        Err(e) => {
-            tracing::warn!("Failed to fetch STX price: {}", e);
-            return 0.0;
-        }
-    };
-
+    // Fetch STX price from cache
+    let stx_price = get_token_price_data("stx", redis_pool).await.price_usd;
     if stx_price <= 0.0 {
-        tracing::warn!("STX price is zero or negative, skipping conversion");
+        tracing::warn!("STX price is zero, skipping conversion");
         return 0.0;
     }
 
@@ -372,10 +353,11 @@ fn serialize_principal(address: &str) -> Result<String, AppError> {
     Ok(format!("0x{}", hex::encode(principal_bytes)))
 }
 
-/// Get token information including price and minimum amount for $10 USD
+/// Get token information including price and minimum amount for the requested STX amount
 pub async fn get_token_info(
     Path(contract_address_str): Path<String>,
     State(state): State<AppState>,
+    Json(req): Json<TokenInfoRequest>,
 ) -> Result<Json<TokenInfo>, (StatusCode, String)> {
     let contract_address =
         WalletAddress::try_from(contract_address_str.as_str()).map_err(|_| {
@@ -392,33 +374,31 @@ pub async fn get_token_info(
         }));
     }
 
-    let url = format!(
-        "https://api.stxtools.io/tokens/{}",
-        contract_address.as_str()
-    );
-
-    let client = Client::new();
-    let response = client
-        .get(&url)
-        .header("Accept", "application/json")
-        .send()
-        .await
-        .map_err(|e| AppError::FetchError(e.to_string()).to_response())?;
-
-    if !response.status().is_success() {
-        return Err(AppError::NotFound("Token not found".to_string()).to_response());
+    // Special case: STX token just returns the requested amount directly, no API call needed
+    if contract_address_str.eq_ignore_ascii_case("stx") {
+        return Ok(Json(TokenInfo {
+            price: get_token_price_data("stx", &state.redis).await.price_usd,
+            minimum_amount: req.stx_amount,
+        }));
     }
 
-    let token_data: StxToolsResponse = response
-        .json()
-        .await
-        .map_err(|e| AppError::Deserialization(e.to_string()).to_response())?;
+    // Fetch token price from cache
+    let token_price = get_token_price_data(contract_address.as_str(), &state.redis).await.price_usd;
+    if token_price <= 0.0 {
+        return Err(AppError::NotFound("Token not found or price unavailable".to_string()).to_response());
+    }
 
-    let price = token_data.metrics.price_usd;
-    let minimum_amount = if price > 0.0 { 10.0 / price } else { 0.0 };
+    // Fetch STX price from cache to calculate minimum
+    let stx_price = get_token_price_data("stx", &state.redis).await.price_usd;
+    if stx_price <= 0.0 {
+        return Err(AppError::FetchError("STX price unavailable".to_string()).to_response());
+    }
+
+    // Minimum is the requested STX amount (defaults to 5) in equivalent token
+    let minimum_amount = req.stx_amount * (stx_price / token_price);
 
     Ok(Json(TokenInfo {
-        price,
+        price: token_price,
         minimum_amount,
     }))
 }

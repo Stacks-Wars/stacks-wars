@@ -183,4 +183,14 @@ impl RedisKey {
             KeyPart::Str(jti.to_string()),
         ])
     }
+
+    /// Key for cached token price data (pattern: `price:data:{token_contract_id}`).
+    /// Stores CachedTokenPrice (price_usd and image_url) with 5-minute TTL.
+    pub fn token_price_data(token_contract_id: impl Into<KeyPart>) -> String {
+        Self::build(&[
+            KeyPart::Str("price".to_string()),
+            KeyPart::Str("data".to_string()),
+            token_contract_id.into(),
+        ])
+    }
 }
