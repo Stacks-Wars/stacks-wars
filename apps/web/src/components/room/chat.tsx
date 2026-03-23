@@ -50,20 +50,61 @@ export default function ChatDialog({
 	const lobby = useLobby();
 	const { sendLobbyMessage } = useRoom();
 	const scrollRef = useRef<HTMLDivElement>(null);
+	const prevMessagesLengthRef = useRef(0);
 	const [showReactionPicker, setShowReactionPicker] = useState<string | null>(
 		null
 	);
 
 	const [newMessage, setNewMessage] = useState("");
+	const [unreadCount, setUnreadCount] = useState(0);
 	const isSending = useIsActionLoading("sendMessage");
 	const isFinished = lobby?.status === "finished";
 
-	// Auto-scroll to bottom when new messages arrive
 	useEffect(() => {
-		if (scrollRef.current) {
-			scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+		const previousLength = prevMessagesLengthRef.current;
+
+		if (previousLength === 0) {
+			setUnreadCount(open ? 0 : messages.length);
+			prevMessagesLengthRef.current = messages.length;
+			return;
 		}
-	}, [messages]);
+
+		const newMessages = messages.length - previousLength;
+		if (newMessages > 0 && !open) {
+			setUnreadCount((count) => count + newMessages);
+		}
+
+		prevMessagesLengthRef.current = messages.length;
+	}, [messages.length, open]);
+
+	const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+		if (!scrollRef.current) return;
+		scrollRef.current.scrollTo({
+			top: scrollRef.current.scrollHeight,
+			behavior,
+		});
+	};
+
+	// Auto-scroll to bottom when chat opens
+	useEffect(() => {
+		if (!open) return;
+		setUnreadCount(0);
+		const timer = window.setTimeout(() => {
+			scrollToBottom("auto");
+		}, 0);
+
+		return () => window.clearTimeout(timer);
+	}, [open]);
+
+	// Auto-scroll to bottom when new messages arrive while chat is open
+	useEffect(() => {
+		if (!open) return;
+		const timer = window.setTimeout(() => {
+			scrollToBottom("smooth");
+		}, 0);
+
+		return () => window.clearTimeout(timer);
+	}, [messages.length, open]);
 
 	// Create a lookup map for player info
 	const playerMap = useMemo(() => {
@@ -140,11 +181,9 @@ export default function ChatDialog({
 							)}
 						>
 							<MessageCircle className="size-5" />
-							{messages.length > 0 && (
+							{unreadCount > 0 && (
 								<span className="bg-primary text-primary-foreground absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-medium">
-									{messages.length > 99
-										? "99+"
-										: messages.length}
+									{unreadCount > 99 ? "99+" : unreadCount}
 								</span>
 							)}
 						</Button>
@@ -172,7 +211,10 @@ export default function ChatDialog({
 				</DialogHeader>
 
 				{/* Messages Area */}
-				<ScrollArea ref={scrollRef} className="flex-1 px-4">
+				<ScrollArea
+					ref={scrollRef}
+					className="flex-1 overflow-hidden px-4"
+				>
 					<div className="space-y-3 py-4">
 						{messages.length === 0 ? (
 							<div className="flex flex-col items-center justify-center py-12 text-center">

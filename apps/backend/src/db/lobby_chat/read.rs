@@ -6,7 +6,7 @@ use uuid::Uuid;
 impl LobbyChatRepository {
     /// Gets the most recent chat messages from a lobby.
     ///
-    /// Returns messages in reverse chronological order (newest first).
+    /// Returns the newest messages in chronological order (oldest first).
     /// Limit defaults to 50 messages.
     pub async fn get_history(
         &self,
@@ -22,11 +22,14 @@ impl LobbyChatRepository {
         let chat_key = RedisKey::lobby_chat(lobby_id);
         let limit = limit.unwrap_or(50);
 
-        // Get message IDs from sorted set in reverse order (newest first)
-        let message_ids: Vec<String> = conn
+        // Get newest message IDs first, then reverse to chronological order.
+        // This ensures we keep the latest `limit` messages when total > limit.
+        let mut message_ids: Vec<String> = conn
             .zrevrange(&chat_key, 0, (limit - 1) as isize)
             .await
             .map_err(|e| format!("Failed to get message IDs: {}", e))?;
+
+        message_ids.reverse();
 
         if message_ids.is_empty() {
             return Ok(Vec::new());
