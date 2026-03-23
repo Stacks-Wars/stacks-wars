@@ -50,13 +50,32 @@ export default function ChatDialog({
 	const lobby = useLobby();
 	const { sendLobbyMessage } = useRoom();
 	const scrollRef = useRef<HTMLDivElement>(null);
+	const prevMessagesLengthRef = useRef(0);
 	const [showReactionPicker, setShowReactionPicker] = useState<string | null>(
 		null
 	);
 
 	const [newMessage, setNewMessage] = useState("");
+	const [unreadCount, setUnreadCount] = useState(0);
 	const isSending = useIsActionLoading("sendMessage");
 	const isFinished = lobby?.status === "finished";
+
+	useEffect(() => {
+		const previousLength = prevMessagesLengthRef.current;
+
+		if (previousLength === 0) {
+			setUnreadCount(open ? 0 : messages.length);
+			prevMessagesLengthRef.current = messages.length;
+			return;
+		}
+
+		const newMessages = messages.length - previousLength;
+		if (newMessages > 0 && !open) {
+			setUnreadCount((count) => count + newMessages);
+		}
+
+		prevMessagesLengthRef.current = messages.length;
+	}, [messages.length, open]);
 
 	const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
 		if (!scrollRef.current) return;
@@ -69,8 +88,9 @@ export default function ChatDialog({
 	// Auto-scroll to bottom when chat opens
 	useEffect(() => {
 		if (!open) return;
+		setUnreadCount(0);
 		const timer = window.setTimeout(() => {
-			scrollToBottom("smooth");
+			scrollToBottom("auto");
 		}, 0);
 
 		return () => window.clearTimeout(timer);
@@ -161,11 +181,9 @@ export default function ChatDialog({
 							)}
 						>
 							<MessageCircle className="size-5" />
-							{messages.length > 0 && (
+							{unreadCount > 0 && (
 								<span className="bg-primary text-primary-foreground absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-medium">
-									{messages.length > 99
-										? "99+"
-										: messages.length}
+									{unreadCount > 99 ? "99+" : unreadCount}
 								</span>
 							)}
 						</Button>
