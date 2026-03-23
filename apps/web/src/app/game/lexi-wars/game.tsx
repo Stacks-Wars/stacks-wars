@@ -157,11 +157,11 @@ export default function LexiWarsGame({
 						disabled={!isMyTurn || isSubmitting}
 						className="text-lg"
 						name="no-suggest"
-						autoComplete="new-password"
+						autoComplete="off"
 						autoCorrect="off"
 						autoCapitalize="off"
 						spellCheck={false}
-						inputMode="none"
+						inputMode="text"
 						aria-autocomplete="none"
 						autoFocus={isMyTurn || !isSubmitting}
 					/>
