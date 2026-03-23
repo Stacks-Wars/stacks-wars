@@ -61,7 +61,12 @@ export default function ChatDialog({
 	// Auto-scroll to bottom when new messages arrive
 	useEffect(() => {
 		if (scrollRef.current) {
-			scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+			setTimeout(() => {
+				scrollRef.current?.scrollTo({
+					top: scrollRef.current?.scrollHeight,
+					behavior: "smooth",
+				});
+			}, 0);
 		}
 	}, [messages]);
 
@@ -172,7 +177,10 @@ export default function ChatDialog({
 				</DialogHeader>
 
 				{/* Messages Area */}
-				<ScrollArea ref={scrollRef} className="flex-1 px-4">
+				<ScrollArea
+					ref={scrollRef}
+					className="flex-1 overflow-hidden px-4"
+				>
 					<div className="space-y-3 py-4">
 						{messages.length === 0 ? (
 							<div className="flex flex-col items-center justify-center py-12 text-center">
