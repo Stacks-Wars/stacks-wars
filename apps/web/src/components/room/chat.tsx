@@ -58,17 +58,33 @@ export default function ChatDialog({
 	const isSending = useIsActionLoading("sendMessage");
 	const isFinished = lobby?.status === "finished";
 
-	// Auto-scroll to bottom when new messages arrive
+	const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+		if (!scrollRef.current) return;
+		scrollRef.current.scrollTo({
+			top: scrollRef.current.scrollHeight,
+			behavior,
+		});
+	};
+
+	// Auto-scroll to bottom when chat opens
 	useEffect(() => {
-		if (scrollRef.current) {
-			setTimeout(() => {
-				scrollRef.current?.scrollTo({
-					top: scrollRef.current?.scrollHeight,
-					behavior: "smooth",
-				});
-			}, 0);
-		}
-	}, [messages]);
+		if (!open) return;
+		const timer = window.setTimeout(() => {
+			scrollToBottom("smooth");
+		}, 0);
+
+		return () => window.clearTimeout(timer);
+	}, [open]);
+
+	// Auto-scroll to bottom when new messages arrive while chat is open
+	useEffect(() => {
+		if (!open) return;
+		const timer = window.setTimeout(() => {
+			scrollToBottom("smooth");
+		}, 0);
+
+		return () => window.clearTimeout(timer);
+	}, [messages.length, open]);
 
 	// Create a lookup map for player info
 	const playerMap = useMemo(() => {
