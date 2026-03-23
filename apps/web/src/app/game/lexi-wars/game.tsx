@@ -140,31 +140,51 @@ export default function LexiWarsGame({
 				)}
 
 				{/* Word Input */}
-				<form onSubmit={handleSubmit} className="space-y-3">
-					<Input
-						ref={inputRef}
-						type="text"
-						value={word}
-						onChange={(e) => setWord(e.target.value)}
-						onPaste={handlePaste}
-						onCopy={handleCopy}
-						onCut={handleCut}
-						placeholder={
-							isMyTurn
-								? "Type your word..."
-								: "Waiting for your turn"
-						}
-						disabled={!isMyTurn || isSubmitting}
-						className="text-lg"
-						name="no-suggest"
-						autoComplete="off"
-						autoCorrect="off"
-						autoCapitalize="off"
-						spellCheck={false}
-						inputMode="text"
-						aria-autocomplete="none"
-						autoFocus={isMyTurn || !isSubmitting}
-					/>
+				<form
+					onSubmit={handleSubmit}
+					className="space-y-3"
+					autoComplete="off"
+				>
+					<div className="relative">
+						<Input
+							ref={inputRef}
+							type="password"
+							value={word}
+							onChange={(e) => setWord(e.target.value)}
+							onPaste={handlePaste}
+							onCopy={handleCopy}
+							onCut={handleCut}
+							placeholder=""
+							disabled={!isMyTurn || isSubmitting}
+							className={cn(
+								"text-lg text-transparent",
+								word ? "caret-transparent" : "caret-foreground"
+							)}
+							name="lexi-word-input"
+							autoComplete="new-password"
+							autoCorrect="off"
+							autoCapitalize="off"
+							spellCheck={false}
+							inputMode="text"
+							aria-autocomplete="none"
+							data-lpignore="true"
+							data-1p-ignore="true"
+							autoFocus={isMyTurn || !isSubmitting}
+						/>
+						<div
+							className={cn(
+								"pointer-events-none absolute inset-0 flex items-center px-3 text-lg",
+								word
+									? "text-foreground"
+									: "text-muted-foreground"
+							)}
+						>
+							{word ||
+								(isMyTurn
+									? "Type your word..."
+									: "Waiting for your turn")}
+						</div>
+					</div>
 					<Button
 						type="submit"
 						disabled={!isMyTurn || !word.trim() || isSubmitting}
