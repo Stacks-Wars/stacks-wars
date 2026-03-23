@@ -72,6 +72,17 @@ pub struct ClientRule {
     pub description: String,
 }
 
+fn validate_min_length(word: &str, ctx: &RuleContext) -> Result<(), String> {
+    if word.len() < ctx.min_word_length {
+        Err(format!(
+            "Word must be at least {} characters!",
+            ctx.min_word_length
+        ))
+    } else {
+        Ok(())
+    }
+}
+
 /// Generate available rules for the game (order matters - cycled sequentially)
 pub fn lexi_wars_rules(ctx: &RuleContext) -> Vec<Rule> {
 vec![
@@ -79,14 +90,7 @@ vec![
             name: "min_length".to_string(),
             description: format!("Word must be at least {} characters!", ctx.min_word_length),
             validate: |word, ctx| {
-                if word.len() < ctx.min_word_length {
-                    Err(format!(
-                        "Word must be at least {} characters!",
-                        ctx.min_word_length
-                    ))
-                } else {
-                    Ok(())
-                }
+                validate_min_length(word, ctx)
             },
         },
         Rule {
@@ -96,6 +100,7 @@ vec![
                 ctx.random_letter, ctx.min_word_length
             ),
             validate: |word, ctx| {
+                validate_min_length(word, ctx)?;
                 if !word.contains(ctx.random_letter) {
                     Err(format!("Word must contain '{}'", ctx.random_letter))
                 } else {
@@ -110,6 +115,7 @@ vec![
                 ctx.random_letter, ctx.min_word_length
             ),
             validate: |word, ctx| {
+                validate_min_length(word, ctx)?;
                 if word.contains(ctx.random_letter) {
                     Err(format!("Word must NOT contain '{}'", ctx.random_letter))
                 } else {
@@ -124,6 +130,7 @@ vec![
                 ctx.random_letter, ctx.min_word_length
             ),
             validate: |word, ctx| {
+                validate_min_length(word, ctx)?;
                 if !word.starts_with(ctx.random_letter) {
                     Err(format!("Word must start with '{}'", ctx.random_letter))
                 } else {
@@ -138,6 +145,7 @@ vec![
                 ctx.random_letter, ctx.min_word_length
             ),
             validate: |word, ctx| {
+                validate_min_length(word, ctx)?;
                 if !word.ends_with(ctx.random_letter) {
                     Err(format!("Word must end with '{}'", ctx.random_letter))
                 } else {
@@ -151,7 +159,8 @@ vec![
                 "Word must end with 'tion' and be at least {} characters long",
                 ctx.min_word_length
             ),
-            validate: |word, _ctx| {
+            validate: |word, ctx| {
+                validate_min_length(word, ctx)?;
                 if !word.ends_with("tion") {
                     Err("Word must end with 'tion'".to_string())
                 } else {
@@ -165,7 +174,8 @@ vec![
                 "Word must start with 'co' and be at least {} characters long",
                 ctx.min_word_length
             ),
-            validate: |word, _ctx| {
+            validate: |word, ctx| {
+                validate_min_length(word, ctx)?;
                 if !word.starts_with("co") {
                     Err("Word must start with 'co'".to_string())
                 } else {
@@ -179,7 +189,8 @@ vec![
                 "Word must contain at least two pairs of double letters and be at least {} characters long",
                 ctx.min_word_length
             ),
-            validate: |word, _ctx| {
+            validate: |word, ctx| {
+                validate_min_length(word, ctx)?;
                 let chars: Vec<char> = word.chars().collect();
                 let mut double_letter_count = 0;
                 let mut i = 0;
@@ -221,7 +232,8 @@ vec![
                 "Word must start and end with a consonant and be at least {} characters long",
                 ctx.min_word_length
             ),
-            validate: |word, _ctx| {
+            validate: |word, ctx| {
+                validate_min_length(word, ctx)?;
                 let chars: Vec<char> = word.to_lowercase().chars().collect();
                 if chars.is_empty() {
                     return Err("Word cannot be empty".to_string());
@@ -244,7 +256,8 @@ vec![
                 "Word must start and end with a vowel and be at least {} characters long",
                 ctx.min_word_length
             ),
-            validate: |word, _ctx| {
+            validate: |word, ctx| {
+                validate_min_length(word, ctx)?;
                 let chars: Vec<char> = word.to_lowercase().chars().collect();
                 if chars.is_empty() {
                     return Err("Word cannot be empty".to_string());
@@ -267,7 +280,8 @@ vec![
                 "Word must contain at least one letter that appears exactly three times and be at least {} characters long",
                 ctx.min_word_length
             ),
-            validate: |word, _ctx| {
+            validate: |word, ctx| {
+                validate_min_length(word, ctx)?;
                 let mut letter_counts: HashMap<char, usize> = HashMap::new();
                 for ch in word.chars() {
                     *letter_counts.entry(ch).or_insert(0) += 1;
@@ -290,7 +304,8 @@ vec![
                 "Word must be a palindrome and be at least {} characters long",
                 ctx.min_word_length
             ),
-            validate: |word, _ctx| {
+            validate: |word, ctx| {
+                validate_min_length(word, ctx)?;
                 let reversed: String = word.chars().rev().collect();
                 if word != reversed {
                     Err("Word must be a palindrome".to_string())
@@ -305,7 +320,8 @@ vec![
                 "Word must have no repeating letters and be at least {} characters long",
                 ctx.min_word_length
             ),
-            validate: |word, _ctx| {
+            validate: |word, ctx| {
+                validate_min_length(word, ctx)?;
                 let unique_chars: std::collections::HashSet<char> = word.chars().collect();
                 if unique_chars.len() != word.len() {
                     Err("Word must have no repeating letters!".to_string())
@@ -320,7 +336,8 @@ vec![
                 "Word must contain exactly 3 vowels and 3 consonants and be at least {} characters long",
                 ctx.min_word_length
             ),
-            validate: |word, _ctx| {
+            validate: |word, ctx| {
+                validate_min_length(word, ctx)?;
                 let vowels = "aeiou";
                 let mut vowel_count = 0;
                 let mut consonant_count = 0;
@@ -348,7 +365,8 @@ vec![
                 "Word must contain the same letter three times and be at least {} characters long",
                 ctx.min_word_length
             ),
-            validate: |word, _ctx| {
+            validate: |word, ctx| {
+                validate_min_length(word, ctx)?;
                 let mut letter_counts: HashMap<char, usize> = HashMap::new();
                 for ch in word.chars() {
                     *letter_counts.entry(ch).or_insert(0) += 1;
@@ -367,7 +385,8 @@ vec![
                 "Word must have an equal number of vowels and consonants and be at least {} characters long",
                 ctx.min_word_length
             ),
-            validate: |word, _ctx| {
+            validate: |word, ctx| {
+                validate_min_length(word, ctx)?;
                 let vowels = "aeiou";
                 let mut vowel_count = 0;
                 let mut consonant_count = 0;
@@ -394,7 +413,7 @@ vec![
 
 /// Get the total number of rules available
 pub fn rule_count() -> usize {
-    4 // We have 4 rules
+    17
 }
 
 /// Get rule at a specific index with the given context
@@ -448,9 +467,10 @@ mod tests {
         let rule1 = get_rule_at_index(&ctx);
         assert_eq!(rule1.name, "contains_letter");
 
-        // After 4 rules, should wrap around
-        let ctx = RuleContext::new(1, 4, 4);
-        let rule4 = get_rule_at_index(&ctx);
-        assert_eq!(rule4.name, "min_length");
+        // Wrap after all available rules
+        let wrapped_index = rule_count();
+        let ctx = RuleContext::new(1, wrapped_index, 4);
+        let wrapped_rule = get_rule_at_index(&ctx);
+        assert_eq!(wrapped_rule.name, "min_length");
     }
 }
