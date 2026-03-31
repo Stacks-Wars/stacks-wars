@@ -278,6 +278,17 @@ pub async fn save_player_result(
     lobby_id: Uuid,
     ctx: &WarsPointContext,
 ) -> Result<PlayerResult, AppError> {
+    save_player_result_with_winner(state, lobby_id, ctx, ctx.rank == 1).await
+}
+
+/// Save a player's game result to Redis and PostgreSQL with explicit winner flag.
+/// Useful for draw outcomes where rank may be tied but no participant should count as winner.
+pub async fn save_player_result_with_winner(
+    state: &AppState,
+    lobby_id: Uuid,
+    ctx: &WarsPointContext,
+    is_winner: bool,
+) -> Result<PlayerResult, AppError> {
     let wars_point = calculate_wars_point(ctx);
 
     // Save to Redis PlayerState
@@ -292,8 +303,6 @@ pub async fn save_player_result(
         let wars_points_repo = UserWarsPointsRepository::new(state.postgres.clone());
         // Pass season_id and wars_point so the repository will upsert points and
         // also update match/win/pnl statistics in a single call.
-        let is_winner = ctx.rank == 1;
-
         // Convert prize and entry_amount to STX if the lobby uses a non-STX token
         let needs_conversion = ctx
             .token_symbol

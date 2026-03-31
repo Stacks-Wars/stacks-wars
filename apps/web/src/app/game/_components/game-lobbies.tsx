@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import LobbyCard, { LobbyCardSkeleton } from "@/components/main/lobby-card";
 import type { LobbyInfo } from "@/lib/definitions";
 import { Button } from "@/components/ui/button";
@@ -94,6 +95,14 @@ export default function GameLobbies({
 					</div>
 				</div>
 			)}
+
+			<div className="mt-6 flex justify-center">
+				<Button asChild className="rounded-full px-6">
+					<Link href={`/games/${gameIdentifier}`}>
+						Create your own lobby
+					</Link>
+				</Button>
+			</div>
 		</div>
 	);
 }
