@@ -1,6 +1,6 @@
 "use client";
 
-import type { Game } from "@/lib/definitions";
+import type { Game, Season } from "@/lib/definitions";
 import Image from "next/image";
 import {
 	Select,
@@ -11,19 +11,47 @@ import {
 } from "@/components/ui/select";
 import {
 	useLeaderboardGameId,
+	useLeaderboardSeasonId,
 	useLeaderboardActions,
 } from "@/lib/stores/leaderboard";
 
 interface GameFilterProps {
 	games: Game[];
+	seasons: Season[];
+	initialSeasonId: number | null;
 }
 
-export default function GameFilter({ games }: GameFilterProps) {
+export default function GameFilter({
+	games,
+	seasons,
+	initialSeasonId,
+}: GameFilterProps) {
 	const gameId = useLeaderboardGameId();
+	const seasonId = useLeaderboardSeasonId();
 	const actions = useLeaderboardActions();
+	const selectedSeasonId = seasonId ?? initialSeasonId;
 
 	return (
-		<div className="mb-6">
+		<div className="mb-6 flex flex-col gap-3 sm:flex-row">
+			<Select
+				value={selectedSeasonId?.toString()}
+				onValueChange={(value) => actions.setSeasonId(Number(value))}
+			>
+				<SelectTrigger className="w-full border-white/10 bg-white/5 sm:w-60">
+					<SelectValue placeholder="Select Season" />
+				</SelectTrigger>
+				<SelectContent>
+					{seasons.map((season) => (
+						<SelectItem
+							key={season.id}
+							value={season.id.toString()}
+						>
+							{season.name}
+						</SelectItem>
+					))}
+				</SelectContent>
+			</Select>
+
 			<Select
 				value={gameId ?? "all"}
 				onValueChange={(value) =>

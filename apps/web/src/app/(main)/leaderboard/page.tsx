@@ -1,17 +1,27 @@
 import { ApiClient } from "@/lib/api/client";
-import type { LeaderBoard, Game } from "@/lib/definitions";
+import type { LeaderBoard, Game, Season } from "@/lib/definitions";
 import LeaderBoardTable from "./_components/leader-board-table";
 import LeaderBoardPodium from "./_components/leader-board-podium";
 import GameFilter from "./_components/game-filter";
 
 export default async function LeaderBoardPage() {
-	const [leaderboardRes, gamesRes] = await Promise.all([
+	const [leaderboardRes, gamesRes, seasonsRes] = await Promise.all([
 		ApiClient.get<{
 			leaderboard: LeaderBoard[];
 			total: number;
 		}>(`/api/leaderboard`),
 		ApiClient.get<Game[]>(`/api/games`),
+		ApiClient.get<Season[]>(`/api/season?limit=50`),
 	]);
+
+	const seasons = seasonsRes.data || [];
+	const now = new Date();
+	const currentSeason = seasons.find((season) => {
+		const start = new Date(season.startDate);
+		const end = new Date(season.endDate);
+		return now >= start && now <= end;
+	});
+	const currentSeasonId = currentSeason?.id ?? seasons[0]?.id ?? null;
 
 	const leaderboard = leaderboardRes.data?.leaderboard || [];
 	const total = leaderboardRes.data?.total || 0;
@@ -20,8 +30,16 @@ export default async function LeaderBoardPage() {
 	return (
 		<div className="container mx-auto px-4">
 			<LeaderBoardPodium leaderboard={leaderboard} />
-			<GameFilter games={games} />
-			<LeaderBoardTable leaderboard={leaderboard} total={total} />
+			<GameFilter
+				games={games}
+				seasons={seasons}
+				initialSeasonId={currentSeasonId}
+			/>
+			<LeaderBoardTable
+				leaderboard={leaderboard}
+				total={total}
+				initialSeasonId={currentSeasonId}
+			/>
 		</div>
 	);
 }
