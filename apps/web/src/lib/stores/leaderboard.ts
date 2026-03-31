@@ -17,11 +17,16 @@ const PAGE_SIZE = 10;
 type SortField = "points" | "winRate" | "matches" | "pnl";
 
 interface LeaderboardActions {
-	setInitialData: (leaderboard: LeaderBoard[], total: number) => void;
+	setInitialData: (
+		leaderboard: LeaderBoard[],
+		total: number,
+		seasonId: number | null
+	) => void;
 	fetchLeaderboard: () => Promise<void>;
 	setSort: (sortBy: SortField) => void;
 	setPage: (page: number) => void;
 	setGameId: (gameId: string | null) => void;
+	setSeasonId: (seasonId: number | null) => void;
 }
 
 interface LeaderboardStore {
@@ -34,6 +39,8 @@ interface LeaderboardStore {
 	page: number;
 	/** When set, fetches per-game leaderboard instead of global */
 	gameId: string | null;
+	/** When set, fetches leaderboard for a specific season */
+	seasonId: number | null;
 	actions: LeaderboardActions;
 }
 
@@ -46,17 +53,22 @@ const useLeaderboardStore = create<LeaderboardStore>((set, get) => ({
 	order: "desc",
 	page: 1,
 	gameId: null,
+	seasonId: null,
 	actions: {
-		setInitialData: (leaderboard, total) => set({ leaderboard, total }),
+		setInitialData: (leaderboard, total, seasonId) =>
+			set({ leaderboard, total, seasonId }),
 		fetchLeaderboard: async () => {
 			set({ loading: true });
-			const { sortBy, order, page, gameId } = get();
+			const { sortBy, order, page, gameId, seasonId } = get();
 			const params = new URLSearchParams({
 				sortBy,
 				order,
 				limit: PAGE_SIZE.toString(),
 				offset: ((page - 1) * PAGE_SIZE).toString(),
 			});
+			if (seasonId !== null) {
+				params.set("seasonId", seasonId.toString());
+			}
 			try {
 				if (gameId) {
 					const res = await ApiClient.get<{
@@ -100,6 +112,10 @@ const useLeaderboardStore = create<LeaderboardStore>((set, get) => ({
 			set({ gameId, page: 1, sortBy: "points", order: "desc" });
 			get().actions.fetchLeaderboard();
 		},
+		setSeasonId: (seasonId) => {
+			set({ seasonId, page: 1, sortBy: "points", order: "desc" });
+			get().actions.fetchLeaderboard();
+		},
 	},
 }));
 
@@ -120,5 +136,7 @@ export const useLeaderboardPage = () =>
 	useLeaderboardStore((state) => state.page);
 export const useLeaderboardGameId = () =>
 	useLeaderboardStore((state) => state.gameId);
+export const useLeaderboardSeasonId = () =>
+	useLeaderboardStore((state) => state.seasonId);
 export const useLeaderboardActions = () =>
 	useLeaderboardStore((state) => state.actions);

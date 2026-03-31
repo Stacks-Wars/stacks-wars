@@ -10,7 +10,7 @@ use uuid::Uuid;
 pub const LEXI_WARS_GAME_ID: Uuid = uuid::uuid!("5eb61ff4-8f9f-48bd-ae61-dfd6d95052eb");
 pub const LUDO_GAME_ID: Uuid = uuid::uuid!("d04edafc-c9f7-42cc-bfae-68fd93422e43");
 pub const LUDO_RUSH_GAME_ID: Uuid = uuid::uuid!("76bf88c3-7ceb-4131-8d2d-6a679d70f82b");
-pub const CHECKERS_GAME_ID: Uuid = uuid::uuid!("bfb9aae5-932d-4922-937b-32d8c2f1ee25");
+pub const CHECKERS_GAME_ID: Uuid = uuid::uuid!("4d94aca3-0ba2-4965-8fa2-4628e5e3ee27");
 
 /// Initialize and return the game registry with all registered games
 ///

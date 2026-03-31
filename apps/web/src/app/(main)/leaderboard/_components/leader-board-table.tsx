@@ -41,6 +41,7 @@ type SortField = "points" | "winRate" | "matches" | "pnl";
 interface LeaderBoardTableProps {
 	leaderboard: LeaderBoard[];
 	total: number;
+	initialSeasonId: number | null;
 }
 
 function TableSkeleton() {
@@ -62,6 +63,7 @@ function TableSkeleton() {
 export default function LeaderBoardTable({
 	leaderboard: initialLeaderboard,
 	total: initialTotal,
+	initialSeasonId,
 }: LeaderBoardTableProps) {
 	const leaderboard = useLeaderboard();
 	const gameLeaderboard = useGameLeaderboard();
@@ -72,8 +74,12 @@ export default function LeaderBoardTable({
 	const actions = useLeaderboardActions();
 
 	useEffect(() => {
-		actions.setInitialData(initialLeaderboard, initialTotal);
-	}, [initialLeaderboard, initialTotal, actions]);
+		actions.setInitialData(
+			initialLeaderboard,
+			initialTotal,
+			initialSeasonId
+		);
+	}, [initialLeaderboard, initialTotal, initialSeasonId, actions]);
 
 	const handleSort = (field: SortField) => {
 		actions.setSort(field);
