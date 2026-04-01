@@ -21,14 +21,12 @@ export default function Hero() {
 
 				{/* Content */}
 				<div className="relative z-10 flex flex-col items-center gap-4 lg:gap-6">
-					<h1 className="text-center text-4xl font-bold text-white md:text-6xl lg:text-8xl">
-						<span className="block">Stacks Wars</span>
-						<span className="block">X</span>
-						<span className="block md:inline"> DeGrant</span>
+					<h1 className="text-center text-4xl leading-none font-black tracking-[0.08em] text-white drop-shadow-[0_6px_24px_rgba(0,0,0,0.55)] md:text-6xl lg:text-8xl">
+						<span className="block">Rise of the Arena</span>
 					</h1>
 					<p className="max-w-3xl px-4 text-center text-base font-medium text-white/90 md:text-xl lg:text-2xl">
-						Experience the thrill of Stacks Wars with our first
-						game. Dive in, test your skills, and claim victory!
+						A new season begins. Enter the arena, outplay your
+						rivals, and climb the leaderboard.
 					</p>
 				</div>
 
