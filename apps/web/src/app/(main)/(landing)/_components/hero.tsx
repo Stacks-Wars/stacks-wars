@@ -9,7 +9,7 @@ export default function Hero() {
 				{/* Hero Banner Background */}
 				<Image
 					className="absolute inset-0 z-0 h-full w-full object-cover"
-					src="/images/hero-banne.png"
+					src="/images/hero-banner.png"
 					fill
 					sizes="100vw"
 					alt=""
