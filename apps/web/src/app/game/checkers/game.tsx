@@ -50,11 +50,17 @@ export default function CheckersGame({
 }: GamePluginProps<CheckersState>) {
 	const user = useUser();
 	const roomPlayers = usePlayers();
+	const joinedPlayers = roomPlayers.filter((p) => p.status === "joined");
+	const isSpectator = !joinedPlayers.some((p) => p.userId === user?.id);
 	const isMyTurn = state.currentPlayer?.userId === user?.id;
 	const [selected, setSelected] = useState<Position | null>(null);
 	const [myColor, setMyColor] = useState<LocalPieceColor>("red");
 
 	useEffect(() => {
+		if (isSpectator) {
+			return;
+		}
+
 		if (
 			!state.board ||
 			!state.currentPlayer ||
@@ -76,14 +82,43 @@ export default function CheckersGame({
 		} else {
 			setMyColor(oppositeColor(turnColor));
 		}
-	}, [state.board, state.currentPlayer, state.legalMoves, user?.id]);
+	}, [
+		isSpectator,
+		state.board,
+		state.currentPlayer,
+		state.legalMoves,
+		user?.id,
+	]);
 
 	const opponentColor = oppositeColor(myColor);
-	const isClientRed = myColor === "red";
+	const isClientRed = isSpectator ? true : myColor === "red";
 	const pawnsLeftByColor = countPawnsLeftByColor(state.board);
 
+	const currentTurnColor: LocalPieceColor | null = (() => {
+		if (!state.board || state.legalMoves.length === 0) return null;
+		const firstMove = state.legalMoves[0];
+		const pieceAtFrom =
+			state.board.cells[firstMove.from.row]?.[firstMove.from.col];
+		return (pieceAtFrom?.color as LocalPieceColor | undefined) ?? null;
+	})();
+
+	const getPlayerColor = (
+		playerUserId: string,
+		fallback: LocalPieceColor
+	): LocalPieceColor => {
+		if (state.currentPlayer?.userId === playerUserId && currentTurnColor) {
+			return currentTurnColor;
+		}
+
+		if (state.currentPlayer?.userId && currentTurnColor) {
+			return oppositeColor(currentTurnColor);
+		}
+
+		return fallback;
+	};
+
 	// Get opponent info from room players
-	const opponentInfo = roomPlayers.find((p) => p.userId !== user?.id);
+	const opponentInfo = joinedPlayers.find((p) => p.userId !== user?.id);
 
 	useEffect(() => {
 		setSelected(null);
@@ -184,8 +219,8 @@ export default function CheckersGame({
 										className={cn(
 											"aspect-square rounded-md border transition",
 											dark
-												? "border-slate-300 bg-slate-200/80"
-												: "border-slate-600 bg-slate-700/70",
+												? "border-amber-700/80 bg-amber-700/90"
+												: "border-amber-100 bg-amber-100/95",
 											isSelectable &&
 												"ring-primary ring-2",
 											isDestination &&
@@ -199,8 +234,8 @@ export default function CheckersGame({
 												className={cn(
 													"mx-auto flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold sm:h-10 sm:w-10 sm:text-sm",
 													piece.color === "red"
-														? "bg-rose-500 text-white"
-														: "bg-neutral-900 text-white"
+														? "bg-rose-500 text-white ring-1 ring-rose-200/70"
+														: "bg-neutral-900 text-white ring-1 ring-white/60"
 												)}
 											>
 												{piece.kind === "king" ? (
@@ -223,35 +258,70 @@ export default function CheckersGame({
 
 				{/* Player identifiers (below board) */}
 				<div className="flex flex-wrap justify-center gap-3">
-					<PlayerIdentifierPill
-						label={
-							opponentInfo
-								? displayUserIdentifier(opponentInfo)
-								: "Opponent"
-						}
-						isYou={opponentInfo?.userId === user?.id}
-						dotClassName={
-							opponentColor === "red"
-								? "bg-rose-500"
-								: "bg-neutral-900"
-						}
-						pawnsLeft={pawnsLeftByColor[opponentColor]}
-						isActiveTurn={
-							state.currentPlayer?.userId === opponentInfo?.userId
-						}
-						activeRingClassName="ring-2 ring-offset-1 ring-emerald-500"
-					/>
+					{isSpectator
+						? joinedPlayers.slice(0, 2).map((player, index) => {
+								const playerColor = getPlayerColor(
+									player.userId,
+									index === 0 ? "red" : "black"
+								);
 
-					<PlayerIdentifierPill
-						label={user?.username ?? "You"}
-						isYou={true}
-						dotClassName={
-							myColor === "red" ? "bg-rose-500" : "bg-neutral-900"
-						}
-						pawnsLeft={pawnsLeftByColor[myColor]}
-						isActiveTurn={isMyTurn}
-						activeRingClassName="ring-2 ring-offset-1 ring-blue-500"
-					/>
+								return (
+									<PlayerIdentifierPill
+										key={player.userId}
+										label={displayUserIdentifier(player)}
+										dotClassName={
+											playerColor === "red"
+												? "bg-rose-500"
+												: "bg-neutral-900"
+										}
+										pawnsLeft={
+											pawnsLeftByColor[playerColor]
+										}
+										isActiveTurn={
+											state.currentPlayer?.userId ===
+											player.userId
+										}
+										activeRingClassName="ring-2 ring-offset-1 ring-emerald-500"
+									/>
+								);
+							})
+						: [
+								<PlayerIdentifierPill
+									key="opponent"
+									label={
+										opponentInfo
+											? displayUserIdentifier(
+													opponentInfo
+												)
+											: "Opponent"
+									}
+									isYou={opponentInfo?.userId === user?.id}
+									dotClassName={
+										opponentColor === "red"
+											? "bg-rose-500"
+											: "bg-neutral-900"
+									}
+									pawnsLeft={pawnsLeftByColor[opponentColor]}
+									isActiveTurn={
+										state.currentPlayer?.userId ===
+										opponentInfo?.userId
+									}
+									activeRingClassName="ring-2 ring-offset-1 ring-emerald-500"
+								/>,
+								<PlayerIdentifierPill
+									key="you"
+									label={user?.username ?? "You"}
+									isYou={true}
+									dotClassName={
+										myColor === "red"
+											? "bg-rose-500"
+											: "bg-neutral-900"
+									}
+									pawnsLeft={pawnsLeftByColor[myColor]}
+									isActiveTurn={isMyTurn}
+									activeRingClassName="ring-2 ring-offset-1 ring-blue-500"
+								/>,
+							]}
 				</div>
 			</div>
 

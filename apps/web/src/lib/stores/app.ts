@@ -60,7 +60,7 @@ const useAppStore = create<AppStore>()(
 			lobbyOffset: 0,
 			hasHydrated: false,
 			lobbyCreationProgress: null,
-			musicEnabled: true,
+			musicEnabled: false,
 			sfxEnabled: true,
 			musicVolume: 0.3,
 			sfxVolume: 0.5,
