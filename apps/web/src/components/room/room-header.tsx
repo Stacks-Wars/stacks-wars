@@ -1,15 +1,17 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, LogOut, Wifi, WifiOff } from "lucide-react";
+import { ChevronLeft, Wifi, WifiOff } from "lucide-react";
 import { useRoom } from "@/lib/contexts/room-context";
 import { useRoomView } from "@/lib/contexts/room-view-context";
 import ShareButton from "../../app/room/[lobbyPath]/@lobby/_components/share-button";
 import { cn } from "@/lib/utils";
+import { useUser } from "@/lib/stores/user";
 import {
 	useRoomConnected,
 	useRoomConnecting,
 	useRoomLatency,
+	usePlayers,
 } from "@/lib/stores/room";
 import {
 	Dialog,
@@ -40,10 +42,15 @@ interface RoomHeaderProps {
 
 export default function RoomHeader({ slot = "game" }: RoomHeaderProps) {
 	const { disconnect, sendGameMessage } = useRoom();
+	const user = useUser();
+	const players = usePlayers();
 	const latency = useRoomLatency();
 	const isConnected = useRoomConnected();
 	const isConnecting = useRoomConnecting();
 	const [showQuitDialog, setShowQuitDialog] = useState(false);
+	const { setView } = useRoomView();
+	const isParticipant = players.some((player) => player.userId === user?.id);
+	const showQuitAction = slot === "game" && isParticipant;
 
 	const handleBackClick = () => {
 		// Disconnect WebSocket before navigating away
@@ -53,8 +60,6 @@ export default function RoomHeader({ slot = "game" }: RoomHeaderProps) {
 	const handleQuitClick = () => {
 		setShowQuitDialog(true);
 	};
-
-	const { setView } = useRoomView();
 
 	const handleConfirmQuit = () => {
 		sendGameMessage("quit", null);
@@ -66,7 +71,7 @@ export default function RoomHeader({ slot = "game" }: RoomHeaderProps) {
 	return (
 		<>
 			<div className="flex items-center justify-between gap-2 pt-4">
-				{slot === "lobby" ? (
+				{slot === "lobby" || !showQuitAction ? (
 					<Button
 						asChild
 						variant={"link"}
@@ -125,7 +130,10 @@ export default function RoomHeader({ slot = "game" }: RoomHeaderProps) {
 			</div>
 
 			{/* Quit Confirmation Dialog */}
-			<Dialog open={showQuitDialog} onOpenChange={setShowQuitDialog}>
+			<Dialog
+				open={showQuitDialog && showQuitAction}
+				onOpenChange={setShowQuitDialog}
+			>
 				<DialogContent className="sm:max-w-sm">
 					<DialogHeader>
 						<DialogTitle>Quit Game?</DialogTitle>
