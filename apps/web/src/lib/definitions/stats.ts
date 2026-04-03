@@ -9,12 +9,14 @@ export interface TokenVolume {
 
 export interface PlatformStats {
 	totalUsers: number;
+	newUsersCount: number;
 	totalLobbies: number;
 	activeLobbies: number;
 	finishedLobbies: number;
+	feeLobbies: number;
+	activeFeeLobbies: number;
 	totalGames: number;
 	totalVolumeUsd: number;
-	activeVolumeUsd: number;
 	finishedVolumeUsd: number;
 	tokenBreakdown: TokenVolume[];
 }

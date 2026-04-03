@@ -1,5 +1,5 @@
 import { ApiClient } from "@/lib/api/client";
-import type { PlatformStats, GameStats } from "@/lib/definitions";
+import type { GameStats, PlatformStats, Season } from "@/lib/definitions";
 import {
 	Card,
 	CardContent,
@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
+import SeasonSelect from "./_components/season-select";
 
 function formatNumber(n: number): string {
 	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
@@ -37,15 +38,29 @@ function formatPrice(n: number): string {
 	return `$${n.toExponential(2)}`;
 }
 
-export default async function StatsPage() {
-	const [res, gameStatsRes] = await Promise.all([
-		ApiClient.get<PlatformStats>("/api/stats"),
-		ApiClient.get<GameStats[]>("/api/stats/games"),
-	]);
-	const stats = res.data;
-	const gameStats = gameStatsRes.data || [];
+interface StatsPageProps {
+	searchParams?: Promise<{
+		seasonId?: string;
+	}>;
+}
 
-	if (!stats) {
+function parseSeasonId(value?: string): number | null {
+	if (!value) return null;
+	const parsed = Number(value);
+	return Number.isFinite(parsed) ? parsed : null;
+}
+
+export default async function StatsPage({ searchParams }: StatsPageProps) {
+	const resolvedSearchParams = await searchParams;
+	const [overallRes, seasonsRes] = await Promise.all([
+		ApiClient.get<PlatformStats>("/api/stats"),
+		ApiClient.get<Season[]>("/api/season?limit=50"),
+	]);
+
+	const seasons = seasonsRes.data || [];
+	const overallStats = overallRes.data;
+
+	if (!overallStats) {
 		return (
 			<div className="container mx-auto px-4 py-20 text-center">
 				<h1 className="text-2xl font-bold">
@@ -58,427 +73,502 @@ export default async function StatsPage() {
 		);
 	}
 
-	const utilizationRate =
-		stats.totalLobbies > 0
-			? ((stats.activeLobbies / stats.totalLobbies) * 100).toFixed(1)
+	const now = new Date();
+	const currentSeason = seasons.find((season) => {
+		const start = new Date(season.startDate);
+		const end = new Date(season.endDate);
+		return now >= start && now <= end;
+	});
+	const currentSeasonId = currentSeason?.id ?? seasons[0]?.id ?? null;
+	const requestedSeasonId = parseSeasonId(resolvedSearchParams?.seasonId);
+	const selectedSeasonId = requestedSeasonId ?? currentSeasonId;
+
+	const [seasonStatsRes, seasonGameStatsRes] = await Promise.all([
+		ApiClient.get<PlatformStats>(
+			selectedSeasonId !== null
+				? `/api/stats?seasonId=${selectedSeasonId}`
+				: "/api/stats"
+		),
+		ApiClient.get<GameStats[]>(
+			selectedSeasonId !== null
+				? `/api/stats/games?seasonId=${selectedSeasonId}`
+				: "/api/stats/games"
+		),
+	]);
+
+	const seasonStats = seasonStatsRes.data || overallStats;
+	const seasonGameStats = seasonGameStatsRes.data || [];
+	const seasonUtilizationRate =
+		seasonStats.feeLobbies > 0
+			? (
+					(seasonStats.activeFeeLobbies / seasonStats.feeLobbies) *
+					100
+				).toFixed(1)
 			: "0";
+	const seasonName =
+		selectedSeasonId === null
+			? "Overall"
+			: seasons.find((season) => season.id === selectedSeasonId)?.name ||
+				"Selected Season";
 
 	return (
 		<div className="container mx-auto px-4 pb-16">
-			{/* Header */}
 			<div className="py-8 text-center lg:py-12">
 				<h1 className="mb-2 text-3xl font-bold tracking-tight md:text-5xl">
 					Platform Analytics
 				</h1>
-				<p className="text-muted-foreground mx-auto max-w-md text-sm md:text-lg">
-					Real-time Stacks Wars platform metrics and total value
-					locked
+				<p className="text-muted-foreground mx-auto max-w-xl text-sm md:text-lg">
+					Simple overall platform metrics at the top, with
+					season-specific details below.
 				</p>
 			</div>
 
-			{/* Quick Stats */}
-			<div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-				{[
-					{
-						label: "Total Users",
-						value: formatNumber(stats.totalUsers),
-					},
-					{
-						label: "Total Lobbies",
-						value: formatNumber(stats.totalLobbies),
-					},
-					{
-						label: "Active Lobbies",
-						value: formatNumber(stats.activeLobbies),
-					},
-					{
-						label: "Games Available",
-						value: formatNumber(stats.totalGames),
-					},
-				].map((stat) => (
-					<Card key={stat.label}>
-						<CardHeader className="p-4 pb-2 md:p-6 md:pb-2">
-							<CardDescription className="text-xs">
-								{stat.label}
-							</CardDescription>
-							<CardTitle className="text-2xl md:text-3xl">
-								{stat.value}
+			<section className="bg-card/50 rounded-3xl border p-4 md:p-6">
+				<div className="mb-4 flex items-center justify-between gap-3">
+					<div>
+						<p className="text-muted-foreground text-xs tracking-[0.24em] uppercase">
+							Overall
+						</p>
+						<h2 className="text-xl font-bold md:text-2xl">
+							All Seasons
+						</h2>
+					</div>
+					<Badge
+						variant="secondary"
+						className="rounded-full px-3 py-1"
+					>
+						Combined totals
+					</Badge>
+				</div>
+
+				<div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+					{[
+						{
+							label: "Users",
+							value: formatNumber(overallStats.totalUsers),
+						},
+						{
+							label: "Lobbies",
+							value: formatNumber(overallStats.totalLobbies),
+						},
+						{
+							label: "Volume",
+							value: formatUSD(overallStats.totalVolumeUsd),
+						},
+						{
+							label: "Distributed",
+							value: formatUSD(overallStats.finishedVolumeUsd),
+						},
+					].map((stat) => (
+						<Card key={stat.label}>
+							<CardHeader className="p-4 pb-2 md:p-6 md:pb-2">
+								<CardDescription className="text-xs">
+									{stat.label}
+								</CardDescription>
+								<CardTitle className="text-2xl md:text-3xl">
+									{stat.value}
+								</CardTitle>
+							</CardHeader>
+						</Card>
+					))}
+				</div>
+			</section>
+
+			<section className="mt-10 space-y-5">
+				<div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+					<div>
+						<p className="text-muted-foreground text-xs tracking-[0.24em] uppercase">
+							Season Snapshot
+						</p>
+						<h2 className="text-xl font-bold md:text-2xl">
+							{seasonName}
+						</h2>
+						<p className="text-muted-foreground mt-1 text-sm">
+							Metrics scoped to the selected season window.
+						</p>
+					</div>
+					{seasons.length > 0 && selectedSeasonId !== null ? (
+						<SeasonSelect
+							seasons={seasons}
+							selectedSeasonId={selectedSeasonId}
+						/>
+					) : null}
+				</div>
+
+				<div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+					{[
+						{
+							label: "New Users",
+							value: formatNumber(seasonStats.newUsersCount),
+						},
+						{
+							label: "Lobbies",
+							value: formatNumber(seasonStats.totalLobbies),
+						},
+						{
+							label: "Entry-Fee Lobbies",
+							value: formatNumber(seasonStats.feeLobbies),
+						},
+						{
+							label: "Games Played",
+							value: formatNumber(seasonStats.totalGames),
+						},
+					].map((stat) => (
+						<Card key={stat.label}>
+							<CardHeader className="p-4 pb-2 md:p-6 md:pb-2">
+								<CardDescription className="text-xs">
+									{stat.label}
+								</CardDescription>
+								<CardTitle className="text-2xl md:text-3xl">
+									{stat.value}
+								</CardTitle>
+							</CardHeader>
+						</Card>
+					))}
+				</div>
+
+				<div className="grid gap-4 md:grid-cols-2">
+					<Card className="border-primary/20 bg-primary/5">
+						<CardHeader>
+							<CardDescription>Season Volume</CardDescription>
+							<CardTitle className="text-3xl md:text-4xl">
+								{formatUSD(seasonStats.totalVolumeUsd)}
 							</CardTitle>
 						</CardHeader>
+						<CardContent>
+							<p className="text-muted-foreground text-xs">
+								Total volume for the selected season
+							</p>
+						</CardContent>
 					</Card>
-				))}
-			</div>
 
-			{/* Volume Cards */}
-			<div className="mt-6 grid gap-4 md:grid-cols-3">
-				<Card className="border-primary/20 bg-primary/5">
-					<CardHeader>
-						<CardDescription>
-							Total Volume (All-Time)
-						</CardDescription>
-						<CardTitle className="text-3xl md:text-4xl">
-							{formatUSD(stats.totalVolumeUsd)}
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<p className="text-muted-foreground text-xs">
-							Cumulative value across all lobbies
-						</p>
-					</CardContent>
-				</Card>
-
-				<Card className="border-green-500/20 bg-green-500/5">
-					<CardHeader>
-						<CardDescription>TVL (Active)</CardDescription>
-						<CardTitle className="text-3xl text-green-600 md:text-4xl dark:text-green-400">
-							{formatUSD(stats.activeVolumeUsd)}
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<p className="text-muted-foreground text-xs">
-							Currently locked in active lobbies
-						</p>
-					</CardContent>
-				</Card>
-
-				<Card className="border-blue-500/20 bg-blue-500/5">
-					<CardHeader>
-						<CardDescription>Distributed Volume</CardDescription>
-						<CardTitle className="text-3xl text-blue-600 md:text-4xl dark:text-blue-400">
-							{formatUSD(stats.finishedVolumeUsd)}
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<p className="text-muted-foreground text-xs">
-							Total winnings distributed to players
-						</p>
-					</CardContent>
-				</Card>
-			</div>
-
-			{/* Token Breakdown */}
-			<div className="mt-10">
-				<div className="mb-5">
-					<h2 className="text-xl font-bold md:text-2xl">
-						Token Breakdown
-					</h2>
-					<p className="text-muted-foreground text-sm">
-						Volume distribution by token
-					</p>
+					<Card className="border-blue-500/20 bg-blue-500/5">
+						<CardHeader>
+							<CardDescription>
+								Distributed Volume
+							</CardDescription>
+							<CardTitle className="text-3xl text-blue-600 md:text-4xl dark:text-blue-400">
+								{formatUSD(seasonStats.finishedVolumeUsd)}
+							</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<p className="text-muted-foreground text-xs">
+								Settled winnings for the selected season
+							</p>
+						</CardContent>
+					</Card>
 				</div>
 
-				{stats.tokenBreakdown.length > 0 ? (
-					<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-						{stats.tokenBreakdown.map((token) => {
-							const share =
-								stats.totalVolumeUsd > 0
-									? (token.volumeUsd / stats.totalVolumeUsd) *
-										100
-									: 0;
+				<div>
+					<div className="mb-5">
+						<h3 className="text-lg font-bold md:text-xl">
+							Token Breakdown
+						</h3>
+						<p className="text-muted-foreground text-sm">
+							Season-specific volume distribution by token
+						</p>
+					</div>
 
-							return (
-								<Card
-									key={token.symbol}
-									className="overflow-hidden"
-								>
-									<CardHeader className="pb-3">
-										<div className="flex items-center justify-between">
-											<div className="flex items-center gap-3">
-												{token.imageUrl ? (
-													<img
-														src={token.imageUrl}
-														alt={token.symbol}
-														className="h-10 w-10 rounded-full object-cover"
-													/>
-												) : (
-													<div className="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-full font-bold">
-														{token.symbol.charAt(0)}
+					{seasonStats.tokenBreakdown.length > 0 ? (
+						<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+							{seasonStats.tokenBreakdown.map((token) => {
+								const share =
+									seasonStats.totalVolumeUsd > 0
+										? (token.volumeUsd /
+												seasonStats.totalVolumeUsd) *
+											100
+										: 0;
+
+								return (
+									<Card
+										key={token.symbol}
+										className="overflow-hidden"
+									>
+										<CardHeader className="pb-3">
+											<div className="flex items-center justify-between gap-3">
+												<div className="flex items-center gap-3">
+													{token.imageUrl ? (
+														<img
+															src={token.imageUrl}
+															alt={token.symbol}
+															className="h-10 w-10 rounded-full object-cover"
+														/>
+													) : (
+														<div className="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-full font-bold">
+															{token.symbol.charAt(
+																0
+															)}
+														</div>
+													)}
+													<div>
+														<CardTitle className="text-lg">
+															{token.symbol}
+														</CardTitle>
+														<p className="text-muted-foreground text-xs">
+															{token.priceUsd > 0
+																? `${formatPrice(token.priceUsd)} per token`
+																: "Price unavailable"}
+														</p>
 													</div>
-												)}
+												</div>
+												<Badge
+													variant="secondary"
+													className="text-xs"
+												>
+													{share.toFixed(1)}%
+												</Badge>
+											</div>
+										</CardHeader>
+										<CardContent className="space-y-4">
+											<div className="grid grid-cols-2 gap-4">
 												<div>
-													<CardTitle className="text-lg">
-														{token.symbol}
-													</CardTitle>
 													<p className="text-muted-foreground text-xs">
-														{token.priceUsd > 0
-															? `${formatPrice(token.priceUsd)} per token`
-															: "Price unavailable"}
+														Volume
+													</p>
+													<p className="text-sm font-semibold">
+														{formatTokenAmount(
+															token.volume,
+															token.symbol
+														)}
+													</p>
+												</div>
+												<div>
+													<p className="text-muted-foreground text-xs">
+														USD Value
+													</p>
+													<p className="text-sm font-semibold">
+														{formatUSD(
+															token.volumeUsd
+														)}
 													</p>
 												</div>
 											</div>
-											<Badge
-												variant="secondary"
-												className="text-xs"
-											>
-												{share.toFixed(1)}%
-											</Badge>
-										</div>
-									</CardHeader>
-									<CardContent className="space-y-4">
-										<div className="grid grid-cols-2 gap-4">
-											<div>
-												<p className="text-muted-foreground text-xs">
-													Volume
-												</p>
-												<p className="text-sm font-semibold">
-													{formatTokenAmount(
-														token.volume,
-														token.symbol
-													)}
-												</p>
+
+											<div className="flex items-center justify-between text-sm">
+												<span className="text-muted-foreground">
+													{token.lobbyCount}{" "}
+													{token.lobbyCount === 1
+														? "lobby"
+														: "lobbies"}
+												</span>
 											</div>
-											<div>
-												<p className="text-muted-foreground text-xs">
-													USD Value
-												</p>
-												<p className="text-sm font-semibold">
-													{formatUSD(token.volumeUsd)}
-												</p>
+
+											<div className="bg-muted h-1.5 overflow-hidden rounded-full">
+												<div
+													className="bg-primary h-full rounded-full transition-all"
+													style={{
+														width: `${Math.min(Math.max(share, 1), 100)}%`,
+													}}
+												/>
 											</div>
-										</div>
-
-										<div className="flex items-center justify-between text-sm">
-											<span className="text-muted-foreground">
-												{token.lobbyCount}{" "}
-												{token.lobbyCount === 1
-													? "lobby"
-													: "lobbies"}
-											</span>
-										</div>
-
-										{/* Share bar */}
-										<div className="bg-muted h-1.5 overflow-hidden rounded-full">
-											<div
-												className="bg-primary h-full rounded-full transition-all"
-												style={{
-													width: `${Math.min(Math.max(share, 1), 100)}%`,
-												}}
-											/>
-										</div>
-									</CardContent>
-								</Card>
-							);
-						})}
-					</div>
-				) : (
-					<Card>
-						<CardContent className="py-12 text-center">
-							<p className="text-muted-foreground text-sm">
-								No token activity yet
-							</p>
-						</CardContent>
-					</Card>
-				)}
-			</div>
-
-			{/* Platform Health */}
-			<div className="mt-10">
-				<Card>
-					<CardHeader>
-						<CardTitle>Platform Health</CardTitle>
-						<CardDescription>
-							Key operational metrics
-						</CardDescription>
-					</CardHeader>
-					<CardContent className="space-y-5">
-						<div>
-							<div className="mb-2 flex items-center justify-between">
-								<span className="text-muted-foreground text-sm">
-									Lobby Utilization
-								</span>
-								<span className="font-semibold">
-									{utilizationRate}%
-								</span>
-							</div>
-							<div className="bg-muted h-2 overflow-hidden rounded-full">
-								<div
-									className="bg-primary h-full rounded-full transition-all"
-									style={{
-										width: `${Math.min(Number(utilizationRate), 100)}%`,
-									}}
-								/>
-							</div>
+										</CardContent>
+									</Card>
+								);
+							})}
 						</div>
-
-						<div className="grid grid-cols-2 gap-4 pt-2 md:grid-cols-3">
-							<div>
-								<p className="text-muted-foreground text-xs">
-									Finished Lobbies
+					) : (
+						<Card>
+							<CardContent className="py-12 text-center">
+								<p className="text-muted-foreground text-sm">
+									No token activity yet
 								</p>
-								<p className="text-lg font-semibold">
-									{formatNumber(stats.finishedLobbies)}
-								</p>
-							</div>
-							<div>
-								<p className="text-muted-foreground text-xs">
-									Avg. Volume / Lobby
-								</p>
-								<p className="text-lg font-semibold">
-									{stats.totalLobbies > 0
-										? formatUSD(
-												stats.totalVolumeUsd /
-													stats.totalLobbies
-											)
-										: "—"}
-								</p>
-							</div>
-							<div>
-								<p className="text-muted-foreground text-xs">
-									Avg. Volume / User
-								</p>
-								<p className="text-lg font-semibold">
-									{stats.totalUsers > 0
-										? formatUSD(
-												stats.totalVolumeUsd /
-													stats.totalUsers
-											)
-										: "—"}
-								</p>
-							</div>
-						</div>
-					</CardContent>
-				</Card>
-			</div>
-
-			{/* Game Breakdown */}
-			<div className="mt-10">
-				<div className="mb-5">
-					<h2 className="text-xl font-bold md:text-2xl">
-						Game Breakdown
-					</h2>
-					<p className="text-muted-foreground text-sm">
-						Per-game statistics and player engagement
-					</p>
+							</CardContent>
+						</Card>
+					)}
 				</div>
 
-				{gameStats.length > 0 ? (
-					<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-						{gameStats.map((game) => {
-							const matchShare =
-								stats.totalLobbies > 0
-									? (game.totalMatches / stats.totalLobbies) *
-										100
-									: 0;
+				<div>
+					<Card>
+						<CardHeader>
+							<CardTitle>Paid Lobby Health</CardTitle>
+							<CardDescription>
+								Entry-fee lobby utilization for the selected
+								season
+							</CardDescription>
+						</CardHeader>
+						<CardContent className="space-y-5">
+							<div>
+								<div className="mb-2 flex items-center justify-between">
+									<span className="text-muted-foreground text-sm">
+										Entry-Fee Lobby Utilization
+									</span>
+									<span className="font-semibold">
+										{seasonUtilizationRate}%
+									</span>
+								</div>
+								<div className="bg-muted h-2 overflow-hidden rounded-full">
+									<div
+										className="bg-primary h-full rounded-full transition-all"
+										style={{
+											width: `${Math.min(Number(seasonUtilizationRate), 100)}%`,
+										}}
+									/>
+								</div>
+							</div>
 
-							return (
-								<Card
-									key={game.gameId}
-									className="overflow-hidden"
-								>
-									<CardHeader className="pb-3">
-										<div className="flex items-center justify-between">
-											<div className="flex items-center gap-3">
-												<Image
-													src={game.gameImageUrl}
-													alt={game.gameName}
-													width={40}
-													height={40}
-													className="size-10 rounded-lg object-cover"
-												/>
+							<div className="grid grid-cols-2 gap-4 pt-2 md:grid-cols-3">
+								<div>
+									<p className="text-muted-foreground text-xs">
+										Entry-Fee Lobbies
+									</p>
+									<p className="text-lg font-semibold">
+										{formatNumber(seasonStats.feeLobbies)}
+									</p>
+								</div>
+								<div>
+									<p className="text-muted-foreground text-xs">
+										Active Entry-Fee Lobbies
+									</p>
+									<p className="text-lg font-semibold">
+										{formatNumber(
+											seasonStats.activeFeeLobbies
+										)}
+									</p>
+								</div>
+								<div>
+									<p className="text-muted-foreground text-xs">
+										Avg. Volume / Entry-Fee Lobby
+									</p>
+									<p className="text-lg font-semibold">
+										{seasonStats.feeLobbies > 0
+											? formatUSD(
+													seasonStats.totalVolumeUsd /
+														seasonStats.feeLobbies
+												)
+											: "—"}
+									</p>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+				</div>
+
+				<div>
+					<div className="mb-5">
+						<h3 className="text-lg font-bold md:text-xl">
+							Game Breakdown
+						</h3>
+						<p className="text-muted-foreground text-sm">
+							Season-specific statistics and player engagement
+						</p>
+					</div>
+
+					{seasonGameStats.length > 0 ? (
+						<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+							{seasonGameStats.map((game) => {
+								const matchShare =
+									seasonStats.totalLobbies > 0
+										? (game.totalMatches /
+												seasonStats.totalLobbies) *
+											100
+										: 0;
+
+								return (
+									<Card
+										key={game.gameId}
+										className="overflow-hidden"
+									>
+										<CardHeader className="pb-3">
+											<div className="flex items-center justify-between gap-3">
+												<div className="flex items-center gap-3">
+													<Image
+														src={game.gameImageUrl}
+														alt={game.gameName}
+														width={40}
+														height={40}
+														className="size-10 rounded-lg object-cover"
+													/>
+													<div>
+														<CardTitle className="text-lg">
+															{game.gameName}
+														</CardTitle>
+														<p className="text-muted-foreground text-xs">
+															{game.totalPlayers}{" "}
+															active{" "}
+															{game.totalPlayers ===
+															1
+																? "player"
+																: "players"}
+														</p>
+													</div>
+												</div>
+												<Badge
+													variant="secondary"
+													className="text-xs"
+												>
+													{matchShare.toFixed(1)}%
+												</Badge>
+											</div>
+										</CardHeader>
+										<CardContent className="space-y-4">
+											<div className="grid grid-cols-2 gap-4">
 												<div>
-													<CardTitle className="text-lg">
-														{game.gameName}
-													</CardTitle>
 													<p className="text-muted-foreground text-xs">
-														{game.totalPlayers}{" "}
-														active{" "}
-														{game.totalPlayers === 1
-															? "player"
-															: "players"}
+														Total Matches
+													</p>
+													<p className="text-sm font-semibold">
+														{formatNumber(
+															game.totalMatches
+														)}
+													</p>
+												</div>
+												<div>
+													<p className="text-muted-foreground text-xs">
+														Total Wins
+													</p>
+													<p className="text-sm font-semibold">
+														{formatNumber(
+															game.totalWins
+														)}
+													</p>
+												</div>
+												<div>
+													<p className="text-muted-foreground text-xs">
+														Avg Win Rate
+													</p>
+													<p className="text-sm font-semibold">
+														{game.avgWinRate.toFixed(
+															1
+														)}
+														%
+													</p>
+												</div>
+												<div>
+													<p className="text-muted-foreground text-xs">
+														Wars Points
+													</p>
+													<p className="text-sm font-semibold">
+														{formatNumber(
+															game.totalPoints
+														)}
 													</p>
 												</div>
 											</div>
-											<Badge
-												variant="secondary"
-												className="text-xs"
-											>
-												{matchShare.toFixed(1)}%
-											</Badge>
-										</div>
-									</CardHeader>
-									<CardContent className="space-y-4">
-										<div className="grid grid-cols-2 gap-4">
-											<div>
-												<p className="text-muted-foreground text-xs">
-													Total Matches
-												</p>
-												<p className="text-sm font-semibold">
-													{formatNumber(
-														game.totalMatches
-													)}
-												</p>
-											</div>
-											<div>
-												<p className="text-muted-foreground text-xs">
-													Total Wins
-												</p>
-												<p className="text-sm font-semibold">
-													{formatNumber(
-														game.totalWins
-													)}
-												</p>
-											</div>
-											<div>
-												<p className="text-muted-foreground text-xs">
-													Avg Win Rate
-												</p>
-												<p className="text-sm font-semibold">
-													{game.avgWinRate.toFixed(1)}
-													%
-												</p>
-											</div>
-											<div>
-												<p className="text-muted-foreground text-xs">
-													Wars Points
-												</p>
-												<p className="text-sm font-semibold">
-													{formatNumber(
-														game.totalPoints
-													)}
-												</p>
-											</div>
-										</div>
 
-										{/* Match share bar */}
-										<div className="bg-muted h-1.5 overflow-hidden rounded-full">
-											<div
-												className="bg-primary h-full rounded-full transition-all"
-												style={{
-													width: `${Math.min(Math.max(matchShare, 1), 100)}%`,
-												}}
-											/>
-										</div>
-									</CardContent>
-								</Card>
-							);
-						})}
-					</div>
-				) : (
-					<Card>
-						<CardContent className="py-12 text-center">
-							<p className="text-muted-foreground text-sm">
-								No game statistics available yet
-							</p>
-						</CardContent>
-					</Card>
-				)}
-			</div>
-
-			{/* Footer */}
-			<div className="pt-10 text-center">
-				<p className="text-muted-foreground text-xs">
-					Data refreshed on each page load. USD prices via{" "}
-					<a
-						href="https://stxtools.io"
-						target="_blank"
-						rel="noopener noreferrer"
-						className="underline"
-					>
-						stxtools.io
-					</a>{" "}
-					(5-min cache).
-				</p>
-			</div>
+											<div className="bg-muted h-1.5 overflow-hidden rounded-full">
+												<div
+													className="bg-primary h-full rounded-full transition-all"
+													style={{
+														width: `${Math.min(Math.max(matchShare, 1), 100)}%`,
+													}}
+												/>
+											</div>
+										</CardContent>
+									</Card>
+								);
+							})}
+						</div>
+					) : (
+						<Card>
+							<CardContent className="py-12 text-center">
+								<p className="text-muted-foreground text-sm">
+									No game statistics available yet
+								</p>
+							</CardContent>
+						</Card>
+					)}
+				</div>
+			</section>
 		</div>
 	);
 }
