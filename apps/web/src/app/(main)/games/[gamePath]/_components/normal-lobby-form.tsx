@@ -39,10 +39,6 @@ import { Loader2 } from "lucide-react";
 import type { ContractIdString } from "@stacks/transactions";
 
 const normalLobbySchema = z.object({
-	lobbyName: z
-		.string()
-		.min(1, "Lobby name is required")
-		.max(50, "Lobby name must be at most 50 characters"),
 	description: z
 		.string()
 		.max(200, "Description must be at most 200 characters")
@@ -64,11 +60,13 @@ const normalLobbySchema = z.object({
 type NormalLobbyFormValues = z.infer<typeof normalLobbySchema>;
 
 interface NormalLobbyFormProps {
+	getDefaultLobbyName: () => string;
 	getDefaultDescription: () => string;
 	game: Game;
 }
 
 export default function NormalLobbyForm({
+	getDefaultLobbyName,
 	getDefaultDescription,
 	game,
 }: NormalLobbyFormProps) {
@@ -82,7 +80,6 @@ export default function NormalLobbyForm({
 		// @ts-ignore - Zod v4 compatibility issue with @hookform/resolvers
 		resolver: zodResolver(normalLobbySchema),
 		defaultValues: {
-			lobbyName: "",
 			description: "",
 			lobbyType: "public",
 			entryAmount: "",
@@ -96,7 +93,7 @@ export default function NormalLobbyForm({
 		setProgress(null);
 		try {
 			const payload: CreateLobbyRequest = {
-				name: values.lobbyName,
+				name: getDefaultLobbyName(),
 				description:
 					values.description?.trim() || getDefaultDescription(),
 				gameId: game.id,
@@ -206,30 +203,6 @@ export default function NormalLobbyForm({
 				onSubmit={form.handleSubmit(handleSubmit)}
 				className="space-y-6"
 			>
-				<FormField
-					control={form.control}
-					name="lobbyName"
-					render={({ field }) => (
-						<FormItem>
-							<FormLabel>
-								Lobby Name{" "}
-								<span className="text-destructive">*</span>
-							</FormLabel>
-							<FormControl>
-								<Input
-									placeholder="Enter lobby name"
-									{...field}
-									maxLength={50}
-								/>
-							</FormControl>
-							<FormDescription>
-								Choose a descriptive name for your lobby (max 50
-								characters)
-							</FormDescription>
-							<FormMessage />
-						</FormItem>
-					)}
-				/>
 				<FormField
 					control={form.control}
 					name="description"

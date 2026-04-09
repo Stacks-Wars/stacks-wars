@@ -46,10 +46,6 @@ import { useAppActions } from "@/lib/stores/app";
 import { Loader2 } from "lucide-react";
 
 const sponsoredLobbySchema = z.object({
-	lobbyName: z
-		.string()
-		.min(1, "Lobby name is required")
-		.max(50, "Lobby name must be at most 50 characters"),
 	description: z
 		.string()
 		.max(200, "Description must be at most 200 characters")
@@ -67,11 +63,13 @@ const sponsoredLobbySchema = z.object({
 type SponsoredLobbyFormValues = z.infer<typeof sponsoredLobbySchema>;
 
 interface SponsoredLobbyFormProps {
+	getDefaultLobbyName: () => string;
 	getDefaultDescription: () => string;
 	game: Game;
 }
 
 export default function SponsoredLobbyForm({
+	getDefaultLobbyName,
 	getDefaultDescription,
 	game,
 }: SponsoredLobbyFormProps) {
@@ -99,7 +97,6 @@ export default function SponsoredLobbyForm({
 		// @ts-ignore - Zod v4 compatibility issue with @hookform/resolvers
 		resolver: zodResolver(sponsoredLobbySchema),
 		defaultValues: {
-			lobbyName: "",
 			description: "",
 			lobbyType: "public",
 			poolAmount: "",
@@ -124,7 +121,7 @@ export default function SponsoredLobbyForm({
 				return;
 			}
 			const payload: CreateLobbyRequest = {
-				name: values.lobbyName,
+				name: getDefaultLobbyName(),
 				description:
 					values.description?.trim() || getDefaultDescription(),
 				gameId: game.id,
@@ -233,30 +230,6 @@ export default function SponsoredLobbyForm({
 				onSubmit={form.handleSubmit(handleSubmit)}
 				className="space-y-6"
 			>
-				<FormField
-					control={form.control}
-					name="lobbyName"
-					render={({ field }) => (
-						<FormItem>
-							<FormLabel>
-								Lobby Name{" "}
-								<span className="text-destructive">*</span>
-							</FormLabel>
-							<FormControl>
-								<Input
-									placeholder="Enter lobby name"
-									{...field}
-									maxLength={50}
-								/>
-							</FormControl>
-							<FormDescription>
-								Choose a descriptive name for your lobby (max 50
-								characters)
-							</FormDescription>
-							<FormMessage />
-						</FormItem>
-					)}
-				/>
 				<FormField
 					control={form.control}
 					name="description"

@@ -24,6 +24,11 @@ export default function CreateLobbyForm(game: Game) {
 		return `Join ${userIdentifier}'s ${game.name} lobby!`;
 	};
 
+	const getDefaultLobbyName = () => {
+		const userIdentifier = user ? displayUserIdentifier(user) : "Anonymous";
+		return `${userIdentifier} ${game.name} lobby`;
+	};
+
 	const handleContinueCreation = async () => {
 		if (!user) return;
 		const response = await handleContinue(user.walletAddress);
@@ -111,6 +116,7 @@ export default function CreateLobbyForm(game: Game) {
 
 					<TabsContent value="normal" className="mt-4 sm:mt-8">
 						<NormalLobbyForm
+							getDefaultLobbyName={getDefaultLobbyName}
 							getDefaultDescription={getDefaultDescription}
 							game={game}
 						/>
@@ -118,6 +124,7 @@ export default function CreateLobbyForm(game: Game) {
 
 					<TabsContent value="sponsored" className="mt-8">
 						<SponsoredLobbyForm
+							getDefaultLobbyName={getDefaultLobbyName}
 							getDefaultDescription={getDefaultDescription}
 							game={game}
 						/>
