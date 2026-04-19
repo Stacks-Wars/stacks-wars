@@ -2942,7 +2942,78 @@ dependencies = [
 ]
 
 [[package]]
-name = "stacks_wars_be"
+name = "stacks_wars_core"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "stacks_wars_game_checkers"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "serde",
+ "serde_json",
+ "stacks_wars_core",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "stacks_wars_game_lexi_wars"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "once_cell",
+ "rand 0.9.1",
+ "serde",
+ "serde_json",
+ "stacks_wars_core",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "stacks_wars_game_ludo"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "rand 0.9.1",
+ "serde",
+ "serde_json",
+ "stacks_wars_core",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "stacks_wars_game_ludo_rush"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "rand 0.9.1",
+ "serde",
+ "serde_json",
+ "stacks_wars_core",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "stacks_wars_server"
 version = "0.1.0"
 dependencies = [
  "async-trait",
@@ -2967,6 +3038,11 @@ dependencies = [
  "serde_json",
  "serial_test",
  "sqlx",
+ "stacks_wars_core",
+ "stacks_wars_game_checkers",
+ "stacks_wars_game_lexi_wars",
+ "stacks_wars_game_ludo",
+ "stacks_wars_game_ludo_rush",
  "teloxide",
  "testcontainers",
  "testcontainers-modules",

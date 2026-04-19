@@ -1,0 +1,204 @@
+//! `/api/ratings/*` — `http::ratings`
+use reqwest;
+use serde_json::json;
+
+#[tokio::test]
+async fn post_platform_rating_create_ok() {
+    let app = crate::common::spawn_app_with_containers().await;
+    let client = reqwest::Client::new();
+
+    let factory = app.factory();
+    let (user_id, token) = factory
+        .create_test_user(None)
+        .await
+        .expect("create user failed");
+
+    let payload = json!({ "rating": 4, "comment": "Great platform" });
+
+    let resp = client
+        .post(format!("{}/api/ratings/platform-rating", app.base_url))
+        .header("Cookie", factory.create_auth_cookie(&token))
+        .json(&payload)
+        .send()
+        .await
+        .expect("request failed");
+
+    assert!(resp.status().is_success());
+
+    let resp2 = client
+        .get(format!(
+            "{}/api/ratings/platform-rating/{}",
+            app.base_url, user_id
+        ))
+        .send()
+        .await
+        .expect("request failed");
+
+    assert!(resp2.status().is_success());
+    let body: serde_json::Value = resp2.json().await.expect("invalid json");
+    assert_eq!(body.get("rating").and_then(|v| v.as_i64()).unwrap_or(0), 4);
+
+    app.stop().await;
+}
+
+#[tokio::test]
+async fn get_platform_rating_by_user_ok() {
+    let app = crate::common::spawn_app_with_containers().await;
+    let client = reqwest::Client::new();
+
+    let factory = app.factory();
+    let (user_id, _token) = factory
+        .create_test_user(None)
+        .await
+        .expect("create user failed");
+
+    let _id = factory
+        .create_platform_rating(user_id, 3)
+        .await
+        .expect("create platform rating failed");
+
+    let resp = client
+        .get(format!(
+            "{}/api/ratings/platform-rating/{}",
+            app.base_url, user_id
+        ))
+        .send()
+        .await
+        .expect("request failed");
+
+    assert!(resp.status().is_success());
+    let body: serde_json::Value = resp.json().await.expect("invalid json");
+    assert_eq!(body.get("rating").and_then(|v| v.as_i64()).unwrap_or(0), 3);
+
+    app.stop().await;
+}
+
+#[tokio::test]
+async fn get_list_platform_ratings_and_filter_ok() {
+    let app = crate::common::spawn_app_with_containers().await;
+    let client = reqwest::Client::new();
+
+    let factory = app.factory();
+
+    let (user1, _t1) = factory
+        .create_test_user(None)
+        .await
+        .expect("create user failed");
+    let (user2, _t2) = factory
+        .create_test_user(None)
+        .await
+        .expect("create user failed");
+
+    let _ = factory
+        .create_platform_rating(user1, 5)
+        .await
+        .expect("create platform rating failed");
+    let _ = factory
+        .create_platform_rating(user2, 3)
+        .await
+        .expect("create platform rating failed");
+
+    let resp = client
+        .get(format!("{}/api/ratings/platform-rating", app.base_url))
+        .send()
+        .await
+        .expect("request failed");
+
+    assert!(resp.status().is_success());
+    let list: Vec<serde_json::Value> = resp.json().await.expect("invalid json");
+    assert!(list.len() >= 2);
+
+    let resp2 = client
+        .get(format!(
+            "{}/api/ratings/platform-rating?rating=3",
+            app.base_url
+        ))
+        .send()
+        .await
+        .expect("request failed");
+    assert!(resp2.status().is_success());
+    let list2: Vec<serde_json::Value> = resp2.json().await.expect("invalid json");
+    for item in list2.iter() {
+        assert_eq!(item.get("rating").and_then(|v| v.as_i64()).unwrap_or(0), 3);
+    }
+
+    app.stop().await;
+}
+
+#[tokio::test]
+async fn patch_platform_rating_update_ok() {
+    let app = crate::common::spawn_app_with_containers().await;
+    let client = reqwest::Client::new();
+
+    let factory = app.factory();
+    let (_user_id, token) = factory
+        .create_test_user(None)
+        .await
+        .expect("create user failed");
+
+    let payload = json!({ "rating": 2, "comment": "initial" });
+    let resp = client
+        .post(format!("{}/api/ratings/platform-rating", app.base_url))
+        .header("Cookie", factory.create_auth_cookie(&token))
+        .json(&payload)
+        .send()
+        .await
+        .expect("request failed");
+    assert!(resp.status().is_success());
+
+    let payload2 = json!({ "rating": 1, "comment": "updated" });
+    let resp2 = client
+        .patch(format!("{}/api/ratings/platform-rating", app.base_url))
+        .header("Cookie", factory.create_auth_cookie(&token))
+        .json(&payload2)
+        .send()
+        .await
+        .expect("request failed");
+    assert!(resp2.status().is_success());
+    let body: serde_json::Value = resp2.json().await.expect("invalid json");
+    assert_eq!(body.get("rating").and_then(|v| v.as_i64()).unwrap_or(0), 1);
+
+    app.stop().await;
+}
+
+#[tokio::test]
+async fn delete_platform_rating_ok() {
+    let app = crate::common::spawn_app_with_containers().await;
+    let client = reqwest::Client::new();
+
+    let factory = app.factory();
+    let (user_id, token) = factory
+        .create_test_user(None)
+        .await
+        .expect("create user failed");
+
+    let payload = json!({ "rating": 2, "comment": "to-delete" });
+    let resp = client
+        .post(format!("{}/api/ratings/platform-rating", app.base_url))
+        .header("Cookie", factory.create_auth_cookie(&token))
+        .json(&payload)
+        .send()
+        .await
+        .expect("request failed");
+    assert!(resp.status().is_success());
+
+    let resp3 = client
+        .delete(format!("{}/api/ratings/platform-rating", app.base_url))
+        .header("Cookie", factory.create_auth_cookie(&token))
+        .send()
+        .await
+        .expect("request failed");
+    assert!(resp3.status().is_success());
+
+    let resp4 = client
+        .get(format!(
+            "{}/api/ratings/platform-rating/{}",
+            app.base_url, user_id
+        ))
+        .send()
+        .await
+        .expect("request failed");
+    assert_eq!(resp4.status().as_u16(), 404);
+
+    app.stop().await;
+}

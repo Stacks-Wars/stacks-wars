@@ -9,9 +9,9 @@ export default async function LeaderBoardPage() {
 		ApiClient.get<{
 			leaderboard: LeaderBoard[];
 			total: number;
-		}>(`/api/leaderboard`),
-		ApiClient.get<Game[]>(`/api/games`),
-		ApiClient.get<Season[]>(`/api/season?limit=50`),
+		}>(`/api/leaderboards`),
+		ApiClient.get<Game[]>(`/api/games/`),
+		ApiClient.get<Season[]>(`/api/seasons?limit=50`),
 	]);
 
 	const seasons = seasonsRes.data || [];

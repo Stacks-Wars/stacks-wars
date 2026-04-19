@@ -84,7 +84,7 @@ export default function SeasonDialog({
 		try {
 			if (isEditing) {
 				const response = await ApiClient.put<Season>(
-					`/api/season/${season.id}`,
+					`/api/admin/season/${season.id}`,
 					payload
 				);
 
@@ -99,7 +99,7 @@ export default function SeasonDialog({
 				onSuccess(response.data);
 			} else {
 				const response = await ApiClient.post<Season>(
-					"/api/season",
+					"/api/admin/season",
 					payload
 				);
 

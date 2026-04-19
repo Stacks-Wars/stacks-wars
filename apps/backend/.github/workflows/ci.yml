@@ -39,5 +39,5 @@ jobs:
                   RUST_LOG: info
                   RUST_BACKTRACE: 1
               run: |
-                  # Run all tests in the repository (all crates/workspace)
-                  cargo test --all -- --nocapture
+                  # Nested workspace under apps/backend (core, server, games/*)
+                  cargo test --manifest-path apps/backend/Cargo.toml --workspace -- --nocapture

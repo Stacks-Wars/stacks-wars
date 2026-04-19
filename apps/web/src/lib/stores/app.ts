@@ -141,7 +141,7 @@ const useAppStore = create<AppStore>()(
 						}
 						// Post the lobby
 						const response = await ApiClient.post<Lobby>(
-							"/api/lobby",
+							"/api/lobbies",
 							progress.payload
 						);
 						return response;

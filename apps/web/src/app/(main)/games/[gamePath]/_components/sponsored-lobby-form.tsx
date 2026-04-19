@@ -135,7 +135,7 @@ export default function SponsoredLobbyForm({
 			try {
 				setProgress("Setting up your contract");
 				const contractResponse = await ApiClient.get<string>(
-					`/api/sponsored-contract?gameCreatorId=${game.creatorId}&poolSize=${amount}&contractId=${values.selectedToken}`
+					`/api/chain/sponsored-contract?gameCreatorId=${game.creatorId}&poolSize=${amount}&contractId=${values.selectedToken}`
 				);
 				if (contractResponse.error) {
 					toast.error("Failed to set up contract");
@@ -203,7 +203,7 @@ export default function SponsoredLobbyForm({
 				return;
 			}
 			setProgress("Creating your lobby");
-			const response = await ApiClient.post<Lobby>("/api/lobby", payload);
+			const response = await ApiClient.post<Lobby>("/api/lobbies", payload);
 			if (response.error) {
 				toast.error("Failed to create lobby", {
 					description: "Please try again later.",

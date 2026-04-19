@@ -41,7 +41,7 @@ const usePlayerLobbiesStore = create<PlayerLobbiesStore>((set, get) => ({
 			const offset = (page - 1) * PAGE_SIZE;
 			try {
 				const res = await ApiClient.get<{ 0: LobbyInfo[]; 1: number }>(
-					`/api/player-lobby/${userId}?status=waiting,starting,inProgress&limit=${PAGE_SIZE}&offset=${offset}`
+					`/api/users/player-lobby/${userId}?status=waiting,starting,inProgress&limit=${PAGE_SIZE}&offset=${offset}`
 				);
 				if (res.data) {
 					set({

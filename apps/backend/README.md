@@ -96,10 +96,10 @@ Create → Join/Leave → Ready Up → Game Start → Game End → Cleanup
 ## Commands
 
 ```bash
-# Development
-cargo check                    # Type check
-cargo test                     # Run all tests
-cargo run --bin stacks_wars_be # Start server
+# Development (from monorepo root; apps/backend is a nested Cargo workspace)
+cargo check --manifest-path apps/backend/Cargo.toml --workspace
+cargo test --manifest-path apps/backend/Cargo.toml --workspace
+cargo run --manifest-path apps/backend/Cargo.toml -p stacks_wars_server --bin stacks_wars_server
 
 # CLI Tools
 cargo run --bin hydrate        # Hydrate Redis from PostgreSQL
@@ -115,7 +115,7 @@ JWT_SECRET=...                 # JWT signing secret
 
 ### Adding a New Game
 
-See [src/games/README.md](src/games/README.md) for a complete walkthrough.
+See [server/src/games/README.md](server/src/games/README.md) for a complete walkthrough.
 
 ### Adding a New HTTP Endpoint
 

@@ -26,7 +26,7 @@ export default function GameCard({ game, onUpdate }: GameCardProps) {
 				id: string;
 				name: string;
 				isActive: boolean;
-			}>(`/api/game/${game.id}/active`, { isActive: checked });
+			}>(`/api/admin/game/${game.id}/active`, { isActive: checked });
 
 			if (response.error || !response.data) {
 				toast.error("Failed to update game status", {
