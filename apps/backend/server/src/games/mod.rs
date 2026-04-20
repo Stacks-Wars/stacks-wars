@@ -5,17 +5,17 @@ pub mod error;
 
 /// Shipped Lexi Wars implementation (standalone crate).
 pub mod lexi_wars {
-    pub use stacks_wars_game_lexi_wars::*;
+    pub use stacks_wars_lexi_wars::*;
 }
 
 /// Shipped Ludo implementation (standalone crate).
 pub mod ludo {
-    pub use stacks_wars_game_ludo::*;
+    pub use stacks_wars_ludo::*;
 }
 
 /// Shipped Ludo Rush implementation (standalone crate).
 pub mod ludo_rush {
-    pub use stacks_wars_game_ludo_rush::*;
+    pub use stacks_wars_ludo_rush::*;
 }
 
 pub mod registry;

@@ -52,7 +52,7 @@ src/
 │
 ├── auth/            # Authentication (JWT, extractors)
 ├── db/              # Database repositories (PostgreSQL + Redis)
-├── games/           # Game engines (implement GameEngine trait)
+├── games/           # Registry + re-exports; engines live in separate crates
 ├── http/            # HTTP handlers and routes
 ├── models/          # Domain models and Redis key builders
 ├── ws/              # WebSocket handlers (lobby list, game rooms)
@@ -61,7 +61,7 @@ src/
 │   ├── hydrate.rs       # Hydrate Redis from PostgreSQL
 │   └── migrate_redis.rs # Redis data migrations
 │
-└── assets/          # Static assets (dictionary.json for word games)
+└── assets/          # Static assets used by the server binary
 ```
 
 ## Key Concepts

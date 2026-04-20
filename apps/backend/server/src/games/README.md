@@ -1,22 +1,25 @@
 # Games Module
 
-Shipped game engines, the in-server registry, and integration helpers. **Portable traits and wire types** live in the `stacks_wars_core` crate; **each shipped game** is a separate package under `apps/backend/games/<name>/` and is re-exported from `server/src/games/mod.rs` so existing `crate::games::lexi_wars` paths keep working.
+Shipped game engines, the in-server registry, and integration helpers. **Portable traits and wire types** live in the `stacks_wars_core` crate (published on crates.io as `stacks_wars_core`). **Each first-party game** is a normal Rust crate in its own repository (for example `Stacks-Wars/checkers`); the server depends on those crates and re-exports them from `server/src/games/mod.rs` so `crate::games::lexi_wars` and similar paths keep working.
 
-## Workspace layout
+## Layout
 
 ```text
 apps/backend/
   core/                 # stacks_wars_core — GameEngine, GameHost, DTOs
   server/               # stacks_wars_server — HTTP/WS/DB, KernelGameHost
-  games/
-    checkers/           # stacks_wars_game_checkers
-    lexi_wars/          # stacks_wars_game_lexi_wars
-    ludo/               # stacks_wars_game_ludo
-    ludo_rush/          # stacks_wars_game_ludo_rush
   migrations/
+
+# Sibling directories (monorepo root next to the `stacks-wars` checkout):
+  checkers/             # stacks_wars_checkers
+  lexi-wars/            # stacks_wars_lexi_wars
+  ludo/                 # stacks_wars_ludo
+  ludo-rush/            # stacks_wars_ludo_rush
 ```
 
-**Dependency rule:** each `games/*` crate depends only on `stacks_wars_core`. The server depends on `core` and every game crate it registers.
+**Dependency rule:** each game crate depends only on `stacks_wars_core` (from crates.io). The server depends on `stacks_wars_core` and every registered game crate by **version** from crates.io (`server/Cargo.toml`).
+
+**Publishing:** from `apps/backend`, run `cargo publish -p stacks_wars_core`; then publish each `stacks_wars_<game>` crate from its own repo. Game crates must not depend on anything Stacks-Wars–specific besides `stacks_wars_core`.
 
 ## `GameHost` boundary
 
@@ -59,11 +62,11 @@ Before writing code, define:
 4. **Actions**: What can players do?
 5. **Events**: What does the server broadcast?
 
-## Step 2: Create a `games/<name>` crate
+## Step 2: Create a standalone `stacks_wars_<game>` crate
 
-Add a new member under `apps/backend/games/my_game/` with `Cargo.toml` depending only on `stacks_wars_core` (plus `async-trait`, `serde`, `tokio`, etc. as needed). Export `pub const MY_GAME_ID: Uuid` and `pub fn create_my_game(lobby_id: Uuid, host: GameHostRef) -> Box<dyn GameEngine>`.
+Create a new repository (or crate) named on crates.io as `stacks_wars_<game>` (for example `stacks_wars_chess`). The `Cargo.toml` should depend on `stacks_wars_core` from crates.io (plus `async-trait`, `serde`, `tokio`, etc. as needed). Export `pub const MY_GAME_ID: Uuid` and `pub fn create_my_game(lobby_id: Uuid, host: GameHostRef) -> Box<dyn GameEngine>`.
 
-Wire it in `apps/backend/Cargo.toml` workspace members, add `stacks_wars_game_my_game = { path = "../games/my_game" }` to `server/Cargo.toml`, expose it from `server/src/games/mod.rs` (same pattern as `lexi_wars`), and register the factory in `registry.rs`.
+Publish the crate, then wire it into this server: add `stacks_wars_chess = "0.1.0"` (or your version) to `server/Cargo.toml`, add `pub mod chess { pub use stacks_wars_chess::*; }` in `server/src/games/mod.rs`, and register the factory in `registry.rs`.
 
 ## Step 3: Define Messages
 

@@ -3,10 +3,6 @@ resolver = "2"
 members = [
     "core",
     "server",
-    "games/checkers",
-    "games/lexi_wars",
-    "games/ludo",
-    "games/ludo_rush",
 ]
 
 default-members = ["server"]

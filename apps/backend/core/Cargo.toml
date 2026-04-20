@@ -2,6 +2,10 @@
 name = "stacks_wars_core"
 version = "0.1.0"
 edition = "2024"
+description = "Traits and portable types for Stacks Wars game engine crates."
+license-file = "LICENSE"
+repository = "https://github.com/Stacks-Wars/stacks-wars"
+readme = "README.md"
 
 [dependencies]
 async-trait = "0.1"

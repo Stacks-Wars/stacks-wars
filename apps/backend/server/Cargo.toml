@@ -11,11 +11,11 @@ name = "stacks_wars_server"
 path = "src/main.rs"
 
 [dependencies]
-stacks_wars_core = { path = "../core" }
-stacks_wars_game_checkers = { path = "../games/checkers" }
-stacks_wars_game_lexi_wars = { path = "../games/lexi_wars" }
-stacks_wars_game_ludo = { path = "../games/ludo" }
-stacks_wars_game_ludo_rush = { path = "../games/ludo_rush" }
+stacks_wars_core = "0.1.0"
+stacks_wars_checkers = "0.1.0"
+stacks_wars_lexi_wars = "0.1.0"
+stacks_wars_ludo = "0.1.0"
+stacks_wars_ludo_rush = "0.1.0"
 async-trait = "0.1"
 axum = { version = "0.8.4", features = ["ws", "macros"] }
 axum-extra = { version = "0.10.1", features = ["typed-header", "cookie"] }

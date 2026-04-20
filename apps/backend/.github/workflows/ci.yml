@@ -11,7 +11,7 @@ jobs:
         name: Run integration tests
         runs-on: ubuntu-latest
         steps:
-            - name: Checkout
+            - name: Checkout stacks-wars
               uses: actions/checkout@v4
 
             - name: Install system deps
@@ -39,5 +39,5 @@ jobs:
                   RUST_LOG: info
                   RUST_BACKTRACE: 1
               run: |
-                  # Nested workspace under apps/backend (core, server, games/*)
+                  # Nested workspace under apps/backend (core, server; game crates from crates.io)
                   cargo test --manifest-path apps/backend/Cargo.toml --workspace -- --nocapture
