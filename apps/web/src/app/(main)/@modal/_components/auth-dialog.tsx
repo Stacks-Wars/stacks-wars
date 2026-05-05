@@ -97,7 +97,7 @@ export function AuthDialog({ trigger, open, mode = "login" }: AuthDialogProps) {
 
 			// post user to api to create or login
 			// if emailAddress field, be construct one using address + domain
-			const authResponse = await ApiClient.post<User>("/api/user", {
+			const authResponse = await ApiClient.post<User>("/api/users/register", {
 				walletAddress: address,
 			});
 

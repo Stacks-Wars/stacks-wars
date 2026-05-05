@@ -14,7 +14,7 @@ interface LayoutProps {
 
 async function getLobby(lobbyPath: string): Promise<Lobby> {
 	try {
-		const res = await ApiClient.get<Lobby>(`/api/lobby/${lobbyPath}`);
+		const res = await ApiClient.get<Lobby>(`/api/lobbies/${lobbyPath}`);
 		if (!res.data) {
 			throw new Error("No lobby data received");
 		}

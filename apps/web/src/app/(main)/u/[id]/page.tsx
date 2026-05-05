@@ -27,7 +27,7 @@ interface PageProps {
 
 async function getUser(id: string): Promise<User> {
 	try {
-		const response = await ApiClient.get<User>(`/api/user/${id}`);
+		const response = await ApiClient.get<User>(`/api/users/user/${id}`);
 		if (!response.data) {
 			throw new Error("No user data received");
 		}
@@ -78,13 +78,13 @@ export default async function UserProfile({
 	// Run remaining requests in parallel
 	const [gamesResult, statsResult, lobbiesResult, topGamesResult] =
 		await Promise.allSettled([
-			ApiClient.get<Game[]>(`/api/game/by-creator/${user.id}`),
-			ApiClient.get<LeaderBoard>(`/api/leaderboard/${user.id}`),
+			ApiClient.get<Game[]>(`/api/games/by-creator/${user.id}`),
+			ApiClient.get<LeaderBoard>(`/api/leaderboards/${user.id}`),
 			ApiClient.get<{ 0: LobbyInfo[]; 1: number }>(
-				`/api/player-lobby/${user.id}?status=waiting,starting,inProgress&limit=6&offset=0`
+				`/api/users/player-lobby/${user.id}?status=waiting,starting,inProgress&limit=6&offset=0`
 			),
 			ApiClient.get<UserTopGame[]>(
-				`/api/user/${user.id}/top-games?limit=6`
+				`/api/leaderboards/user/${user.id}/top-games?limit=6`
 			),
 		]);
 

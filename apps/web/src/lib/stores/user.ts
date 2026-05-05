@@ -73,7 +73,7 @@ const useUserStore = create<UserStore>((set, get) => ({
 			set({ tokensLoading: true });
 			try {
 				const response = await ApiClient.get<Token[]>(
-					`/api/balance/${walletAddress}`
+					`/api/chain/balance/${walletAddress}`
 				);
 				if (response.data) {
 					const fetchedTokens = response.data;
@@ -97,7 +97,7 @@ const useUserStore = create<UserStore>((set, get) => ({
 		fetchMinimumAmount: async (contractId) => {
 			try {
 				const response = await ApiClient.post<TokenInfo>(
-					`/api/token/${contractId}`,
+					`/api/chain/token/${contractId}`,
 					{ stx_amount: 5 }
 				);
 				if (response.data) {

@@ -46,7 +46,7 @@ const useGameLobbiesStore = create<GameLobbiesStore>((set, get) => ({
 					limit: number;
 					offset: number;
 				}>(
-					`/api/game/${gameIdentifier}/lobbies?statuses=waiting,starting,inProgress&limit=${PAGE_SIZE}&offset=${offset}`
+					`/api/lobbies/game/${gameIdentifier}/lobbies?statuses=waiting,starting,inProgress&limit=${PAGE_SIZE}&offset=${offset}`
 				);
 				if (res.data) {
 					set({

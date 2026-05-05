@@ -53,8 +53,8 @@ function parseSeasonId(value?: string): number | null {
 export default async function StatsPage({ searchParams }: StatsPageProps) {
 	const resolvedSearchParams = await searchParams;
 	const [overallRes, seasonsRes] = await Promise.all([
-		ApiClient.get<PlatformStats>("/api/stats"),
-		ApiClient.get<Season[]>("/api/season?limit=50"),
+		ApiClient.get<PlatformStats>("/api/stats/"),
+		ApiClient.get<Season[]>("/api/seasons?limit=50"),
 	]);
 
 	const seasons = seasonsRes.data || [];
@@ -87,12 +87,12 @@ export default async function StatsPage({ searchParams }: StatsPageProps) {
 		ApiClient.get<PlatformStats>(
 			selectedSeasonId !== null
 				? `/api/stats?seasonId=${selectedSeasonId}`
-				: "/api/stats"
+				: "/api/stats/"
 		),
 		ApiClient.get<GameStats[]>(
 			selectedSeasonId !== null
-				? `/api/stats/games?seasonId=${selectedSeasonId}`
-				: "/api/stats/games"
+				? `/api/leaderboards/stats/games?seasonId=${selectedSeasonId}`
+				: "/api/leaderboards/stats/games"
 		),
 	]);
 

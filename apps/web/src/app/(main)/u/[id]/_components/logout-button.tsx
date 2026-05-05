@@ -31,7 +31,7 @@ export default function LogoutButton({ userProfile }: LogoutButtonProps) {
 			disconnect();
 
 			// Call backend logout to revoke token and clear cookie
-			await ApiClient.post("/api/logout");
+			await ApiClient.post("/api/session/logout");
 
 			// Refresh auth state (will clear user since token is revoked)
 			router.refresh();

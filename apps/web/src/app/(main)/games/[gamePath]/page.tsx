@@ -16,7 +16,7 @@ export default async function CreateLobbyPage({
 }) {
 	const gamePath = (await params).gamePath;
 
-	const game = await ApiClient.get<Game>(`/api/game/${gamePath}`);
+	const game = await ApiClient.get<Game>(`/api/games/${gamePath}`);
 
 	if (!game.data) {
 		return <NotFound />;

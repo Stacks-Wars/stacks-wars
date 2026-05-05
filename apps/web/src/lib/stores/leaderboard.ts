@@ -74,7 +74,7 @@ const useLeaderboardStore = create<LeaderboardStore>((set, get) => ({
 					const res = await ApiClient.get<{
 						leaderboard: GameLeaderBoard[];
 						total: number;
-					}>(`/api/leaderboard/game/${gameId}?${params.toString()}`);
+					}>(`/api/leaderboards/game/${gameId}?${params.toString()}`);
 					set({
 						gameLeaderboard: res.data?.leaderboard || [],
 						leaderboard: [],
@@ -84,7 +84,7 @@ const useLeaderboardStore = create<LeaderboardStore>((set, get) => ({
 					const res = await ApiClient.get<{
 						leaderboard: LeaderBoard[];
 						total: number;
-					}>(`/api/leaderboard?${params.toString()}`);
+					}>(`/api/leaderboards?${params.toString()}`);
 					set({
 						leaderboard: res.data?.leaderboard || [],
 						gameLeaderboard: [],

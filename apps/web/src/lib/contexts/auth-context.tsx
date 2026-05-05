@@ -17,7 +17,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	const checkAuth = async () => {
 		setLoading(true);
 		try {
-			const response = await ApiClient.get<User>("/api/me");
+			const response = await ApiClient.get<User>("/api/session/me");
 
 			if (response.status === 200 && response.data) {
 				setUser(response.data);

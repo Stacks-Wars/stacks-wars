@@ -3,7 +3,7 @@ import { ApiClient } from "@/lib/api/client";
 import type { Season } from "@/lib/definitions";
 
 export default async function SeasonsPage() {
-	const response = await ApiClient.get<Season[]>("/api/season?limit=50");
+	const response = await ApiClient.get<Season[]>("/api/seasons?limit=50");
 
 	return (
 		<div className="container mx-auto px-4">

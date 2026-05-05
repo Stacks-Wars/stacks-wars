@@ -130,7 +130,7 @@ export default function CreateGameForm({ onSuccess }: CreateGameFormProps) {
 				category: values.category,
 			};
 
-			const response = await ApiClient.post<Game>("/api/game", payload);
+			const response = await ApiClient.post<Game>("/api/games/", payload);
 
 			if (response.error) {
 				setError(response.error);

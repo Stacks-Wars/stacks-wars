@@ -12,7 +12,7 @@ interface PageProps {
 
 async function getGame(identifier: string): Promise<Game> {
 	try {
-		const res = await ApiClient.get<Game>(`/api/game/${identifier}`);
+		const res = await ApiClient.get<Game>(`/api/games/${identifier}`);
 		if (!res.data) {
 			throw new Error("No game data received");
 		}
@@ -29,7 +29,7 @@ async function getGameLobbies(identifier: string): Promise<{
 }> {
 	try {
 		const res = await ApiClient.get<PaginatedLobbiesResponse>(
-			`/api/game/${identifier}/lobbies?statuses=waiting,starting,inProgress&limit=6&offset=0`
+			`/api/lobbies/game/${identifier}/lobbies?statuses=waiting,starting,inProgress&limit=6&offset=0`
 		);
 		if (!res.data) {
 			return { lobbies: [], total: 0 };

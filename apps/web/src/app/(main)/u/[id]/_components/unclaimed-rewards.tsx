@@ -18,7 +18,7 @@ export default function UnclaimedRewards({ userId }: UnclaimedRewardsProps) {
 	useEffect(() => {
 		if (user?.id === userId) {
 			setLoading(true);
-			ApiClient.get<UnclaimedReward[]>("/api/unclaimed-reward")
+			ApiClient.get<UnclaimedReward[]>("/api/session/unclaimed-reward")
 				.then((res) => {
 					if (res.data) setRewards(res.data);
 				})

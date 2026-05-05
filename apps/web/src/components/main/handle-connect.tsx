@@ -40,7 +40,7 @@ export default function HandleConnect() {
 			const walletAddress = (await connect()).addresses[2].address;
 
 			// Authenticate with backend
-			const authResponse = await ApiClient.post<User>("/api/user", {
+			const authResponse = await ApiClient.post<User>("/api/users/register", {
 				walletAddress,
 			});
 

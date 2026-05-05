@@ -104,7 +104,7 @@ export default function EditProfile({ userProfile }: EditProfileProps) {
 
 		try {
 			const response = await ApiClient.patch<User>(
-				"/api/user/profile",
+				"/api/users/user/profile",
 				payload
 			);
 
