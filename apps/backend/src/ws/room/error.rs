@@ -9,6 +9,15 @@ pub enum RoomError {
     NotInLobby,
     NeedAtLeast(usize),
     JoinFailed(String),
+    LeaveFailed(String),
+    LobbyStatusFailed(String),
+    ApproveFailed(String),
+    RejectFailed(String),
+    KickFailed(String),
+    SendMessageFailed(String),
+    ReactionFailed(String),
+    ClaimFailed(String),
+    ParticipationFailed(String),
     /// Postgres metadata for the lobby is missing.
     MetadataMissing,
     /// Lobby runtime state or lobby itself was not found.
@@ -28,10 +37,19 @@ impl fmt::Display for RoomError {
             RoomError::NotInLobby => write!(f, "not in lobby"),
             RoomError::NeedAtLeast(n) => write!(f, "need at least {} players to start", n),
             RoomError::JoinFailed(s) => write!(f, "join failed: {}", s),
+            RoomError::LeaveFailed(s) => write!(f, "leave failed: {}", s),
+            RoomError::LobbyStatusFailed(s) => write!(f, "lobby status update failed: {}", s),
+            RoomError::ApproveFailed(s) => write!(f, "approve join failed: {}", s),
+            RoomError::RejectFailed(s) => write!(f, "reject join failed: {}", s),
+            RoomError::KickFailed(s) => write!(f, "kick failed: {}", s),
+            RoomError::SendMessageFailed(s) => write!(f, "send message failed: {}", s),
+            RoomError::ReactionFailed(s) => write!(f, "reaction failed: {}", s),
             RoomError::MetadataMissing => write!(f, "lobby metadata missing from database"),
             RoomError::NotFound => write!(f, "lobby not found"),
             RoomError::InvalidMessage => write!(f, "invalid message"),
             RoomError::Internal(s) => write!(f, "internal error: {}", s),
+            RoomError::ClaimFailed(s) => write!(f, "claim reward failed: {}", s),
+            RoomError::ParticipationFailed(s) => write!(f, "participation toggle failed: {}", s),
         }
     }
 }
@@ -44,11 +62,20 @@ impl RoomError {
             RoomError::NotInLobby => "NOT_IN_LOBBY",
             RoomError::NeedAtLeast(_) => "NEED_AT_LEAST",
             RoomError::JoinFailed(_) => "JOIN_FAILED",
+            RoomError::LeaveFailed(_) => "LEAVE_FAILED",
+            RoomError::LobbyStatusFailed(_) => "LOBBY_STATUS_FAILED",
+            RoomError::ApproveFailed(_) => "APPROVE_FAILED",
+            RoomError::RejectFailed(_) => "REJECT_FAILED",
+            RoomError::KickFailed(_) => "KICK_FAILED",
+            RoomError::SendMessageFailed(_) => "SEND_MESSAGE_FAILED",
+            RoomError::ReactionFailed(_) => "REACTION_FAILED",
             RoomError::NotAuthenticated => "NOT_AUTHENTICATED",
             RoomError::MetadataMissing => "METADATA_MISSING",
             RoomError::NotFound => "NOT_FOUND",
             RoomError::InvalidMessage => "INVALID_MESSAGE",
             RoomError::Internal(_) => "INTERNAL_ERROR",
+            RoomError::ClaimFailed(_) => "CLAIM_FAILED",
+            RoomError::ParticipationFailed(_) => "PARTICIPATION_FAILED",
         }
     }
 }

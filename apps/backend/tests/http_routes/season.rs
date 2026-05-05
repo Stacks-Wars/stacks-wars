@@ -68,7 +68,7 @@ async fn get_list_seasons() {
 }
 
 #[tokio::test]
-async fn get_current_season() {
+async fn get_current_season_id() {
     let app = crate::common::spawn_app_with_containers().await;
     let client = reqwest::Client::new();
 

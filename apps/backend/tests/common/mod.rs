@@ -1,4 +1,5 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
+use stacks_wars_be::models::player_state::PlayerStatus;
 use tokio::sync::oneshot;
 
 use testcontainers_modules::postgres::Postgres;
@@ -80,7 +81,7 @@ impl TestApp {
             wallet: "test_wallet".to_string(),
             iat: now.timestamp(),
             exp: (now + ChronoDuration::days(expiry_days)).timestamp(),
-            jti: Some(Uuid::new_v4().to_string()),
+            jti: Uuid::new_v4().to_string(),
         };
 
         let token = encode(
@@ -159,7 +160,7 @@ impl TestFactory {
             wallet: wallet.clone(),
             iat: now.timestamp(),
             exp: (now + ChronoDuration::days(expiry_days)).timestamp(),
-            jti: Some(Uuid::new_v4().to_string()),
+            jti: Uuid::new_v4().to_string(),
         };
 
         let token = jsonwebtoken::encode(
@@ -169,6 +170,11 @@ impl TestFactory {
         )?;
 
         Ok((user_id, token))
+    }
+
+    /// Generate auth_token cookie string from JWT token for testing
+    pub fn create_auth_cookie(&self, token: &str) -> String {
+        format!("auth_token={}", token)
     }
 
     /// Insert a game directly into the database and return the game id
@@ -300,7 +306,7 @@ impl TestFactory {
         let lobby_key = stacks_wars_be::models::RedisKey::lobby_state(lobby_id);
         let player_key = stacks_wars_be::models::RedisKey::lobby_player(lobby_id, creator_id);
 
-        let lstate = stacks_wars_be::models::LobbyState::new(lobby_id);
+        let lstate = stacks_wars_be::models::LobbyState::new(lobby_id, 1);
         let lhash = lstate.to_redis_hash();
         let _: () = conn
             .hset_multiple(&lobby_key, &lhash)
@@ -325,6 +331,7 @@ impl TestFactory {
             creator.trust_rating,
             None,
             true,
+            PlayerStatus::Joined,
         );
         let phash_map = pstate.to_redis_hash();
         let phash: Vec<(String, String)> = phash_map.into_iter().collect();

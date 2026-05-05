@@ -165,4 +165,32 @@ impl RedisKey {
             user_id.into(),
         ])
     }
+
+    /// Key for player statistics (pattern: `player:{user_id}:stats`).
+    /// Stores cumulative stats like total matches, wins, and PnL.
+    pub fn player_stats(user_id: impl Into<KeyPart>) -> String {
+        Self::build(&[
+            KeyPart::Str("player".to_string()),
+            user_id.into(),
+            KeyPart::Str("stats".to_string()),
+        ])
+    }
+
+    /// Revoked token key for JWT token revocation (pattern: `revoked_token:{jti}`).
+    pub fn revoked_token(jti: &str) -> String {
+        Self::build(&[
+            KeyPart::Str("revoked_token".to_string()),
+            KeyPart::Str(jti.to_string()),
+        ])
+    }
+
+    /// Key for cached token price data (pattern: `price:data:{token_contract_id}`).
+    /// Stores CachedTokenPrice (price_usd and image_url) with 5-minute TTL.
+    pub fn token_price_data(token_contract_id: impl Into<KeyPart>) -> String {
+        Self::build(&[
+            KeyPart::Str("price".to_string()),
+            KeyPart::Str("data".to_string()),
+            token_contract_id.into(),
+        ])
+    }
 }

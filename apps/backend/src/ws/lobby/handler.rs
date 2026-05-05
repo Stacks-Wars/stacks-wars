@@ -6,18 +6,24 @@ use axum::{
     },
     response::IntoResponse,
 };
-use futures::stream::StreamExt;
+use futures::{future::join_all, stream::StreamExt};
 use serde::Deserialize;
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 use uuid::Uuid;
 
 use crate::{
-    db::lobby::LobbyRepository,
-    models::LobbyStatus,
+    db::{
+        game::GameRepository, lobby::LobbyRepository, lobby_state::LobbyStateRepository,
+        user::UserRepository,
+    },
+    models::{LobbyExtended, LobbyInfo, LobbyState, LobbyStatus},
     state::{AppState, ConnectionContext, ConnectionInfo},
     ws::{
         core::manager,
-        lobby::{LobbyClientMessage, LobbyServerMessage},
+        lobby::{LobbyClientMessage, LobbyError, LobbyServerMessage},
     },
 };
 
@@ -25,6 +31,7 @@ use crate::{
 pub struct LobbyQueryParams {
     #[serde(default)]
     pub status: Option<String>, // Comma-separated: "waiting,starting"
+    pub limit: Option<usize>,
 }
 
 /// WebSocket handler for lobby list connections
@@ -55,15 +62,37 @@ async fn handle_socket(socket: WebSocket, params: LobbyQueryParams, state: AppSt
 
     // Send initial lobby list
     let lobby_repo = LobbyRepository::new(state.postgres.clone());
+    let lobby_state_repo = LobbyStateRepository::new(state.redis.clone());
     let status_filter = parse_status_enum(&status_strings);
-    send_lobby_list(&conn, &lobby_repo, &Some(status_filter), 0, 12).await;
+    let status_filter_opt = if status_filter.is_empty() {
+        None
+    } else {
+        Some(status_filter)
+    };
+    send_lobby_list(
+        &conn,
+        &lobby_repo,
+        &lobby_state_repo,
+        &status_filter_opt,
+        0,
+        params.limit.unwrap_or(6),
+    )
+    .await;
 
     // Message loop
     while let Some(msg) = receiver.next().await {
         match msg {
             Ok(Message::Text(text)) => {
                 if let Ok(lobby_msg) = serde_json::from_str::<LobbyClientMessage>(&text) {
-                    handle_message(lobby_msg, &conn, &state, &lobby_repo, connection_id).await;
+                    handle_message(
+                        lobby_msg,
+                        &conn,
+                        &state,
+                        &lobby_repo,
+                        &lobby_state_repo,
+                        connection_id,
+                    )
+                    .await;
                 }
             }
             Ok(Message::Close(_)) => break,
@@ -80,6 +109,7 @@ async fn handle_message(
     conn: &Arc<ConnectionInfo>,
     state: &AppState,
     lobby_repo: &LobbyRepository,
+    lobby_state_repo: &LobbyStateRepository,
     connection_id: Uuid,
 ) {
     match msg {
@@ -106,19 +136,32 @@ async fn handle_message(
 
                 // Send updated lobby list
                 let status_filter = Some(new_statuses);
-                send_lobby_list(conn, lobby_repo, &status_filter, 0, limit).await;
+                send_lobby_list(conn, lobby_repo, lobby_state_repo, &status_filter, 0, limit).await;
             } else {
                 // No filter - send all lobbies
-                send_lobby_list(conn, lobby_repo, &None, 0, limit).await;
+                send_lobby_list(conn, lobby_repo, lobby_state_repo, &None, 0, limit).await;
             }
         }
-        LobbyClientMessage::LoadMore { offset } => {
+        LobbyClientMessage::LoadMore { offset, limit } => {
             // Get current filter from connection context
-            let status_filter = match &conn.context {
-                ConnectionContext::Lobby(opt_strings) => Some(parse_status_enum(opt_strings)),
-                _ => None,
+            let status_filter_vec = match &conn.context {
+                ConnectionContext::Lobby(opt_strings) => parse_status_enum(opt_strings),
+                _ => vec![],
             };
-            send_lobby_list(conn, lobby_repo, &status_filter, offset, 12).await;
+            let status_filter_opt = if status_filter_vec.is_empty() {
+                None
+            } else {
+                Some(status_filter_vec)
+            };
+            send_lobby_list(
+                conn,
+                lobby_repo,
+                lobby_state_repo,
+                &status_filter_opt,
+                offset,
+                limit,
+            )
+            .await;
         }
     }
 }
@@ -126,51 +169,115 @@ async fn handle_message(
 async fn send_lobby_list(
     conn: &Arc<ConnectionInfo>,
     lobby_repo: &LobbyRepository,
+    lobby_state_repo: &LobbyStateRepository,
     status_filter: &Option<Vec<LobbyStatus>>,
     offset: usize,
     limit: usize,
 ) {
-    match fetch_lobbies(lobby_repo, status_filter, offset, limit).await {
-        Ok((lobbies, total)) => {
+    match fetch_lobbies(lobby_repo, lobby_state_repo, status_filter, offset, limit).await {
+        Ok((lobby_info, total)) => {
             let _ = manager::send_to_connection(
                 conn,
-                &LobbyServerMessage::LobbyList { lobbies, total },
+                &LobbyServerMessage::LobbyList { lobby_info, total },
             )
             .await;
         }
-        Err(e) => {
-            let _ = manager::send_to_connection(
-                conn,
-                &LobbyServerMessage::Error {
-                    code: "FETCH_FAILED".to_string(),
-                    message: e,
-                },
-            )
-            .await;
+        Err(err) => {
+            let _ = manager::send_to_connection(conn, &LobbyServerMessage::from(err)).await;
         }
     }
 }
 
 async fn fetch_lobbies(
     lobby_repo: &LobbyRepository,
+    lobby_state_repo: &LobbyStateRepository,
     status_filter: &Option<Vec<LobbyStatus>>,
     offset: usize,
     limit: usize,
-) -> Result<(Vec<crate::models::Lobby>, usize), String> {
-    let lobbies = if let Some(statuses) = status_filter {
+) -> Result<(Vec<LobbyInfo>, usize), LobbyError> {
+    // Fetch lobbies with total count using optimized query
+    let (lobbies, total) = if let Some(statuses) = status_filter {
         lobby_repo
             .find_by_statuses(statuses, offset, limit)
             .await
-            .map_err(|e| format!("Failed to fetch lobbies: {}", e))?
+            .map_err(|e| LobbyError::FetchFailed(e.to_string()))?
     } else {
         lobby_repo
             .find_all(offset, limit)
             .await
-            .map_err(|e| format!("Failed to fetch lobbies: {}", e))?
+            .map_err(|e| LobbyError::FetchFailed(e.to_string()))?
     };
 
-    let total = lobbies.len();
-    Ok((lobbies, total))
+    tracing::debug!(
+        "Fetched {} lobbies with total count: {}",
+        lobbies.len(),
+        total
+    );
+
+    // Fetch lobby states from Redis for all lobbies using pipeline (single round-trip)
+    let lobby_ids: Vec<Uuid> = lobbies.iter().map(|l| l.id()).collect();
+
+    let states_batch = lobby_state_repo
+        .get_states_batch(&lobby_ids)
+        .await
+        .map_err(|e| LobbyError::FetchFailed(e.to_string()))?;
+
+    // Get unique game and user IDs
+    let game_ids: HashSet<Uuid> = lobbies.iter().map(|l| l.game_id).collect();
+    let creator_ids: HashSet<uuid::Uuid> = lobbies.iter().map(|l| l.creator_id).collect();
+
+    // Fetch games and users in parallel
+    let game_repo = GameRepository::new(lobby_repo.pool().clone());
+    let user_repo = UserRepository::new(lobby_repo.pool().clone());
+
+    let mut games = HashMap::new();
+    let mut users = HashMap::new();
+
+    // Parallel fetch all games
+    let game_futures: Vec<_> = game_ids.iter().map(|&game_id| game_repo.find_by_id(game_id)).collect();
+    let game_results = join_all(game_futures).await;
+    for (game_id, result) in game_ids.iter().zip(game_results) {
+        if let Ok(game) = result {
+            games.insert(*game_id, game);
+        }
+    }
+
+    // Parallel fetch all users
+    let user_futures: Vec<_> = creator_ids.iter().map(|&user_id| user_repo.find_by_id(user_id)).collect();
+    let user_results = join_all(user_futures).await;
+    for (user_id, result) in creator_ids.iter().zip(user_results) {
+        if let Ok(user) = result {
+            users.insert(*user_id, user);
+        }
+    }
+
+    // Construct LobbyInfo objects
+    let mut lobby_info_list = Vec::new();
+    for (lobby, (lobby_id, state_opt)) in lobbies.into_iter().zip(states_batch.into_iter()) {
+        // Use the lobby state from Redis, or create a default state if not found
+        let state = state_opt.unwrap_or_else(|| LobbyState::new(lobby_id, 0));
+
+        let extended = LobbyExtended::from_parts(lobby.clone(), state);
+
+        // Get game and creator
+        let game = games
+            .get(&lobby.game_id)
+            .ok_or_else(|| LobbyError::FetchFailed(format!("Game {} not found", lobby.game_id)))?;
+        let creator = users.get(&lobby.creator_id).ok_or_else(|| {
+            LobbyError::FetchFailed(format!("User {} not found", lobby.creator_id))
+        })?;
+
+        let lobby_info = LobbyInfo {
+            lobby: extended,
+            game: game.clone(),
+            creator: creator.clone(),
+        };
+
+        lobby_info_list.push(lobby_info);
+    }
+
+    tracing::debug!("Constructed {} lobby info objects", lobby_info_list.len());
+    Ok((lobby_info_list, total as usize))
 }
 
 fn parse_status_filter(param: &Option<String>) -> Option<Vec<String>> {
@@ -180,7 +287,7 @@ fn parse_status_filter(param: &Option<String>) -> Option<Vec<String>> {
             .filter(|part| {
                 matches!(
                     part.as_str(),
-                    "waiting" | "starting" | "in_progress" | "finished"
+                    "waiting" | "starting" | "in_progress" | "inprogress" | "finished"
                 )
             })
             .collect()
@@ -196,7 +303,7 @@ fn parse_status_enum(strings: &Option<Vec<String>>) -> Vec<LobbyStatus> {
                 .filter_map(|s| match s.as_str() {
                     "waiting" => Some(LobbyStatus::Waiting),
                     "starting" => Some(LobbyStatus::Starting),
-                    "in_progress" => Some(LobbyStatus::InProgress),
+                    "in_progress" | "inprogress" => Some(LobbyStatus::InProgress),
                     "finished" => Some(LobbyStatus::Finished),
                     _ => None,
                 })

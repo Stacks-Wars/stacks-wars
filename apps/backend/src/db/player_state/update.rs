@@ -2,6 +2,7 @@
 
 use crate::db::player_state::PlayerStateRepository;
 use crate::errors::AppError;
+use crate::models::RedisKey;
 use crate::models::player_state::{ClaimState, PlayerStatus};
 use chrono::Utc;
 use redis::AsyncCommands;
@@ -19,7 +20,7 @@ impl PlayerStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:players:{}", lobby_id, user_id);
+        let key = RedisKey::lobby_player(lobby_id, user_id);
 
         // Check if exists
         let exists: bool = conn
@@ -52,27 +53,34 @@ impl PlayerStateRepository {
         Ok(())
     }
 
-    /// Set player rank and prize (for winners).
+    /// Set player rank, prize, and wars_point (for game results).
     pub async fn set_result(
         &self,
         lobby_id: Uuid,
         user_id: Uuid,
         rank: usize,
         prize: Option<f64>,
+        wars_point: f64,
     ) -> Result<(), AppError> {
         let mut conn =
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:players:{}", lobby_id, user_id);
+        let key = RedisKey::lobby_player(lobby_id, user_id);
 
         let now = Utc::now().timestamp();
 
-        let mut fields = vec![("rank", rank.to_string()), ("updated_at", now.to_string())];
+        let mut fields = vec![
+            ("rank", rank.to_string()),
+            ("wars_point", wars_point.to_string()),
+            ("updated_at", now.to_string()),
+        ];
 
         if let Some(prize_amount) = prize {
             fields.push(("prize", prize_amount.to_string()));
-            fields.push(("claim_state", "Unclaimed".to_string()));
+            let not_claimed_json = serde_json::to_string(&ClaimState::NotClaimed)
+                .unwrap_or_else(|_| String::from("{\"status\":\"notClaimed\"}"));
+            fields.push(("claim_state", not_claimed_json));
         }
 
         let fields_ref: Vec<(&str, &str)> = fields
@@ -99,7 +107,7 @@ impl PlayerStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:players:{}", lobby_id, user_id);
+        let key = RedisKey::lobby_player(lobby_id, user_id);
 
         let now = Utc::now().timestamp();
 
@@ -128,39 +136,20 @@ impl PlayerStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:players:{}", lobby_id, user_id);
+        let key = RedisKey::lobby_player(lobby_id, user_id);
 
         let now = Utc::now().timestamp();
+        let not_claimed_json = serde_json::to_string(&ClaimState::NotClaimed)
+            .unwrap_or_else(|_| String::from("{\"status\":\"notClaimed\"}"));
 
         let _: () = conn
             .hset_multiple(
                 &key,
                 &[
                     ("prize", prize.to_string().as_str()),
-                    ("claim_state", "Unclaimed"),
+                    ("claim_state", not_claimed_json.as_str()),
                     ("updated_at", now.to_string().as_str()),
                 ],
-            )
-            .await
-            .map_err(AppError::RedisCommandError)?;
-
-        Ok(())
-    }
-
-    /// Mark a player's prize as claimed.
-    pub async fn mark_claimed(&self, lobby_id: Uuid, user_id: Uuid) -> Result<(), AppError> {
-        let mut conn =
-            self.redis.get().await.map_err(|e| {
-                AppError::RedisError(format!("Failed to get Redis connection: {}", e))
-            })?;
-        let key = format!("lobbies:{}:players:{}", lobby_id, user_id);
-
-        let now = Utc::now().timestamp();
-
-        let _: () = conn
-            .hset_multiple(
-                &key,
-                &[("claim_state", "Claimed"), ("updated_at", &now.to_string())],
             )
             .await
             .map_err(AppError::RedisCommandError)?;
@@ -179,10 +168,11 @@ impl PlayerStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:players:{}", lobby_id, user_id);
+        let key = RedisKey::lobby_player(lobby_id, user_id);
 
         let now = Utc::now().timestamp();
-        let claim_str = format!("{:?}", claim_state);
+        let claim_str = serde_json::to_string(&claim_state)
+            .map_err(|e| AppError::Serialization(e.to_string()))?;
 
         let _: () = conn
             .hset_multiple(
@@ -204,7 +194,7 @@ impl PlayerStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:players:{}", lobby_id, user_id);
+        let key = RedisKey::lobby_player(lobby_id, user_id);
 
         let now_ms = Utc::now().timestamp_millis() as u64;
         let now = Utc::now().timestamp();
@@ -229,7 +219,7 @@ impl PlayerStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:players:{}", lobby_id, user_id);
+        let key = RedisKey::lobby_player(lobby_id, user_id);
 
         let now = Utc::now().timestamp();
 

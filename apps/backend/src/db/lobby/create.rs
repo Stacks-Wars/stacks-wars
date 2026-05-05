@@ -3,8 +3,9 @@ use uuid::Uuid;
 
 use crate::{
     errors::AppError,
-    models::{Lobby, LobbyState, LobbyStatus, PlayerState, WalletAddress},
-    state::RedisClient,
+    http::bot::broadcasts::broadcast_lobby_creation_to_tg,
+    models::{BotNewLobbyPayload, Lobby, LobbyState, LobbyStatus, PlayerState, WalletAddress, player_state::{ClaimState, PlayerStatus}},
+    state::{AppState, RedisClient},
 };
 
 use super::LobbyRepository;
@@ -29,6 +30,7 @@ impl LobbyRepository {
         is_private: bool,
         is_sponsored: bool,
         redis: RedisClient,
+        state: AppState,
     ) -> Result<Lobby, AppError> {
         // Validate amounts based on sponsor status
         let (entry_amount, current_amount) =
@@ -87,22 +89,42 @@ impl LobbyRepository {
         })?;
 
         let creator = creator_result.map_err(|e| {
-            let _ = self.delete_lobby(lobby.id());
+            let _ = self.delete_lobby(lobby.id(), None);
             AppError::DatabaseError(format!("Failed to fetch creator user: {}", e))
         })?;
 
         let lobby_state_repo = LobbyStateRepository::new(redis.clone());
         let player_repo = PlayerStateRepository::new(redis.clone());
 
-        let lstate = LobbyState::new(lobby.id());
+        // Sponsored lobby creators start as spectators (NotJoined), so participant_count starts at 0.
+        // Normal lobby creators are auto-joined, so participant_count starts at 1.
+        let initial_count = if is_sponsored { 0 } else { 1 };
+        let lstate = LobbyState::new(lobby.id(), initial_count);
         if let Err(e) = lobby_state_repo.create_state(lstate).await {
-            let _ = self.delete_lobby(lobby.id()).await;
+            let _ = self.delete_lobby(lobby.id(), None).await;
             return Err(AppError::RedisError(format!(
                 "Failed to create lobby state in Redis for {}: {}",
                 lobby.id(),
                 e
             )));
         }
+
+        let claim_state = if contract_address.is_some() {
+            Some(ClaimState::NotClaimed)
+        } else {
+            None
+        };
+
+        let creator_username = creator.username.clone();
+        let creator_display_name = creator.display_name.clone();
+
+        // Sponsored lobby creators start as spectators (NotJoined) and can opt-in to participate.
+        // Normal lobby creators are automatically joined.
+        let creator_status = if is_sponsored {
+            PlayerStatus::NotJoined
+        } else {
+            PlayerStatus::Joined
+        };
 
         let creator_pstate = PlayerState::new(
             creator_id,
@@ -111,11 +133,12 @@ impl LobbyRepository {
             creator.username,
             creator.display_name,
             creator.trust_rating,
-            None,
+            claim_state,
             true,
+            creator_status,
         );
-        if let Err(e) = player_repo.create_state(creator_pstate).await {
-            let _ = self.delete_lobby(lobby.id()).await;
+        if let Err(e) = player_repo.create_state(creator_pstate, None).await {
+            let _ = self.delete_lobby(lobby.id(), None).await;
             return Err(AppError::RedisError(format!(
                 "Failed to create creator player state in Redis for {}: {}",
                 lobby.id(),
@@ -124,6 +147,19 @@ impl LobbyRepository {
         }
 
         tracing::info!("Created lobby: {} (path: {})", lobby.name, lobby.path);
+
+        // Broadcast lobby creation to lobby list subscribers
+        crate::ws::broadcast::broadcast_lobby_creation(state.clone(), lobby.id(), game_id, creator_id)
+            .await;
+
+        // Broadcast lobby creation to Telegram
+        let payload = BotNewLobbyPayload {
+            lobby: lobby.clone(),
+            creator_name: creator_display_name.or(creator_username),
+            wallet_address: creator.wallet_address.as_ref().to_string(),
+        };
+        broadcast_lobby_creation_to_tg(state, payload).await;
+
         Ok(lobby)
     }
 }

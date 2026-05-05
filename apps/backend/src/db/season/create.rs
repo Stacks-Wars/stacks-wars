@@ -34,6 +34,7 @@ impl SeasonRepository {
                     ));
                 }
             }
+            tracing::error!("Database error creating season: {}", e);
             AppError::DatabaseError(format!("Failed to create season: {}", e))
         })?;
 

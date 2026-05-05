@@ -30,6 +30,10 @@ impl WalletAddress {
     pub fn new(address: impl AsRef<str>) -> Result<Self, WalletAddressError> {
         let address = address.as_ref().trim();
 
+        if address == "stx" {
+            return Ok(Self(address.to_string()));
+        }
+
         // Split by '::' to separate trait/asset part
         let (main_part, trait_part) = if let Some(idx) = address.find("::") {
             let (main, trait_str) = address.split_at(idx);

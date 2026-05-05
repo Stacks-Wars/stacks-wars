@@ -8,6 +8,15 @@
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
+/* Ludo board grid utilities */
+@utility grid-cols-15 {
+  grid-template-columns: repeat(15, minmax(0, 1fr));
+}
+
+@utility grid-rows-15 {
+  grid-template-rows: repeat(15, minmax(0, 1fr));
+}
+
 html,
 body {
   @apply bg-white dark:bg-gray-950;

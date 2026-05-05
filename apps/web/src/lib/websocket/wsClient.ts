@@ -1,17 +1,16 @@
 /**
  * WebSocket Client
  *
- * Single WebSocket connection that routes messages to appropriate game handlers.
- * Uses the wrapper message format: { game, type, payload }
+ * WebSocket client for handling connections with automatic reconnection.
  */
 
-export type MessageHandler = (message: unknown) => void;
+export type MessageHandler<T = unknown> = (message: T) => void;
 export type ErrorHandler = (error: Event | Error) => void;
 export type CloseHandler = () => void;
 
-export class webSocketClient {
+export class WebSocketClient {
 	private ws: WebSocket | null = null;
-	private messageHandlers: Set<MessageHandler> = new Set();
+	private messageHandlers: Set<MessageHandler<any>> = new Set();
 	private errorHandlers: Set<ErrorHandler> = new Set();
 	private closeHandlers: Set<CloseHandler> = new Set();
 	private reconnectAttempts = 0;
@@ -20,20 +19,16 @@ export class webSocketClient {
 	private reconnectTimeout: NodeJS.Timeout | null = null;
 	private pingInterval: NodeJS.Timeout | null = null;
 
-	constructor(
-		private lobbyPath: string,
-		private token?: string
-	) {}
+	constructor() {}
 
 	connect(wsUrl: string): Promise<void> {
 		return new Promise((resolve, reject) => {
 			try {
-				const url = this.token ? `${wsUrl}?token=${this.token}` : wsUrl;
-				console.log(`[WS] Connecting to ${url}`);
-				this.ws = new WebSocket(url);
+				console.log(`[WS] Connecting to ${wsUrl}`);
+				this.ws = new WebSocket(wsUrl);
 
 				this.ws.onopen = () => {
-					console.log(`[WS] Connected to lobby ${this.lobbyPath}`);
+					console.log(`[WS] Connected to ${wsUrl}`);
 					this.reconnectAttempts = 0;
 					this.startPingInterval();
 					resolve();
@@ -42,7 +37,6 @@ export class webSocketClient {
 				this.ws.onmessage = (event) => {
 					try {
 						const message = JSON.parse(event.data);
-						console.log("[WS] Message received:", message);
 
 						// Notify all handlers
 						this.messageHandlers.forEach((handler) => {
@@ -86,29 +80,39 @@ export class webSocketClient {
 
 	/**
 	 * Send a game-specific message with proper wrapper format
+	 * Format: { "game": { "type": "submit_word", "word": "hello" } }
 	 */
-	sendGameMessage(game: string, type: string, payload: unknown): void {
+	sendGameMessage(type: string, payload: unknown): void {
 		this.send({
-			game,
-			type,
-			payload,
+			game: {
+				type,
+				...((payload as object) || {}),
+			},
 		});
 	}
 
 	/**
 	 * Send a lobby-level message (no game wrapper)
 	 */
-	sendLobbyMessage(type: string, payload?: unknown): void {
-		const message: Record<string, unknown> = { type };
-		if (payload !== undefined) {
-			message.payload = payload;
-		}
+	sendLobbyMessage(message: unknown): void {
 		this.send(message);
 	}
 
-	onMessage(handler: MessageHandler): () => void {
-		this.messageHandlers.add(handler);
-		return () => this.messageHandlers.delete(handler);
+	/**
+	 * Register a typed message handler. The handler receives messages typed as `T`.
+	 * Internally we store a wrapper that casts the incoming unknown payload to `T`.
+	 */
+	onMessage<T = unknown>(handler: MessageHandler<T>): () => void {
+		const wrapper: MessageHandler<any> = (message: unknown) => {
+			try {
+				handler(message as T);
+			} catch (err) {
+				console.error("[WS] Handler error:", err);
+			}
+		};
+
+		this.messageHandlers.add(wrapper);
+		return () => this.messageHandlers.delete(wrapper);
 	}
 
 	onError(handler: ErrorHandler): () => void {
@@ -162,7 +166,7 @@ export class webSocketClient {
 			if (this.isConnected()) {
 				this.send({ type: "ping", ts: Date.now() });
 			}
-		}, 30000); // Ping every 30 seconds
+		}, 5000); // Ping every 5 seconds
 	}
 
 	private stopPingInterval(): void {

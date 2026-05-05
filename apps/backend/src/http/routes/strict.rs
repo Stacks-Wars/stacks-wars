@@ -1,9 +1,9 @@
 // Strict routes: sensitive write endpoints wrapped by strict limiter
 
 use axum::middleware::from_fn_with_state;
-use axum::{Router, routing::post};
+use axum::{routing::post, Router};
 
-use crate::middleware::{StrictRateLimit, rate_limit_with_state};
+use crate::middleware::{rate_limit_with_state, StrictRateLimit};
 use crate::{http::handlers::user::create_user, state::AppState};
 
 /// Routes that should be subject to the strict limiter.

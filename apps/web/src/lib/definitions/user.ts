@@ -3,6 +3,8 @@ export interface User {
 	walletAddress: string;
 	username?: string;
 	displayName?: string;
+	email: string;
+	emailVerified: boolean;
 	profileImage?: string;
 	trustRating: number;
 	createdAt: string;
@@ -21,15 +23,13 @@ export interface UpdateUserRequest {
 	profileImage?: string;
 }
 
-export interface AuthResponse {
-	user: User;
-	token: string;
-}
+export type joinState = "pending" | "accepted" | "rejected";
 
 export interface PlayerState {
 	userId: string;
 	lobbyId: string;
-	status: "not_joined" | "joined";
+	state: joinState;
+	status: "notJoined" | "joined";
 	walletAddress: string;
 	username?: string;
 	displayName?: string;
@@ -45,10 +45,18 @@ export interface PlayerState {
 }
 
 export interface JoinRequest {
-	playerId: string;
+	userId: string;
 	walletAddress: string;
 	username?: string;
 	displayName?: string;
 	trustRating: number;
-	state: "pending" | "accepted" | "rejected";
+	state: joinState;
+	isCreator: boolean;
+}
+
+import type { LobbyInfo } from "./lobby";
+
+export interface UnclaimedReward {
+	lobbyInfo: LobbyInfo;
+	prize: number;
 }

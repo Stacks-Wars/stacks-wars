@@ -2,7 +2,7 @@
 
 use crate::db::lobby_state::LobbyStateRepository;
 use crate::errors::AppError;
-use crate::models::LobbyState;
+use crate::models::{LobbyState, RedisKey};
 use redis::AsyncCommands;
 
 impl LobbyStateRepository {
@@ -12,7 +12,7 @@ impl LobbyStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:state", state.lobby_id);
+        let key = RedisKey::lobby_state(state.lobby_id);
 
         // Check if state already exists
         let exists: bool = conn
@@ -43,7 +43,7 @@ impl LobbyStateRepository {
             self.redis.get().await.map_err(|e| {
                 AppError::RedisError(format!("Failed to get Redis connection: {}", e))
             })?;
-        let key = format!("lobbies:{}:state", state.lobby_id);
+        let key = RedisKey::lobby_state(state.lobby_id);
 
         // Convert to hash and store (overwrites if exists)
         let hash = state.to_redis_hash();

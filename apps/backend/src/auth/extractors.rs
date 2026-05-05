@@ -2,16 +2,14 @@ use axum::{
     extract::FromRequestParts,
     http::{StatusCode, request::Parts},
 };
-use axum_extra::TypedHeader;
-use headers::{Authorization, authorization::Bearer};
+use axum_extra::extract::cookie::CookieJar;
 use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode};
+use redis::AsyncCommands;
 
 use super::jwt::Claims;
+use crate::{models::keys::RedisKey, state::RedisClient};
 
-/// WebSocket auth extractor: optional. If the `Authorization: Bearer <token>` header
-/// is present and valid, returns `WsAuth(Some(AuthClaims))`. If the header is absent
-/// returns `WsAuth(None)`. If the header is present but invalid the extractor
-/// rejects with `UNAUTHORIZED`.
+/// WebSocket auth extractor: optional.
 pub struct WsAuth(pub Option<AuthClaims>);
 
 impl FromRequestParts<crate::state::AppState> for WsAuth {
@@ -21,31 +19,22 @@ impl FromRequestParts<crate::state::AppState> for WsAuth {
         parts: &mut Parts,
         state: &crate::state::AppState,
     ) -> Result<Self, Self::Rejection> {
-        // Look for Authorization header manually so we can distinguish missing vs present-but-invalid
-        if let Some(hv) = parts.headers.get("authorization") {
-            let hv_str = hv.to_str().map_err(|_| {
-                (
-                    StatusCode::BAD_REQUEST,
-                    "Invalid Authorization header encoding".to_string(),
-                )
-            })?;
-
-            // Expect format: "Bearer <token>"
-            let parts: Vec<&str> = hv_str.splitn(2, ' ').collect();
-            if parts.len() != 2 || !parts[0].eq_ignore_ascii_case("bearer") {
-                return Err((
-                    StatusCode::BAD_REQUEST,
-                    "Invalid Authorization header".to_string(),
-                ));
-            }
-
-            let token = parts[1];
+        // Try to get token from cookie first
+        let jar = match CookieJar::from_request_parts(parts, state).await {
+            Ok(jar) => jar,
+            Err(_) => return Ok(WsAuth(None)),
+        };
+        if let Some(cookie) = jar.get("auth_token") {
+            let token = cookie.value();
             let secret = state.config.jwt_secret.clone();
-            let claims = AuthClaims::from_token_with_secret(token, &secret)?;
-            return Ok(WsAuth(Some(claims)));
+            if let Ok(claims) =
+                AuthClaims::from_token_with_secret(token, &secret, &state.redis).await
+            {
+                return Ok(WsAuth(Some(claims)));
+            }
         }
 
-        // No header -> anonymous websocket connection
+        // No auth or invalid -> anonymous websocket connection
         Ok(WsAuth(None))
     }
 }
@@ -60,26 +49,33 @@ impl FromRequestParts<crate::state::AppState> for AuthClaims {
         parts: &mut Parts,
         state: &crate::state::AppState,
     ) -> Result<Self, Self::Rejection> {
-        // Extract Authorization header
-        let TypedHeader(Authorization(bearer)) =
-            TypedHeader::<Authorization<Bearer>>::from_request_parts(parts, state)
-                .await
-                .map_err(|_| {
-                    (
-                        StatusCode::UNAUTHORIZED,
-                        "Missing or invalid Authorization header".into(),
-                    )
-                })?;
+        // Get token from cookie
+        let jar = CookieJar::from_request_parts(parts, state)
+            .await
+            .map_err(|_| {
+                (
+                    StatusCode::UNAUTHORIZED,
+                    "Authentication required".to_string(),
+                )
+            })?;
 
-        // Validate token using secret from AppState config
+        let cookie = jar.get("auth_token").ok_or((
+            StatusCode::UNAUTHORIZED,
+            "Missing authentication cookie".to_string(),
+        ))?;
+
+        let token = cookie.value();
         let secret = state.config.jwt_secret.clone();
-        AuthClaims::from_token_with_secret(bearer.token(), &secret)
+        AuthClaims::from_token_with_secret(token, &secret, &state.redis).await
     }
 }
 
 impl AuthClaims {
     /// Create AuthClaims from a JWT token string
-    pub fn from_token(token: &str) -> Result<Self, (StatusCode, String)> {
+    pub async fn from_token(
+        token: &str,
+        redis: &RedisClient,
+    ) -> Result<Self, (StatusCode, String)> {
         let secret = std::env::var("JWT_SECRET").map_err(|_| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -87,10 +83,14 @@ impl AuthClaims {
             )
         })?;
 
-        AuthClaims::from_token_with_secret(token, &secret)
+        AuthClaims::from_token_with_secret(token, &secret, redis).await
     }
 
-    pub fn from_token_with_secret(token: &str, secret: &str) -> Result<Self, (StatusCode, String)> {
+    pub async fn from_token_with_secret(
+        token: &str,
+        secret: &str,
+        redis: &RedisClient,
+    ) -> Result<Self, (StatusCode, String)> {
         let token_data = decode::<Claims>(
             token,
             &DecodingKey::from_secret(secret.as_bytes()),
@@ -101,7 +101,34 @@ impl AuthClaims {
             (StatusCode::UNAUTHORIZED, "Invalid or expired token".into())
         })?;
 
-        Ok(Self(token_data.claims))
+        let claims = token_data.claims;
+
+        // Check if token is revoked
+        let jti = claims.jti();
+        let key = RedisKey::revoked_token(jti);
+
+        let mut conn = redis.get().await.map_err(|e| {
+            tracing::error!("Failed to get Redis connection for token check: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Authentication check failed".to_string(),
+            )
+        })?;
+
+        let is_revoked: Option<bool> = conn.get(&key).await.map_err(|e| {
+            tracing::error!("Failed to check token revocation status: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Authentication check failed".to_string(),
+            )
+        })?;
+
+        if is_revoked.is_some() {
+            tracing::warn!("Attempted use of revoked token: {}", jti);
+            return Err((StatusCode::UNAUTHORIZED, "Token has been revoked".into()));
+        }
+
+        Ok(Self(claims))
     }
 
     /// Get the user ID from claims

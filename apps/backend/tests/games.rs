@@ -3,6 +3,3 @@
 
 #[path = "common/mod.rs"]
 mod common;
-
-#[path = "games/coinflip.rs"]
-mod coinflip;

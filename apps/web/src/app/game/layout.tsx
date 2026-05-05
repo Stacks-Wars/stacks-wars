@@ -1,9 +1,16 @@
-import React from 'react';
+import Footer from "@/components/main/footer";
+import Header from "@/components/main/header";
 
 export default function GameLayout({
-  children,
+	children,
 }: {
-  children: React.ReactNode;
+	children: React.ReactNode;
 }) {
-  return <>{children}</>;
+	return (
+		<div className="flex min-h-screen flex-col justify-between">
+			<Header />
+			<main className="container mx-auto px-4 py-8">{children}</main>
+			<Footer />
+		</div>
+	);
 }

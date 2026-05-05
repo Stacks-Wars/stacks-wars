@@ -5,11 +5,11 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    auth::AuthClaims,
+    auth::extractors::AuthClaims,
     db::game::GameRepository,
     errors::AppError,
     models::game::{Game, Order, Pagination},
@@ -36,8 +36,8 @@ pub struct CreateGameRequest {
     pub min_players: u8,
     /// Maximum players allowed
     pub max_players: u8,
-    /// Game category/genre (e.g., "Word Games", "Strategy")
-    pub category: Option<String>,
+    /// Game categories/genres (array of strings)
+    pub category: Vec<String>,
 }
 
 /// Query parameters for listing games
@@ -64,10 +64,10 @@ fn default_limit() -> u32 {
 }
 
 // ============================================================================
-// Game Creation (Admin)
+// Game Creation
 // ============================================================================
 
-/// Create a new game type (admin only).
+/// Create a new game type.
 ///
 /// Requires a valid admin JWT; returns the created `Game` on success.
 pub async fn create_game(
@@ -90,7 +90,7 @@ pub async fn create_game(
             &payload.image_url,
             payload.min_players as i16,
             payload.max_players as i16,
-            payload.category.as_deref(),
+            payload.category,
             creator_id,
         )
         .await
@@ -106,32 +106,19 @@ pub async fn create_game(
 // Game Retrieval
 // ============================================================================
 
-/// Get a game by UUID. Returns `Game` or `404` if not found.
+/// Get a game by UUID or path. Returns `Game` or `404` if not found.
 pub async fn get_game(
-    Path(game_id): Path<Uuid>,
+    Path(identifier): Path<String>,
     State(state): State<AppState>,
 ) -> Result<Json<Game>, (StatusCode, String)> {
     let repo = GameRepository::new(state.postgres.clone());
 
-    let game = repo
-        .find_by_id(game_id)
-        .await
-        .map_err(|e| e.to_response())?;
-
-    Ok(Json(game))
-}
-
-/// Get a game by path. Returns `Game` or `404` if not found.
-pub async fn get_game_by_path(
-    Path(path): Path<String>,
-    State(state): State<AppState>,
-) -> Result<Json<Game>, (StatusCode, String)> {
-    let repo = GameRepository::new(state.postgres.clone());
-
-    let game = repo
-        .find_by_path(&path)
-        .await
-        .map_err(|e| e.to_response())?;
+    let game = if let Ok(game_id) = Uuid::parse_str(&identifier) {
+        repo.find_by_id(game_id).await
+    } else {
+        repo.find_by_path(&identifier).await
+    }
+    .map_err(|e| e.to_response())?;
 
     Ok(Json(game))
 }
@@ -175,4 +162,63 @@ pub async fn list_games(
         .map_err(|e| e.to_response())?;
 
     Ok(Json(games))
+}
+
+// ============================================================================
+// Admin: Toggle Game Active Status
+// ============================================================================
+
+/// Request payload for toggling a game's active status
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToggleActiveRequest {
+    pub is_active: bool,
+}
+
+/// Response for the toggle operation
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToggleActiveResponse {
+    pub id: String,
+    pub name: String,
+    pub is_active: bool,
+}
+
+/// Toggle a game's active status (admin only).
+///
+/// Admin check is handled the same way as season handlers.
+pub async fn toggle_game_active(
+    State(state): State<AppState>,
+    auth: AuthClaims,
+    Path(game_id): Path<Uuid>,
+    Json(payload): Json<ToggleActiveRequest>,
+) -> Result<Json<ToggleActiveResponse>, (StatusCode, String)> {
+    // Admin check
+    if !state.config.is_admin(auth.wallet_address()) {
+        return Err((StatusCode::FORBIDDEN, "Admin access required".to_string()));
+    }
+
+    let repo = GameRepository::new(state.postgres.clone());
+
+    let game = repo
+        .set_active(game_id, payload.is_active)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to toggle game active status: {}", e);
+            e.to_response()
+        })?;
+
+    tracing::info!(
+        "Admin {} toggled game {} ({}) active={}",
+        auth.wallet_address(),
+        game.name,
+        game_id,
+        payload.is_active
+    );
+
+    Ok(Json(ToggleActiveResponse {
+        id: game.id.to_string(),
+        name: game.name,
+        is_active: game.is_active,
+    }))
 }

@@ -1,4 +1,5 @@
 use crate::games::{GameEngine, GameFactory, create_game_registry};
+use crate::models::WalletAddress;
 use axum::extract::ws::{Message, WebSocket};
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
@@ -14,13 +15,73 @@ use teloxide::Bot;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
+/// Application environment
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub enum Environment {
+    #[default]
+    Development,
+    Production,
+}
+
+impl Environment {
+    /// Parse from string, defaults to Development if unrecognized
+    pub fn from_str(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "production" | "prod" => Self::Production,
+            _ => Self::Development,
+        }
+    }
+
+    pub fn is_production(&self) -> bool {
+        matches!(self, Self::Production)
+    }
+}
+
+/// Application network
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub enum Network {
+    #[default]
+    Testnet,
+    Mainnet,
+}
+
+impl Network {
+    /// Parse from string, defaults to Mainnet if unrecognized
+    pub fn from_str(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "mainnet" => Self::Mainnet,
+            _ => Self::Testnet,
+        }
+    }
+
+    pub fn is_mainnet(&self) -> bool {
+        matches!(self, Self::Mainnet)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct AppConfig {
+    pub environment: Environment,
     pub jwt_secret: String,
     pub redis_url: String,
     pub database_url: String,
     pub telegram_bot_token: String,
     pub telegram_chat_id: String,
+    pub admins: Vec<WalletAddress>,
+    pub network: Network,
+    pub hiro_api_key: String,
+}
+
+impl AppConfig {
+    /// Check if running in production environment
+    pub fn is_production(&self) -> bool {
+        self.environment.is_production()
+    }
+
+    /// Check if a wallet address is an admin
+    pub fn is_admin(&self, wallet: &str) -> bool {
+        self.admins.iter().any(|admin| admin.as_str() == wallet)
+    }
 }
 
 /// Active game engines by lobby ID
@@ -42,38 +103,70 @@ impl AppState {
     /// Create a new AppState by connecting to PostgreSQL and Redis
     pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
         // Read essential configuration from the environment and group it.
+        let environment = Environment::from_str(
+            &std::env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string()),
+        );
         let redis_url = std::env::var("REDIS_URL")?;
         let database_url = std::env::var("DATABASE_URL")?;
         let bot_token = std::env::var("TELEGRAM_BOT_TOKEN")?;
         let jwt_secret = std::env::var("JWT_SECRET")?;
         let telegram_chat_id = std::env::var("TELEGRAM_CHAT_ID")?;
+        let hiro_api_key = std::env::var("HIRO_API_KEY")?;
+
+        // Parse network from environment
+        let network =
+            Network::from_str(&std::env::var("NETWORK").unwrap_or_else(|_| "testnet".to_string()));
+
+        // Parse admin wallet addresses from comma-separated list
+        let admins: Vec<WalletAddress> = std::env::var("ADMIN_WALLETS")
+            .unwrap_or_default()
+            .split(',')
+            .filter_map(|s| {
+                let trimmed = s.trim();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    match WalletAddress::new(trimmed) {
+                        Ok(addr) => Some(addr),
+                        Err(e) => {
+                            tracing::warn!("Invalid admin wallet address '{}': {}", trimmed, e);
+                            None
+                        }
+                    }
+                }
+            })
+            .collect();
 
         let config = AppConfig {
+            environment,
             jwt_secret,
             redis_url: redis_url.clone(),
             database_url: database_url.clone(),
             telegram_bot_token: bot_token.clone(),
             telegram_chat_id,
+            admins,
+            network,
+            hiro_api_key,
         };
 
         // Redis connection pool built from config.redis_url
         let manager = RedisConnectionManager::new(config.redis_url.clone())?;
         let redis_pool = Pool::builder()
-            .max_size(100)
-            .min_idle(Some(20))
-            .connection_timeout(Duration::from_secs(5))
-            .max_lifetime(Some(Duration::from_secs(300)))
-            .idle_timeout(Some(Duration::from_secs(30)))
+            .max_size(30)
+            .min_idle(Some(5))
+            .connection_timeout(Duration::from_secs(2))
+            .max_lifetime(None)
+            .idle_timeout(Some(Duration::from_secs(120)))
             .build(manager)
             .await?;
 
         // PostgreSQL connection pool built from config.database_url
         let postgres_pool = PgPoolOptions::new()
-            .max_connections(50)
-            .min_connections(10)
-            .acquire_timeout(Duration::from_secs(5))
-            .idle_timeout(Duration::from_secs(300))
-            .max_lifetime(Duration::from_secs(1800))
+            .max_connections(20)
+            .min_connections(2)
+            .acquire_timeout(Duration::from_secs(10))
+            .idle_timeout(Duration::from_secs(600))
+            .max_lifetime(Duration::from_secs(3600))
             .connect(&config.database_url)
             .await?;
 

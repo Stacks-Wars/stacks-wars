@@ -1,3 +1,6 @@
+import type { Game } from "./game";
+import type { User } from "./user";
+
 export type LobbyStatus = "waiting" | "inProgress" | "starting" | "finished";
 
 export interface Lobby {
@@ -27,6 +30,12 @@ export interface LobbyExtended extends Lobby {
 	finishedAt?: number;
 }
 
+export interface LobbyInfo {
+	lobby: LobbyExtended;
+	game: Game;
+	creator: User;
+}
+
 export interface CreateLobbyRequest {
 	name: string;
 	description?: string;
@@ -37,6 +46,13 @@ export interface CreateLobbyRequest {
 	tokenSymbol?: string;
 	tokenContractId?: string;
 	contractAddress?: string;
-	isPrivate?: boolean;
-	isSponsored?: boolean;
+	isPrivate: boolean;
+	isSponsored: boolean;
+}
+
+export interface PaginatedLobbiesResponse {
+	data: LobbyInfo[];
+	total: number;
+	limit: number;
+	offset: number;
 }

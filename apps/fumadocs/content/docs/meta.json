@@ -1,0 +1,12 @@
+{
+	"name": "Stacks Wars",
+	"pages": [
+		"index",
+		"getting-started",
+		"game-rules",
+		"architecture",
+		"support",
+		"---",
+		"dev"
+	]
+}

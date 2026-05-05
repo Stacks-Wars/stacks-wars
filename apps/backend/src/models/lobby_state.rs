@@ -7,8 +7,8 @@ use std::{collections::HashMap, str::FromStr};
 use uuid::Uuid;
 
 /// Lobby lifecycle status enum
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, sqlx::Type)]
-#[sqlx(type_name = "lobby_status", rename_all = "lowercase")]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, sqlx::Type)]
+#[sqlx(type_name = "lobby_status", rename_all = "snake_case")]
 #[serde(rename_all = "camelCase")]
 pub enum LobbyStatus {
     Waiting,
@@ -24,7 +24,9 @@ impl FromStr for LobbyStatus {
         match s {
             "Waiting" | "waiting" => Ok(LobbyStatus::Waiting),
             "Starting" | "starting" => Ok(LobbyStatus::Starting),
-            "InProgress" | "inProgress" => Ok(LobbyStatus::InProgress),
+            "InProgress" | "inProgress" | "in_progress" | "inprogress" => {
+                Ok(LobbyStatus::InProgress)
+            }
             "Finished" | "finished" => Ok(LobbyStatus::Finished),
             other => Err(AppError::BadRequest(format!(
                 "Unknown LobbyState: {}",
@@ -67,13 +69,14 @@ pub struct LobbyState {
 }
 
 impl LobbyState {
-    /// Create new lobby state with default values
-    pub fn new(lobby_id: Uuid) -> Self {
+    /// Create new lobby state with the given participant count.
+    /// Use 0 for sponsored lobbies where the creator starts as a spectator.
+    pub fn new(lobby_id: Uuid, participant_count: usize) -> Self {
         let now = Utc::now().timestamp();
         Self {
             lobby_id,
             status: LobbyStatus::Waiting,
-            participant_count: 1,
+            participant_count,
             created_at: now,
             updated_at: now,
             started_at: None,
@@ -175,7 +178,7 @@ mod tests {
     #[test]
     fn test_lobby_state_new() {
         let lobby_id = Uuid::new_v4();
-        let state = LobbyState::new(lobby_id);
+        let state = LobbyState::new(lobby_id, 1);
 
         assert_eq!(state.lobby_id, lobby_id);
         assert_eq!(state.status, LobbyStatus::Waiting);
@@ -187,7 +190,7 @@ mod tests {
     #[test]
     fn test_to_redis_hash() {
         let lobby_id = Uuid::new_v4();
-        let state = LobbyState::new(lobby_id);
+        let state = LobbyState::new(lobby_id, 1);
 
         let hash = state.to_redis_hash();
 

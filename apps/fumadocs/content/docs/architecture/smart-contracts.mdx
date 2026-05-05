@@ -1,0 +1,201 @@
+---
+title: Smart Contracts & Security
+description: How Stacks Wars handles funds securely
+icon: CardSim
+---
+
+# Smart Contracts & Security
+
+Stacks Wars uses audited smart contracts to manage game funds securely. This document explains how our Vault system works and keeps your STX safe.
+
+## The Vault Contract
+
+The Vault is our core smart contract that holds all game deposits. It operates as an escrow system ensuring no single party controls the funds.
+
+### How the Vault Works
+
+```
+1. Player Deposits
+   └─ Transfer STX to Vault Contract
+      └─ Vault records the balance for that player
+
+2. Game Executes
+   └─ Players compete (no funds move)
+   └─ Game server determines winner
+
+3. Server Signs Result
+   └─ Game server creates cryptographic signature
+   └─ Signature proves the game outcome legitimacy
+   └─ Signature is included in claim transaction
+
+4. Player Claims
+   └─ Winner submits claim transaction to Vault
+   └─ Vault verifies the server's signature
+   └─ If valid, winner's balance increases
+   └─ Loser's deposit is transferred to winner
+```
+
+## Lobby Types: Normal vs Sponsored
+
+Stacks Wars offers two types of lobbies with different fund handling:
+
+### Normal Lobbies
+
+- **Players deposit directly** into the Vault
+- **Server doesn't hold funds** - acts only as game coordinator
+- **Immediate claim** - Winners can claim prizes on-chain with server signature
+- **Best for:** Transparent, trustless gaming
+- **Fee:** 2% platform fee on winnings
+
+> **Example:** You deposit 100 STX, win, and claim 196 STX (2% fee already deducted)
+
+### Sponsored Lobbies
+
+- **Players deposit into a special sponsorship escrow**
+- **Sponsor guarantees the pot** - Sponsoring entity covers the cost
+- **Rewards distributed** - Winners receive tokens or prizes instead of STX
+- **Best for:** Tournaments, promotional events, or risk-free play
+
+> **Example:** Tournament organizer sponsors a lobby. Winners receive exclusive tournament tokens instead of STX.
+
+## Cryptographic Signature Verification
+
+The signature system is critical to preventing fraud. Here's how it works:
+
+### The Process
+
+1. **Game Completes** - Server calculates final results
+2. **Create Message** - Server prepares a message containing:
+    - Game ID
+    - Winner's wallet address
+    - Payout amount
+    - Timestamp
+    - Nonce (prevents replay attacks)
+
+3. **Sign Message** - Server signs the message with its private key
+4. **Verify Claim** - When player claims, Vault contract:
+    - Extracts the signer's public key from the signature
+    - Checks that the key matches the registered server key
+    - Verifies the message hasn't been tampered with
+    - Transfers funds only if signature is valid
+
+### Why This Matters
+
+- **No modification** - The signature proves the game result wasn't altered
+- **Server accountability** - Only the registered server key can create valid signatures
+- **Replay protection** - The nonce ensures old signatures can't be reused
+- **On-chain verification** - Everything is verifiable on the Stacks blockchain
+
+## Security Features
+
+### Role-Based Access Control
+
+```
+Vault Contract Permissions:
+
+┌─ Game Coordinator Role
+│  ├─ Pause/resume deposits
+│  ├─ Update fee percentages
+│  └─ Manage server keys
+│
+├─ Server Role (External)
+│  └─ Sign game results
+│
+└─ Player Role
+   ├─ Deposit STX
+   ├─ Claim winnings
+   └─ Withdraw pending bets
+```
+
+### Anti-Fraud Measures
+
+**Deposits**
+
+- Deposits have a maximum limit (prevents mega-bets)
+- Minimum deposit enforced (prevents dust attacks)
+- All deposits are logged on-chain
+
+**Claims**
+
+- Signature verification required
+- Only registered players can claim
+- Each game has a claim window (72 hours default)
+- Unclaimed prizes return to deposits
+
+**Withdrawals**
+
+- Only pending (unclaimed) deposits can be withdrawn
+- Withdrawal has a cooldown period
+- Withdrawal amount limited per transaction
+
+### Contract Upgrades
+
+The Vault contract uses a proxy pattern allowing safe upgrades:
+
+```
+┌─ Proxy Contract (Players interact here)
+│  ├─ Forwards calls to Implementation
+│  └─ Stores all user balances
+│
+└─ Implementation Contract (contains logic)
+   ├─ Deposit logic
+   ├─ Claim logic
+   └─ Withdraw logic
+```
+
+When upgrading:
+
+1. New implementation contract is audited
+2. Governance votes on the upgrade
+3. Proxy is updated to point to new implementation
+4. User balances remain untouched
+
+### Public Contract Code
+
+All contracts are open-source:
+
+```
+Repository: github.com/Stacks-Wars/stacks-wars/tree/dev/apps/backend/contract/stacks/contracts
+Files:
+  ├─ stx-vault.clar
+  ├─ ft-vault.clar
+  └─ sponsored-stx-vault.clar
+```
+
+You can verify the deployed contract matches the source code using:
+
+- Stacks Explorer contract verification
+- Local compilation and comparison
+
+## Gas & Transaction Costs
+
+### Deposit Transaction
+
+- **Cost:** ~50,000 microSTX (~$0.05)
+- **Time:** ~5 seconds (Nakamoto fast blocks)
+- **Includes:** Vault fee tracking
+
+### Claim Transaction
+
+- **Cost:** ~75,000 microSTX (~$0.07)
+- **Time:** ~5 seconds (Nakamoto fast blocks)
+- **Includes:** Server signature verification
+
+### Withdraw Transaction
+
+- **Cost:** ~40,000 microSTX (~$0.04)
+- **Time:** ~5 seconds (Nakamoto fast blocks)
+- **Restriction:** Only pending deposits
+
+## Troubleshooting
+
+**Q: My signature claim was rejected**
+
+- Ensure the game result shows you as the winner
+- Verify your wallet address in the signature
+
+**Q: Why is my deposit still pending?**
+
+- Deposits need 1 confirmation (~5 seconds with Nakamoto fast blocks)
+- Check Stacks Explorer for transaction status
+- Contact support if delayed over 2 minutes

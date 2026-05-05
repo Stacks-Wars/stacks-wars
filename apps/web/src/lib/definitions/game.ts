@@ -2,11 +2,11 @@ export interface Game {
 	id: string;
 	name: string;
 	path: string;
-	description?: string;
-	imageUrl?: string;
+	description: string;
+	imageUrl: string;
 	minPlayers: number;
 	maxPlayers: number;
-	category?: string;
+	category: string[];
 	creatorId: string;
 	isActive: boolean;
 	createdAt: string;
@@ -16,9 +16,9 @@ export interface Game {
 export interface CreateGameRequest {
 	name: string;
 	path: string;
-	description?: string;
-	imageUrl?: string;
+	description: string;
+	imageUrl: string;
 	minPlayers: number;
 	maxPlayers: number;
-	category?: string;
+	category: string[];
 }

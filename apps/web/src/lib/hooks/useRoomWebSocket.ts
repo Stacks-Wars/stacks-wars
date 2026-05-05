@@ -11,22 +11,31 @@
 import { useEffect, useRef, useState } from "react";
 import { getGamePlugin } from "@/app/game/registry";
 import type {
-	ChatMessage,
-	GameMessage,
 	GamePlugin,
-	JoinRequest,
-	LobbyExtended,
-	LobbyMessage,
-	LobbyStatus,
-	PlayerState,
+	RoomClientMessage,
+	RoomServerMessage,
 } from "@/lib/definitions";
-import { useAuthStore } from "@/lib/stores/auth";
-import { useLobbyStore } from "../stores/lobby";
-import { webSocketClient } from "../websocket/wsClient";
+import { useLobbyActions, useLobbyStore } from "../stores/room";
+import { useUser } from "../stores/user";
+import { WebSocketClient } from "../websocket/wsClient";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { displayUserIdentifier } from "../utils";
+import { playSound } from "@/lib/audio/play-sound";
 
 interface UseRoomOptions {
 	lobbyPath: string;
 	wsUrl?: string;
+}
+
+export interface UseRoomWebSocketReturn {
+	// Game state
+	gameState: unknown;
+	gamePlugin: GamePlugin | undefined;
+	// Actions
+	sendGameMessage: (type: string, payload: unknown) => void;
+	sendLobbyMessage: (message: RoomClientMessage) => void;
+	disconnect: () => void;
 }
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
@@ -34,73 +43,62 @@ const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
 export function useRoomWebSocket({
 	lobbyPath,
 	wsUrl = `${WS_URL}/ws/room`,
-}: UseRoomOptions) {
-	const { token } = useAuthStore();
-	const clientRef = useRef<webSocketClient | null>(null);
+}: UseRoomOptions): UseRoomWebSocketReturn {
+	const clientRef = useRef<WebSocketClient | null>(null);
+	const gamePluginRef = useRef<GamePlugin | undefined>(undefined);
 	const [gamePlugin, setGamePlugin] = useState<GamePlugin | undefined>();
 	const [gameState, setGameState] = useState<unknown>(null);
+	const pendingActionsRef = useRef<Set<string>>(new Set());
 
-	const {
-		setLobby,
-		setPlayers,
-		setJoinRequests,
-		setChatHistory,
-		addChatMessage,
-		addPlayer,
-		removePlayer,
-		updateLobbyStatus,
-		setConnected,
-		setConnecting,
-		setError,
-		reset,
-		isConnected,
-		isConnecting,
-		error,
-		lobby,
-		players,
-		joinRequests,
-		chatHistory,
-	} = useLobbyStore();
+	const lobbyActions = useLobbyActions();
+	const user = useUser();
+	const userRef = useRef(user);
+	userRef.current = user;
+	const router = useRouter();
 
 	useEffect(() => {
 		// Initialize WebSocket connection
-		const client = new webSocketClient(lobbyPath, token || undefined);
+		const client = new WebSocketClient();
 		clientRef.current = client;
-		setConnecting(true);
-		setError(null);
+		lobbyActions.setConnecting(true);
+		lobbyActions.setError(null);
 
 		// Connect to WebSocket
 		client
 			.connect(`${wsUrl}/${lobbyPath}`)
 			.then(() => {
-				setConnected(true);
-				setConnecting(false);
+				lobbyActions.setConnected(true);
+				lobbyActions.setConnecting(false);
 			})
 			.catch((err) => {
 				console.error("[Room] Connection failed:", err);
-				setError("Failed to connect to game server");
-				setConnecting(false);
+				lobbyActions.setError("Failed to connect to game server");
+				lobbyActions.setConnecting(false);
 			});
 
 		// Message router
 		const unsubscribe = client.onMessage((message: unknown) => {
 			try {
-				// Try to parse as wrapped game message
-				const msg = message as {
-					game?: string;
-					type: string;
-					payload?: unknown;
-				};
+				const msg = message as Record<string, unknown>;
 
-				if (msg.game && gamePlugin && msg.game === gamePlugin.id) {
-					// Route to game plugin
-					console.log(`[Room] Routing message to game: ${msg.game}`, msg);
-					setGameState((prevState: unknown) =>
-						gamePlugin.handleMessage(prevState, msg as GameMessage),
-					);
+				// Check if this is a game message (wrapped in "game" object)
+				// Format: { "game": { "type": "wordEntry", ... } }
+				if (msg.game && typeof msg.game === "object") {
+					const plugin = gamePluginRef.current;
+					if (plugin) {
+						const gameMsg = msg.game as { type?: string };
+						// Call the plugin's message handler and update state
+						setGameState((prevState: unknown) =>
+							plugin.handleMessage(prevState, msg)
+						);
+					} else {
+						console.warn(
+							"[Room] Received game message but no plugin loaded"
+						);
+					}
 				} else {
-					// Route to lobby handler
-					handleLobbyMessage(msg as LobbyMessage);
+					// Route to lobby handler (room-level messages)
+					handleLobbyMessage(msg as unknown as RoomServerMessage);
 				}
 			} catch (err) {
 				console.error("[Room] Failed to handle message:", err);
@@ -110,12 +108,12 @@ export function useRoomWebSocket({
 		// Error handler
 		const unsubError = client.onError((err) => {
 			console.error("[Room] WebSocket error:", err);
-			setError("Connection error");
+			lobbyActions.setError("Connection error");
 		});
 
 		// Close handler
 		const unsubClose = client.onClose(() => {
-			setConnected(false);
+			lobbyActions.setConnected(false);
 		});
 
 		// Cleanup
@@ -124,75 +122,293 @@ export function useRoomWebSocket({
 			unsubError();
 			unsubClose();
 			client.disconnect();
-			reset();
+			lobbyActions.reset();
 			setGamePlugin(undefined);
+			gamePluginRef.current = undefined;
 			setGameState(null);
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [lobbyPath, token]);
+	}, [lobbyPath]);
 
 	// Handle lobby-level messages
-	const handleLobbyMessage = (message: Record<string, unknown>) => {
-		console.log("[Room] Handling lobby message:", message);
+	const handleLobbyMessage = (message: RoomServerMessage) => {
+		if (message.type !== "pong" && message.type !== "playerUpdated")
+			console.log("[Room] Handling lobby message:", message);
 
 		switch (message.type) {
 			case "lobbyBootstrap": {
-				const lobby = message.lobby as LobbyExtended;
-				const players = (message.players || []) as PlayerState[];
-				const joinRequests = (message.join_requests || []) as JoinRequest[];
-				const chatHistory = (message.chat_history || []) as ChatMessage[];
-
-				setLobby(lobby);
-				setPlayers(players);
-				setJoinRequests(joinRequests);
-				setChatHistory(chatHistory);
+				lobbyActions.setBootstrap(message);
 
 				// Load game plugin based on lobby's gamePath
-				if (lobby.gamePath) {
-					const plugin = getGamePlugin(lobby.gamePath);
+				if (message.lobbyInfo.lobby.gamePath) {
+					const plugin = getGamePlugin(
+						message.lobbyInfo.lobby.gamePath
+					);
 					if (plugin) {
 						setGamePlugin(plugin);
+						gamePluginRef.current = plugin;
 						setGameState(plugin.createInitialState());
-						console.log("[Room] Loaded game plugin:", plugin.id);
+						console.log("[Room] Loaded game plugin:", plugin.path);
 					} else {
-						console.warn(`[Room] No plugin found for game: ${lobby.gamePath}`);
+						console.warn(
+							`[Room] No plugin found for game: ${message.lobbyInfo.lobby.gamePath}`
+						);
 					}
 				}
 				break;
 			}
 
-			case "lobbyStateChanged":
-				updateLobbyStatus(message.state as LobbyStatus);
+			case "lobbyStatusChanged":
+				playSound("/audio/alert.wav");
+				lobbyActions.updateLobbyStatus(
+					message.status,
+					message.participantCount,
+					message.currentAmount
+				);
+				// Clear status-specific loading states
+				const statusActionKey = `updateLobbyStatus-${message.status}`;
+				if (pendingActionsRef.current.has(statusActionKey)) {
+					pendingActionsRef.current.delete(statusActionKey);
+					lobbyActions.clearActionLoading(statusActionKey);
+				}
 				break;
 
-			case "playerJoined":
-				addPlayer(message.player_id as string);
+			case "startCountdown":
+				playSound("/audio/beep.wav");
+				lobbyActions.setCountdown(message.secondsRemaining);
 				break;
+
+			case "playerJoined": {
+				playSound("/audio/alert.wav");
+				const joinKey = `join-${message.player.userId}`;
+				if (pendingActionsRef.current.has(joinKey)) {
+					pendingActionsRef.current.delete(joinKey);
+					lobbyActions.clearActionLoading(joinKey);
+				}
+				toast.info(
+					`${message.player.userId === userRef.current?.id ? "You" : displayUserIdentifier(message.player)} joined the lobby`
+				);
+				break;
+			}
 
 			case "playerLeft":
+				playSound("/audio/alert.wav");
+				lobbyActions.removePlayer(message.player.userId);
+				const leaveKey = `leave-${message.player.userId}`;
+				if (pendingActionsRef.current.has(leaveKey)) {
+					pendingActionsRef.current.delete(leaveKey);
+					lobbyActions.clearActionLoading(leaveKey);
+				}
+				toast.info(
+					`${message.player.userId === userRef.current?.id ? "You" : displayUserIdentifier(message.player)} left the lobby`
+				);
+				const currentCreator = useLobbyStore.getState().creator;
+				if (message.player.userId === currentCreator?.id) {
+					// Creator left - lobby is being closed
+					clientRef.current?.disconnect();
+					toast.error("Lobby has been closed by the creator");
+					router.replace("/lobby");
+				}
+				break;
+
 			case "playerKicked":
-				removePlayer(message.player_id as string);
+				playSound("/audio/alert.wav");
+				lobbyActions.removePlayer(message.player.userId);
+				const kickKey = `kick-${message.player.userId}`;
+				if (pendingActionsRef.current.has(kickKey)) {
+					pendingActionsRef.current.delete(kickKey);
+					lobbyActions.clearActionLoading(kickKey);
+				}
+				toast.info(
+					`${message.player.userId === userRef.current?.id ? "You were" : `${displayUserIdentifier(message.player)} was`} kicked from the lobby`
+				);
 				break;
 
 			case "joinRequestsUpdated":
-				setJoinRequests((message.join_requests || []) as JoinRequest[]);
+				playSound("/audio/alert.wav");
+				lobbyActions.setJoinRequests(message.joinRequests);
+				// Check for pending actions
+				if (pendingActionsRef.current.has("joinRequest")) {
+					const userInList = message.joinRequests.some(
+						(jr) => jr.userId === userRef.current?.id
+					);
+					if (userInList) {
+						pendingActionsRef.current.delete("joinRequest");
+						lobbyActions.clearActionLoading("joinRequest");
+						toast.info("Join request sent");
+					}
+				}
+				pendingActionsRef.current.forEach((action) => {
+					if (
+						action.startsWith("approve-") ||
+						action.startsWith("reject-")
+					) {
+						pendingActionsRef.current.delete(action);
+						lobbyActions.clearActionLoading(action);
+					}
+				});
+				break;
+
+			case "joinRequestStatus":
+				lobbyActions.updateJoinRequestState(
+					message.userId,
+					message.accepted ? "accepted" : "rejected"
+				);
+				if (message.userId === userRef.current?.id) {
+					if (message.accepted) {
+						toast.success(
+							"Your join request was approved! You can now join the lobby."
+						);
+					} else {
+						toast.error("Your join request was declined", {
+							action: {
+								label: "Resend",
+								onClick: () => {
+									sendLobbyMessage({ type: "joinRequest" });
+								},
+							},
+						});
+					}
+				}
 				break;
 
 			case "messageReceived":
-				addChatMessage(message.message as ChatMessage);
+				playSound("/audio/alert.wav");
+				lobbyActions.addChatMessage(message.message);
+				if (pendingActionsRef.current.has("sendMessage")) {
+					pendingActionsRef.current.delete("sendMessage");
+					lobbyActions.clearActionLoading("sendMessage");
+				}
+				break;
+
+			case "reactionAdded":
+				lobbyActions.addReaction(
+					message.messageId,
+					message.userId,
+					message.emoji
+				);
+				break;
+
+			case "reactionRemoved":
+				lobbyActions.removeReaction(
+					message.messageId,
+					message.userId,
+					message.emoji
+				);
 				break;
 
 			case "playerUpdated":
-				// Handle full player list update
-				if (message.players) {
-					setPlayers(message.players as PlayerState[]);
+				lobbyActions.setPlayers(message.players);
+				break;
+
+			case "participationToggled":
+				playSound("/audio/alert.wav");
+				if (pendingActionsRef.current.has("toggleParticipation")) {
+					pendingActionsRef.current.delete("toggleParticipation");
+					lobbyActions.clearActionLoading("toggleParticipation");
+				}
+				if (message.userId === userRef.current?.id) {
+					toast.info(
+						message.participating
+							? "You are now participating in the game"
+							: "You are now spectating"
+					);
+				}
+				break;
+
+			// Shared game events
+			case "gameStarted":
+				playSound("/audio/alert.wav");
+				toast.info("Game has started!");
+				console.log("[Room] Game started");
+				break;
+
+			case "gameStartFailed":
+				playSound("/audio/alert.wav");
+				console.error("[Room] Game start failed:", message.reason);
+				toast.error(`Game failed to start`, {
+					description: message.reason,
+				});
+				break;
+
+			case "finalStanding":
+				playSound("/audio/alert.wav");
+				console.log("[Room] Final standings:", message.standings);
+				lobbyActions.setFinalStandings(message.standings);
+				break;
+
+			case "gameOver":
+				playSound("/audio/end.mp3");
+				console.log("[Room] Game over for user:", message);
+				// Store game over data in room store to show modal
+				lobbyActions.setGameOver({
+					rank: message.rank,
+					prize: message.prize,
+					warsPoint: message.warsPoint,
+				});
+				break;
+
+			case "claimSuccess":
+				playSound("/audio/alert.wav");
+				lobbyActions.setActionLoading("claimReward", false);
+				toast.success("Reward claimed successfully!");
+				break;
+
+			case "gameState":
+				console.log(
+					"[Room] Received game state for reconnection:",
+					message
+				);
+				// Apply game state when reconnecting to an in-progress game
+				if (gamePluginRef.current?.applyGameState) {
+					setGameState((prevState: unknown) =>
+						gamePluginRef.current!.applyGameState!(
+							prevState,
+							message.gameState
+						)
+					);
+				} else {
+					console.warn(
+						"[Room] No applyGameState handler for game plugin"
+					);
 				}
 				break;
 
 			case "error":
-				setError((message.message as string) || "An error occurred");
+				playSound("/audio/error.wav");
+				lobbyActions.setError(message.message || "An error occurred");
+				// Map error codes to actions
+				const errorCodeToAction: Record<string, string> = {
+					JOIN_FAILED: "join",
+					LEAVE_FAILED: "leave",
+					LOBBY_STATUS_FAILED: "updateLobbyStatus",
+					APPROVE_FAILED: "approve",
+					REJECT_FAILED: "reject",
+					KICK_FAILED: "kick",
+					SEND_MESSAGE_FAILED: "sendMessage",
+					REACTION_FAILED: "reaction",
+					CLAIM_FAILED: "claimReward",
+					PARTICIPATION_FAILED: "toggleParticipation",
+				};
+				const action = errorCodeToAction[message.code];
+				if (action) {
+					// Clear any pending actions related to this error
+					pendingActionsRef.current.forEach((pendingAction) => {
+						if (
+							pendingAction.startsWith(action) ||
+							pendingAction === action
+						) {
+							pendingActionsRef.current.delete(pendingAction);
+							lobbyActions.clearActionLoading(pendingAction);
+						}
+					});
+					toast.error(message.message || `Action failed: ${action}`);
+				}
 				break;
 
+			case "pong":
+				lobbyActions.setLatency(message.elapsedMs);
+				break;
 			default:
 				console.warn("[Room] Unhandled lobby message:", message);
 		}
@@ -202,34 +418,105 @@ export function useRoomWebSocket({
 	const sendGameMessage = (type: string, payload: unknown) => {
 		if (!clientRef.current || !gamePlugin) {
 			console.warn(
-				"[Room] Cannot send game message: not connected or no plugin",
+				"[Room] Cannot send game message: not connected or no plugin"
 			);
 			return;
 		}
-		clientRef.current.sendGameMessage(gamePlugin.id, type, payload);
+		clientRef.current.sendGameMessage(type, payload);
 	};
 
 	// Send a lobby-level message
-	const sendLobbyMessage = (type: string, payload?: unknown) => {
+	const sendLobbyMessage = (message: RoomClientMessage) => {
 		if (!clientRef.current) {
+			toast.warning("Failed to send request", {
+				description: "Not connected to lobby",
+			});
 			console.warn("[Room] Cannot send lobby message: not connected");
 			return;
 		}
-		clientRef.current.sendLobbyMessage(type, payload);
+
+		// Track pending actions
+		switch (message.type) {
+			case "join": {
+				const joinKey = `join-${user?.id}`;
+				pendingActionsRef.current.add(joinKey);
+				lobbyActions.setActionLoading(joinKey, true);
+				break;
+			}
+			case "leave": {
+				const leaveKey = `leave-${user?.id}`;
+				pendingActionsRef.current.add(leaveKey);
+				lobbyActions.setActionLoading(leaveKey, true);
+				break;
+			}
+			case "updateLobbyStatus":
+				const actionKey = `updateLobbyStatus-${message.status}`;
+				pendingActionsRef.current.add(actionKey);
+				lobbyActions.setActionLoading(actionKey, true);
+				break;
+			case "joinRequest":
+				pendingActionsRef.current.add("joinRequest");
+				lobbyActions.setActionLoading("joinRequest", true);
+				break;
+			case "approveJoin":
+				pendingActionsRef.current.add(`approve-${message.userId}`);
+				lobbyActions.setActionLoading(
+					`approve-${message.userId}`,
+					true
+				);
+				break;
+			case "rejectJoin":
+				pendingActionsRef.current.add(`reject-${message.userId}`);
+				lobbyActions.setActionLoading(`reject-${message.userId}`, true);
+				break;
+			case "kick":
+				pendingActionsRef.current.add(`kick-${message.userId}`);
+				lobbyActions.setActionLoading(`kick-${message.userId}`, true);
+				break;
+			case "sendMessage":
+				console.log(`Sending message: ${message.content}`);
+				pendingActionsRef.current.add("sendMessage");
+				lobbyActions.setActionLoading("sendMessage", true);
+				break;
+			case "addReaction":
+				pendingActionsRef.current.add(
+					`addReaction-${message.messageId}`
+				);
+				lobbyActions.setActionLoading(
+					`addReaction-${message.messageId}`,
+					true
+				);
+				break;
+			case "removeReaction":
+				pendingActionsRef.current.add(
+					`removeReaction-${message.messageId}`
+				);
+				lobbyActions.setActionLoading(
+					`removeReaction-${message.messageId}`,
+					true
+				);
+				break;
+			case "claimReward":
+				pendingActionsRef.current.add("claimReward");
+				lobbyActions.setActionLoading("claimReward", true);
+				break;
+			case "toggleParticipation":
+				pendingActionsRef.current.add("toggleParticipation");
+				lobbyActions.setActionLoading("toggleParticipation", true);
+				break;
+		}
+
+		clientRef.current.sendLobbyMessage(message);
+	};
+
+	const disconnect = () => {
+		if (clientRef.current) {
+			clientRef.current.disconnect();
+			clientRef.current = null;
+		}
 	};
 
 	return {
-		// Connection state
-		isConnected,
-		isConnecting,
-		error,
-
-		// Lobby state
-		lobby,
-		players,
-		joinRequests,
-		chatHistory,
-
 		// Game state
 		gameState,
 		gamePlugin,
@@ -237,5 +524,6 @@ export function useRoomWebSocket({
 		// Actions
 		sendGameMessage,
 		sendLobbyMessage,
+		disconnect,
 	};
 }

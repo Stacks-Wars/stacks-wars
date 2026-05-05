@@ -1,0 +1,142 @@
+---
+title: Leaderboard & Seasons
+description: How Wars Points, seasonal rankings, and Trust Rating work in Stacks Wars
+icon: Trophy
+---
+
+## Wars Points System
+
+**Wars Points** measure your competitive standing across all games in a season.
+
+### How Points Are Earned
+
+Points are awarded after every game based on your final placement:
+
+```
+wars_point = (total_participants - your_rank + 1) × 2
+```
+
+Points are **capped at 50** per game.
+
+**Examples:**
+
+| Game Size | Your Rank | Calculation     | Points |
+| --------- | --------- | --------------- | ------ |
+| 2 players | 1st       | (2 - 1 + 1) × 2 | 4      |
+| 2 players | 2nd       | (2 - 2 + 1) × 2 | 2      |
+| 4 players | 1st       | (4 - 1 + 1) × 2 | 8      |
+| 4 players | 4th       | (4 - 4 + 1) × 2 | 2      |
+| 8 players | 1st       | (8 - 1 + 1) × 2 | 16     |
+
+> Every player earns points — even last place gets 2 points. You never lose points for losing.
+
+### What Is Tracked
+
+Each player's seasonal stats include:
+
+| Stat              | Description                                              |
+| ----------------- | -------------------------------------------------------- |
+| **Points**        | Total Wars Points for the season                         |
+| **Total Matches** | Number of games played                                   |
+| **Total Wins**    | Number of 1st place finishes                             |
+| **Win Rate**      | `total_wins / total_matches × 100`                       |
+| **Total PnL**     | Net profit/loss in STX (`prize - entry_amount` per game) |
+| **Rank Badge**    | Display badge based on standing                          |
+
+---
+
+## Trust Rating
+
+Every player has a **Trust Rating** stored as part of their user profile.
+
+### How It Works
+
+- New accounts start with a Trust Rating of **10.0**
+- The rating is a persistent value associated with your account
+- It is displayed on your profile, leaderboard entries, and in-game player cards
+- Trust Rating is synced across all active lobbies when your profile is updated
+
+### Where It Appears
+
+- **Player cards** in lobbies — other players see your rating
+- **Leaderboard** — shown alongside Wars Points and win rate
+- **Final standings** — displayed next to each player after a game ends
+- **Profile page** — visible to anyone viewing your profile
+
+---
+
+## Seasonal Leaderboards
+
+Stacks Wars organizes competition into **seasons**. Each season has a name, start date, and end date.
+
+### How Seasons Work
+
+- Seasons are defined in the database with a `name`, `start_date`, and `end_date`
+- Your Wars Points, matches, wins, PnL, and win rate are tracked **per season**
+- When a new season starts, your seasonal stats reset to zero
+- All-time stats (Trust Rating, total games across all seasons) persist
+
+### Leaderboard Columns
+
+The leaderboard shows every player's seasonal performance:
+
+| Column        | Sortable | Description                                    |
+| ------------- | -------- | ---------------------------------------------- |
+| Rank          | —        | Position based on sort order                   |
+| Player        | —        | Username, display name, wallet address, avatar |
+| Wars Points   | ✓        | Total seasonal points                          |
+| Total Matches | ✓        | Games played this season                       |
+| Win Rate      | ✓        | Win percentage                                 |
+| Total PnL     | ✓        | Net profit/loss in STX                         |
+| Trust Rating  | —        | Account trust score                            |
+
+The default sort is by **Wars Points** (descending). You can also sort by total matches, win rate, or PnL.
+
+### Viewing Your Stats
+
+Navigate to your **profile** to see:
+
+- **Current season** stats — points, rank, matches, wins, PnL, win rate
+- **Rank badge** — visual indicator of your standing
+- **Trust Rating** — your current account rating
+
+### Viewing Other Players
+
+Click any player's name on the leaderboard or in a game to see:
+
+- Their current season stats
+- Trust Rating
+- Username and wallet address
+
+---
+
+## Season Reset
+
+At the end of each season:
+
+1. **Seasonal stats reset** — Wars Points, matches, wins, PnL, win rate go to zero
+2. **Trust Rating persists** — It does not reset between seasons
+3. **Historical data is preserved** — Previous season data is stored and queryable
+4. **New season begins** — Fresh competition with the same ranking system
+
+---
+
+## FAQ
+
+**Q: Do I lose points for losing?**
+No. Every player earns at least 2 points per game regardless of placement.
+
+**Q: Is there a maximum number of points per game?**
+Yes — points are capped at 50 per game.
+
+**Q: How is rank calculated?**
+By your total Wars Points for the current season. Higher points = higher rank. Ties go to whoever achieved the points first.
+
+**Q: Are leaderboards per-game or global?**
+Global — Lexi Wars and Ludo points are combined into a single seasonal leaderboard.
+
+**Q: How is PnL calculated?**
+`PnL = prize_amount - entry_amount` per game. For non-STX tokens, amounts are converted to STX equivalent.
+
+**Q: What happens to my Trust Rating between seasons?**
+It persists. Trust Rating is a permanent account-level value and does not reset.

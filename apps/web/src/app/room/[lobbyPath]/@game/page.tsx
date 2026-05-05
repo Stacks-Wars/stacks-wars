@@ -1,46 +1,39 @@
 "use client";
 
 import { useRoom } from "@/lib/contexts/room-context";
-import { Loader2 } from "lucide-react";
+import Loading from "@/app/loading";
+import { useGame, useLobby, useRoomConnecting } from "@/lib/stores/room";
 
-export default function Game() {
-	const {
-		lobby,
-		players,
-		gameState,
-		sendGameMessage,
-		gamePlugin,
-		isConnecting,
-	} = useRoom();
+export default function GameSlot() {
+	const { gameState, gamePlugin, sendGameMessage } = useRoom();
+	const lobby = useLobby();
+	const game = useGame();
+	const isConnecting = useRoomConnecting();
 
-	// Show loading state while connecting
-	if (isConnecting || !lobby) {
-		return (
-			<div className="flex min-h-screen items-center justify-center">
-				<Loader2 className="h-8 w-8 animate-spin" />
-				<span className="ml-2">Loading game...</span>
-			</div>
-		);
+	if (isConnecting || !lobby || !game) {
+		return <Loading />;
 	}
 
-	// Check if game plugin is available
-	if (!gamePlugin) {
-		return (
-			<div className="container mx-auto px-4 py-8 text-center">
-				<p className="text-destructive">
-					Game plugin not found for: {lobby.gamePath}
-				</p>
-			</div>
-		);
-	}
-
-	const GameComponent = gamePlugin.GameComponent;
 	return (
-		<GameComponent
-			state={gameState}
-			sendMessage={sendGameMessage}
-			lobby={lobby}
-			players={players}
-		/>
+		<div className="container mx-auto px-4">
+			{gamePlugin ? (
+				<gamePlugin.GameComponent
+					state={gameState}
+					sendMessage={sendGameMessage}
+					lobby={lobby}
+					game={game}
+				/>
+			) : (
+				<div className="bg-card rounded-lg p-8 text-center">
+					<p className="text-muted-foreground text-lg">
+						Game component is missing for {lobby.gamePath}
+					</p>
+					<p className="text-muted-foreground mt-2 text-sm">
+						Please ensure the game plugin is properly registered if
+						you're the dev.
+					</p>
+				</div>
+			)}
+		</div>
 	);
 }

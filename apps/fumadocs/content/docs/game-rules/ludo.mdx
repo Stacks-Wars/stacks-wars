@@ -1,0 +1,131 @@
+---
+title: Ludo
+description: Classic board game rules adapted for Stacks Wars
+---
+
+# Ludo
+
+Ludo is a classic strategy board game adapted for Stacks Wars. Race your four pawns around the board and be the first to get all pawns home.
+
+## Objective
+
+Move all four of your pawns from your home base, around the 52-square track, through the home stretch, and into the finish. The first player to finish all pawns wins.
+
+## Game Setup
+
+- **Players:** 2–4 per game
+- **Pawns:** 4 per player
+- **Board:** 52 main squares + 5 home stretch squares per player
+- **Dice:** Two 6-sided dice rolled together
+- **Roll Timeout:** 5 seconds to roll
+- **Move Timeout:** 15 seconds to select a pawn and move
+- **Player Positions:** 2 players start at diagonal corners (indices 0 and 2); 3–4 players fill corners sequentially
+
+## How to Play
+
+### Turn Phases
+
+Each turn has two phases:
+
+1. **Roll Phase** (5 seconds) — Click to roll both dice. If you don't roll in time, the dice are auto-rolled.
+2. **Move Phase** (15 seconds) — Select which dice value to use (die 1, die 2, or the sum), then select which pawn to move. If you don't move in time, an auto-move is made.
+
+### Dice Mechanics
+
+You roll **two dice** every turn. You can use:
+
+- **Die 1 value** alone
+- **Die 2 value** alone
+- **Sum of both dice** (die 1 + die 2)
+
+After selecting a dice value, the server shows which of your pawns can legally move that many squares. Select one to move.
+
+### Entering the Board
+
+- To bring a pawn out of your home base, you need a roll that includes a **6** (die 1, die 2, or sum)
+- If **all 4 pawns are still at home**, one of your dice is automatically fixed to 6 so you can always enter
+
+### Bonus Turns
+
+You get a **bonus turn** only when **both dice show 6** (double sixes).
+
+### Moving Around the Board
+
+- Pawns move clockwise around the 52-square outer track
+- After completing a full circuit, pawns enter your **home stretch** (5 squares)
+- You must land with an **exact roll** to reach the finish square
+
+### Safe Squares
+
+Pawns on safe squares **cannot be captured**. Safe squares are at positions:
+
+**0, 8, 13, 21, 26, 34, 39, 47**
+
+These are the starting positions and midpoints of each player's section.
+
+### Capturing
+
+- If your pawn lands on a square occupied by an opponent's pawn (not a safe square), the opponent's pawn is **sent back to their home base**
+- Capturing is automatic; you get a bonus roll after capturing
+
+### Auto-Move on Timeout
+
+If you don't move within 15 seconds, the server makes an automatic move:
+
+1. Prefers using the **sum** of both dice
+2. Falls back to **die 1**
+3. Falls back to **die 2**
+4. If no valid moves exist, the turn is skipped
+
+## Prize Distribution
+
+Ludo uses **winner-takes-all**:
+
+| Rank | Prize |
+| ---- | ----- |
+| 1st  | 100%  |
+| 2nd+ | 0%    |
+
+A **2% platform fee** is deducted on-chain when claiming via the vault contract.
+
+## Wars Points
+
+Points are awarded based on your placement:
+
+```
+wars_point = (total_participants - your_rank + 1) × 2
+```
+
+Points are capped at a maximum of **50** per game.
+
+## Strategy Tips
+
+- **Get multiple pawns on the board early** — Don't rely on a single pawn
+- **Use the sum wisely** — The combined dice value lets you move further but commits both dice to one pawn
+- **Safe squares are strategic** — Park pawns on safe squares near opponents' paths
+- **Capture when possible** — Sending opponents back wastes their progress and earns you a bonus turn
+- **Plan your home stretch entry** — You need exact rolls, so position accordingly
+- **Watch the auto-move timer** — 15 seconds goes fast, especially on complex board states
+
+## Common Questions
+
+**Q: How many dice do I roll?**
+Two dice are rolled together every turn. You choose which value to use per move.
+
+**Q: What happens if I roll double sixes?**
+You get a bonus turn after completing your current move.
+
+**Q: Can I move backward?**
+No, all movement is clockwise only.
+
+**Q: What if I have no legal moves?**
+Your turn is automatically skipped and passed to the next player.
+
+**Q: Can I land on my own pawn?**
+No, you cannot move a pawn to a square occupied by another of your own pawns.
+
+**Q: What's the time limit?**
+5 seconds to roll, 15 seconds to move. Both have auto-fallbacks on timeout.
+
+**Q: How do ties work?**
+Ludo is winner-takes-all — there are no ties. The first player to finish all 4 pawns wins.

@@ -1,4 +1,5 @@
 // PlayerState: runtime Redis representation for player participation
+use crate::db::join_request::JoinRequestState;
 use crate::errors::AppError;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -75,14 +76,17 @@ pub struct PlayerState {
     /// Current player status (NotJoined, Joined)
     pub status: PlayerStatus,
 
-    /// Transaction ID for entry payment
-    pub tx_id: Option<String>,
+    /// Join request state (Pending, Accepted, Rejected)
+    pub state: JoinRequestState,
 
     /// Rank in finished game (1st, 2nd, 3rd, etc.)
     pub rank: Option<usize>,
 
     /// Prize amount won
     pub prize: Option<f64>,
+
+    /// Wars points earned from this game
+    pub wars_point: Option<f64>,
 
     /// Prize claim status
     pub claim_state: Option<ClaimState>,
@@ -95,6 +99,7 @@ pub struct PlayerState {
 
     /// Unix timestamp of last update
     pub updated_at: i64,
+
     /// Whether this player is the lobby creator
     pub is_creator: bool,
 }
@@ -110,22 +115,24 @@ impl PlayerState {
         username: Option<String>,
         display_name: Option<String>,
         trust_rating: f64,
-        tx_id: Option<String>,
+        claim_state: Option<ClaimState>,
         is_creator: bool,
+        status: PlayerStatus,
     ) -> Self {
         let now = Utc::now().timestamp();
         Self {
             user_id,
             lobby_id,
-            status: PlayerStatus::Joined,
+            status,
+            state: JoinRequestState::Accepted,
             wallet_address,
             username,
             display_name,
             trust_rating,
-            tx_id,
             rank: None,
             prize: None,
-            claim_state: None,
+            wars_point: None,
+            claim_state,
             last_ping: Some(Utc::now().timestamp_millis() as u64),
             joined_at: now,
             updated_at: now,
@@ -140,6 +147,7 @@ impl PlayerState {
         map.insert("user_id".to_string(), self.user_id.to_string());
         map.insert("lobby_id".to_string(), self.lobby_id.to_string());
         map.insert("status".to_string(), format!("{:?}", self.status));
+        map.insert("state".to_string(), format!("{:?}", self.state));
         map.insert("wallet_address".to_string(), self.wallet_address.clone());
         map.insert("trust_rating".to_string(), self.trust_rating.to_string());
         map.insert("joined_at".to_string(), self.joined_at.to_string());
@@ -153,14 +161,14 @@ impl PlayerState {
             map.insert("display_name".to_string(), display_name.clone());
         }
 
-        if let Some(ref tx_id) = self.tx_id {
-            map.insert("tx_id".to_string(), tx_id.clone());
-        }
         if let Some(rank) = self.rank {
             map.insert("rank".to_string(), rank.to_string());
         }
         if let Some(prize) = self.prize {
             map.insert("prize".to_string(), prize.to_string());
+        }
+        if let Some(wars_point) = self.wars_point {
+            map.insert("wars_point".to_string(), wars_point.to_string());
         }
         if let Some(ref claim_state) = self.claim_state {
             map.insert(
@@ -195,6 +203,16 @@ impl PlayerState {
             .and_then(|s| s.parse::<PlayerStatus>().ok())
             .ok_or_else(|| AppError::InvalidInput("Missing or invalid status".into()))?;
 
+        let state = data
+            .get("state")
+            .and_then(|s| match s.as_str() {
+                "pending" => Some(JoinRequestState::Pending),
+                "accepted" => Some(JoinRequestState::Accepted),
+                "rejected" => Some(JoinRequestState::Rejected),
+                _ => None,
+            })
+            .unwrap_or(JoinRequestState::Accepted);
+
         let wallet_address = data
             .get("wallet_address")
             .cloned()
@@ -208,11 +226,11 @@ impl PlayerState {
             .and_then(|r| r.parse::<f64>().ok())
             .unwrap_or(0.0);
 
-        let tx_id = data.get("tx_id").cloned();
-
         let rank = data.get("rank").and_then(|r| r.parse::<usize>().ok());
 
         let prize = data.get("prize").and_then(|p| p.parse::<f64>().ok());
+
+        let wars_point = data.get("wars_point").and_then(|v| v.parse().ok());
 
         let claim_state = data
             .get("claim_state")
@@ -239,13 +257,14 @@ impl PlayerState {
             user_id,
             lobby_id,
             status,
+            state,
             wallet_address,
             username,
             display_name,
             trust_rating,
-            tx_id,
             rank,
             prize,
+            wars_point,
             claim_state,
             last_ping,
             joined_at,
@@ -273,11 +292,11 @@ mod tests {
     fn test_player_state_new() {
         let user_id = Uuid::new_v4();
         let lobby_id = Uuid::new_v4();
-        let tx_id = Some("tx123".to_string());
         let wallet_address = "SP123ABC".to_string();
         let username = Some("player1".to_string());
         let display_name = Some("Player One".to_string());
         let trust_rating = 5.0;
+        let claim_state = Some(ClaimState::NotClaimed);
 
         let state = PlayerState::new(
             user_id,
@@ -286,18 +305,20 @@ mod tests {
             username.clone(),
             display_name.clone(),
             trust_rating,
-            tx_id.clone(),
+            claim_state.clone(),
             false,
+            PlayerStatus::Joined,
         );
 
         assert_eq!(state.user_id, user_id);
         assert_eq!(state.lobby_id, lobby_id);
         assert_eq!(state.status, PlayerStatus::Joined);
+        assert!(matches!(state.state, JoinRequestState::Accepted));
         assert_eq!(state.wallet_address, wallet_address);
         assert_eq!(state.username, username);
         assert_eq!(state.display_name, display_name);
         assert_eq!(state.trust_rating, trust_rating);
-        assert_eq!(state.tx_id, tx_id);
+        assert_eq!(state.claim_state, claim_state);
         assert!(state.rank.is_none());
         assert!(state.prize.is_none());
         assert!(state.last_ping.is_some());
@@ -316,6 +337,7 @@ mod tests {
             5.0,
             None,
             false,
+            PlayerStatus::Joined,
         );
 
         let hash = state.to_redis_hash();
@@ -323,6 +345,7 @@ mod tests {
         assert_eq!(hash.get("user_id").unwrap(), &user_id.to_string());
         assert_eq!(hash.get("lobby_id").unwrap(), &lobby_id.to_string());
         assert_eq!(hash.get("status").unwrap(), "Joined");
+        assert_eq!(hash.get("state").unwrap(), "Accepted");
         assert_eq!(hash.get("wallet_address").unwrap(), "SP123ABC");
         assert_eq!(hash.get("username").unwrap(), "player1");
         assert_eq!(hash.get("display_name").unwrap(), "Player One");

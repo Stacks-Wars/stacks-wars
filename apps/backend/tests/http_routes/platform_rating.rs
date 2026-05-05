@@ -16,7 +16,7 @@ async fn create_platform_rating() {
 
     let resp = client
         .post(format!("{}/api/platform-rating", app.base_url))
-        .bearer_auth(&token)
+        .header("Cookie", factory.create_auth_cookie(&token))
         .json(&payload)
         .send()
         .await
@@ -136,7 +136,7 @@ async fn update_platform_rating() {
     let payload = json!({ "rating": 2, "comment": "initial" });
     let resp = client
         .post(format!("{}/api/platform-rating", app.base_url))
-        .bearer_auth(&token)
+        .header("Cookie", factory.create_auth_cookie(&token))
         .json(&payload)
         .send()
         .await
@@ -147,7 +147,7 @@ async fn update_platform_rating() {
     let payload2 = json!({ "rating": 1, "comment": "updated" });
     let resp2 = client
         .patch(format!("{}/api/platform-rating", app.base_url))
-        .bearer_auth(&token)
+        .header("Cookie", factory.create_auth_cookie(&token))
         .json(&payload2)
         .send()
         .await
@@ -174,7 +174,7 @@ async fn delete_platform_rating() {
     let payload = json!({ "rating": 2, "comment": "to-delete" });
     let resp = client
         .post(format!("{}/api/platform-rating", app.base_url))
-        .bearer_auth(&token)
+        .header("Cookie", factory.create_auth_cookie(&token))
         .json(&payload)
         .send()
         .await
@@ -184,7 +184,7 @@ async fn delete_platform_rating() {
     // Delete via API
     let resp3 = client
         .delete(format!("{}/api/platform-rating", app.base_url))
-        .bearer_auth(&token)
+        .header("Cookie", factory.create_auth_cookie(&token))
         .send()
         .await
         .expect("request failed");

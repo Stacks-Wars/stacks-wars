@@ -20,6 +20,7 @@ pub struct User {
     pub email: String,
     pub email_verified: bool,
     pub trust_rating: f64,
+    pub profile_image: Option<String>,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }

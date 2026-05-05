@@ -1,106 +1,135 @@
 /**
- * Lobby Store
+ * Lobby  Store
  *
- * Manages lobby-level state (players, chat, join requests, lobby info).
- * This is shared across all games.
+ * Manages lobby  browsing state (lobby , filters, pagination).
  */
 
 import { create } from "zustand";
-import type {
-	ChatMessage,
-	JoinRequest,
-	LobbyExtended,
-	LobbyStatus,
-	PlayerState,
-} from "@/lib/definitions";
+import type { LobbyInfo } from "@/lib/definitions";
 
-interface LobbyStore {
-	// State
-	lobby: LobbyExtended | null;
-	players: PlayerState[];
-	joinRequests: JoinRequest[];
-	chatHistory: ChatMessage[];
-	isConnected: boolean;
-	isConnecting: boolean;
-	error: string | null;
-
-	// Actions
-	setLobby: (lobby: LobbyExtended) => void;
-	setPlayers: (players: PlayerState[]) => void;
-	setJoinRequests: (requests: JoinRequest[]) => void;
-	setChatHistory: (history: ChatMessage[]) => void;
-	addChatMessage: (message: ChatMessage) => void;
-	addPlayer: (playerId: string) => void;
-	removePlayer: (playerId: string) => void;
-	updateLobbyStatus: (status: LobbyStatus) => void;
+interface LobbyActions {
+	setLobby: (lobbyInfo: LobbyInfo[], total: number) => void;
+	addLobby: (lobbyInfo: LobbyInfo) => void;
+	updateLobby: (lobbyInfo: LobbyInfo) => void;
+	removeLobby: (lobbyId: string) => void;
 	setConnected: (connected: boolean) => void;
 	setConnecting: (connecting: boolean) => void;
 	setError: (error: string | null) => void;
+	setActionLoading: (action: string, loading: boolean) => void;
+	clearActionLoading: (action: string) => void;
+	clearAllLoadingActions: () => void;
 	reset: () => void;
 }
 
+interface LobbyStore {
+	// State
+	lobbyInfo: LobbyInfo[] | null;
+	total: number;
+	isConnected: boolean;
+	isConnecting: boolean;
+	error: string | null;
+	loadingActions: Set<string>;
+
+	// Actions
+	actions: LobbyActions;
+}
+
 const initialState = {
-	lobby: null,
-	players: [],
-	joinRequests: [],
-	chatHistory: [],
+	lobbyInfo: null,
+	total: 0,
 	isConnected: false,
 	isConnecting: false,
 	error: null,
+	loadingActions: new Set<string>(),
 };
 
 export const useLobbyStore = create<LobbyStore>((set) => ({
 	...initialState,
 
-	setLobby: (lobby) => set({ lobby }),
+	actions: {
+		setLobby: (lobbyInfo, total) => {
+			set({ lobbyInfo, total });
+		},
 
-	setPlayers: (players) => set({ players }),
+		addLobby: (lobbyInfo) => {
+			set((state) => ({
+				lobbyInfo: [lobbyInfo, ...(state.lobbyInfo || [])],
+				total: state.total + 1,
+			}));
+		},
 
-	setJoinRequests: (requests) => set({ joinRequests: requests }),
+		updateLobby: (lobbyInfo) => {
+			set((state) => ({
+				lobbyInfo:
+					state.lobbyInfo?.map((l) =>
+						l.lobby.id === lobbyInfo.lobby.id ? lobbyInfo : l
+					) || state.lobbyInfo,
+			}));
+		},
 
-	setChatHistory: (history) => set({ chatHistory: history }),
+		removeLobby: (lobbyId) => {
+			set((state) => ({
+				lobbyInfo:
+					state.lobbyInfo?.filter((l) => l.lobby.id !== lobbyId) ||
+					state.lobbyInfo,
+				total: state.total - 1,
+			}));
+		},
 
-	addChatMessage: (message) =>
-		set((state) => ({
-			chatHistory: [...state.chatHistory, message],
-		})),
+		setConnected: (connected) => {
+			set({ isConnected: connected });
+		},
 
-	addPlayer: (playerId) =>
-		set((state) => {
-			// Check if player already exists
-			if (state.players.some((p) => p.userId === playerId)) {
-				return state;
-			}
-			// Create a basic player state (lobbyId will be set by server)
-			const newPlayer: PlayerState = {
-				userId: playerId,
-				lobbyId: state.lobby?.id || "",
-				isCreator: false,
-				joinedAt: Date.now(),
-				status: "joined",
-				updatedAt: Date.now(),
-				// These can be updated later
-				walletAddress: "",
-				trustRating: 0,
-			};
-			return { players: [...state.players, newPlayer] };
-		}),
+		setConnecting: (connecting) => {
+			set({ isConnecting: connecting });
+		},
 
-	removePlayer: (playerId) =>
-		set((state) => ({
-			players: state.players.filter((p) => p.userId !== playerId),
-		})),
+		setError: (error) => {
+			set({ error });
+		},
 
-	updateLobbyStatus: (status) =>
-		set((state) => ({
-			lobby: state.lobby ? { ...state.lobby, status } : null,
-		})),
+		setActionLoading: (action, loading) => {
+			set((state) => {
+				const newLoadingActions = new Set(state.loadingActions);
+				if (loading) {
+					newLoadingActions.add(action);
+				} else {
+					newLoadingActions.delete(action);
+				}
+				return { loadingActions: newLoadingActions };
+			});
+		},
 
-	setConnected: (connected) => set({ isConnected: connected }),
+		clearActionLoading: (action) => {
+			set((state) => {
+				const newLoadingActions = new Set(state.loadingActions);
+				newLoadingActions.delete(action);
+				return { loadingActions: newLoadingActions };
+			});
+		},
 
-	setConnecting: (connecting) => set({ isConnecting: connecting }),
+		clearAllLoadingActions: () => {
+			set({ loadingActions: new Set<string>() });
+		},
 
-	setError: (error) => set({ error }),
-
-	reset: () => set(initialState),
+		reset: () => {
+			set(initialState);
+		},
+	},
 }));
+
+// Export individual state selectors
+export const useLobbyInfo = () => useLobbyStore((state) => state.lobbyInfo);
+export const useLobbyTotal = () => useLobbyStore((state) => state.total);
+export const useLobbyConnected = () =>
+	useLobbyStore((state) => state.isConnected);
+export const useLobbyConnecting = () =>
+	useLobbyStore((state) => state.isConnecting);
+export const useLobbyError = () => useLobbyStore((state) => state.error);
+export const useLobbyActions = () => useLobbyStore((state) => state.actions);
+
+// Loading state selectors
+export const useLobbyLoadingActions = () =>
+	useLobbyStore((state) => state.loadingActions);
+export const useIsLobbyActionLoading = (action: string) =>
+	useLobbyStore((state) => state.loadingActions.has(action));

@@ -1,13 +1,82 @@
 ---
-title: Hello World
-description: Your first document
+title: Welcome to Stacks Wars
+description: The ultimate competitive gaming platform on Stacks
 ---
 
-Welcome to the docs! You can start writing documents in `/content/docs`.
+# Welcome to Stacks Wars
 
-## What is Next?
+**Stacks Wars** is a decentralized competitive gaming platform built on the Stacks blockchain. Compete against players worldwide, wager STX or fungible tokens securely through smart contract vaults, and claim your winnings with cryptographic signature verification.
+
+## How It Works
+
+1. **Authenticate** — Connect your Leather or Xverse wallet
+2. **Join or Create** — Find a lobby or create your own game session
+3. **Deposit** — Your stake is held in a smart contract vault (escrow)
+4. **Play** — Compete in Lexi Wars, Ludo, or community-built games
+5. **Claim** — The server signs the result and you claim your winnings on-chain
+
+---
+
+## For Players
+
+Everything you need to start playing — wallet setup, game rules, lobby types, and leaderboards.
 
 <Cards>
-  <Card title="Learn more about Next.js" href="https://nextjs.org/docs" />
-  <Card title="Learn more about Fumadocs" href="https://fumadocs.dev" />
+	<Card href="/docs/getting-started/installation" title="Getting Started">
+		Create an account and connect your wallet to begin playing
+	</Card>
+	<Card
+		href="/docs/getting-started/lobbies-and-wagering"
+		title="Lobbies & Wagering"
+	>
+		Understand Normal vs Sponsored lobbies and how your funds are protected
+	</Card>
+	<Card href="/docs/game-rules/lexi-wars" title="Lexi Wars">
+		Fast-paced word elimination — survive rounds of timed word challenges
+	</Card>
+	<Card href="/docs/game-rules/ludo" title="Ludo">
+		Classic board game — race your pawns home before your opponents
+	</Card>
+	<Card
+		href="/docs/getting-started/leaderboard-and-seasons"
+		title="Leaderboards"
+	>
+		Wars Points, seasonal rankings, and Trust Rating
+	</Card>
+	<Card href="/docs/architecture/smart-contracts" title="Smart Contracts">
+		How vaults, signatures, and on-chain verification keep your funds safe
+	</Card>
 </Cards>
+
+---
+
+## For Developers & Contributors
+
+Comprehensive guides for running the platform locally, understanding the architecture, and building new games.
+
+<Cards>
+	<Card href="/docs/dev/local-setup" title="Local Development Setup">
+		Run the backend server and frontend on your local machine
+	</Card>
+	<Card href="/docs/dev/building-a-game" title="Build a Game">
+		Step-by-step guide to creating a new game using the plugin system
+	</Card>
+	<Card href="/docs/architecture/plugin-system" title="Plugin Architecture">
+		Understand the GameEngine trait, message routing, and state management
+	</Card>
+	<Card href="/docs/architecture/smart-contracts" title="Vault Contracts">
+		Clarity smart contracts for STX and fungible token escrow
+	</Card>
+</Cards>
+
+---
+
+## Platform Features
+
+- **On-Chain Wagering** — STX and fungible token support via audited vault contracts
+- **Cryptographic Claim System** — Server-signed results verified on-chain
+- **Leaderboards & Seasons** — Earn Wars Points and climb the seasonal rankings
+- **Trust Rating** — Build your reputation through consistent fair play
+- **Live Chat & Reactions** — Communicate with opponents during games
+- **Sponsored Lobbies** — Risk-free play funded by sponsors
+- **Plugin System** — Extensible game engine for community-built games

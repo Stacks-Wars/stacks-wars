@@ -1,0 +1,257 @@
+---
+title: FAQ
+description: Frequently asked questions about Stacks Wars, wallets, transactions, and gameplay issues.
+icon: FileQuestionMark
+---
+
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import { Callout } from "fumadocs-ui/components/callout";
+
+# Frequently Asked Questions
+
+Get answers to common questions about Stacks Wars, wallet management, transactions, and gameplay.
+
+## Wallet & Account Questions
+
+<Tabs items={['Leather', 'Xverse']}>
+  <Tab value="Leather">
+    ### How do I connect my Leather wallet to Stacks Wars?
+
+    1. Install the [Leather wallet extension](https://leather.io)
+    2. Create or import your wallet
+    3. Visit Stacks Wars and click "Connect Wallet"
+    4. Select Leather from the available options
+    5. Approve the connection in your wallet popup
+
+    ### Why isn't my Leather wallet showing my STX balance?
+
+    - Ensure you're on the **Mainnet** network in your Leather wallet settings
+    - Try refreshing the page
+    - Make sure you've received your STX tokens on the correct address
+    - Check the [Stacks blockchain explorer](https://explorer.stacks.co) to verify your balance
+
+    ### Can I use a hardware wallet with Leather?
+
+    Yes! Leather supports hardware wallets like Ledger and Trezor. Connect your hardware wallet through Leather's setup process and approve transactions directly on your device.
+
+  </Tab>
+
+  <Tab value="Xverse">
+    ### How do I set up Xverse for Stacks Wars?
+
+    1. Download the [Xverse mobile app](https://xverse.app)
+    2. Create a new wallet or import an existing one
+    3. Fund your account with STX
+    4. Open Stacks Wars in your mobile browser
+    5. Tap "Connect Wallet" and select Xverse
+
+    ### Why does Xverse keep asking me to authenticate?
+
+    This is normal security behavior. Xverse requires authentication for each transaction to protect your funds. You can enable biometric authentication in Xverse settings to speed up the process.
+
+    ### Can I use Xverse on desktop?
+
+    Xverse is primarily a mobile wallet, but you can use it through the desktop browser extension for Chrome/Firefox. Install the Xverse extension and follow the same connection steps as the mobile app.
+
+  </Tab>
+</Tabs>
+
+## Transactions & Payments
+
+| Aspect                 | Normal Lobby            | Sponsored Lobby       |
+| ---------------------- | ----------------------- | --------------------- |
+| **Entry Fee**          | You pay STX             | Sponsor pays gas      |
+| **Wallet Requirement** | Full wallet connection  | Read-only connection  |
+| **Settlement**         | Player-to-player escrow | Smart contract escrow |
+| **Best For**           | Competitive play        | Low-barrier entry     |
+
+### How do I claim my winnings?
+
+Winnings are held in your Vault (escrow contract) until you claim them:
+
+1. Navigate to your **Profile** → **Vault**
+2. View pending payouts and completed winnings
+3. Click **Claim Winnings** for available amounts
+4. Approve the transaction in your wallet
+5. STX will be transferred to your wallet in ~5 seconds (Nakamoto fast blocks)
+
+### Is there a transaction fee to claim winnings?
+
+Yes, claiming winnings requires a small STX transaction fee to pay for network gas costs. This fee is set by the Stacks network and will be shown in your wallet before you confirm the transaction. It is deducted from your payout.
+
+### Why is my payout pending?
+
+Payouts may be pending due to:
+
+- **Recent game completion** - Settlement takes ~30 seconds after game ends
+- **Opponent verification** - Both players must be verified (see game rules for anti-cheat)
+- **Network delays** - Check back in 1-2 minutes
+- **Account restrictions** - Contact support if your account has Trust Rating warnings
+
+## Gameplay Questions
+
+### What is the Trust Rating system?
+
+The Trust Rating (0-100) tracks player reliability and compliance:
+
+- **90-100**: Excellent standing, priority matchmaking
+- **70-89**: Good standing
+- **50-69**: Under observation (excessive disconnects/timeouts)
+- **Below 50**: Restricted (may face payout delays or suspension)
+
+**Tips to maintain high Trust Rating:**
+
+- Complete games without disconnecting
+- Accept invitations within 2 minutes
+- Play fair (no exploits or manipulation)
+- Keep your app updated
+
+### How does the anti-cheat system work?
+
+Stacks Wars uses three-layer protection:
+
+1. **Cryptographic Signatures** - All moves are signed and timestamped
+2. **Automated Detection** - AI monitors for impossible game states
+3. **Manual Review** - Disputed games are reviewed by moderators
+
+The system flags suspicious activity automatically. If detected, payouts are held for review (typically 24-48 hours).
+
+### Can I play on multiple devices?
+
+You can connect your wallet from different devices, but you can only play **one active game session at a time**. If you start a game on Device A, you cannot join another game on Device B until that session completes or times out (5 minutes).
+
+### What happens if I disconnect during a game?
+
+- **Reconnection window**: You have **2 minutes** to rejoin before timeout
+- **Timeout penalty**: After 2 minutes, you forfeit the game and lose your wager
+- **Trust Rating impact**: Disconnects count against your Trust Rating
+- **Repeated issues**: Excessive disconnects (3+ in 24 hours) trigger account review
+
+### How do I report a cheater or abusive player?
+
+1. Note the opponent's username and game ID
+2. Go to your **Profile** → **Game History**
+3. Find the disputed game and click **Report**
+4. Select the reason and provide details
+5. Our moderation team reviews within 24 hours
+
+<Callout type="info">
+	Never share personal information or engage in arguments in chat. Let our
+	moderation team handle reports professionally.
+</Callout>
+
+## Leaderboards & Seasons
+
+### How are Wars Points calculated?
+
+Wars Points are awarded based on:
+
+- **Game outcome** - Win/loss (primary factor)
+- **Opponent rating** - Beating higher-rated players = more points
+- **Game type** - Multiplayer games award more than 1v1
+- **Wager amount** - Higher stakes = higher point multiplier
+
+### Can I lose Wars Points?
+
+Yes. Losses deduct points based on the same factors as gains. The system is designed to keep skill-based ranking accurate over time.
+
+### When do seasons reset?
+
+Seasons run for **30 days** and reset automatically. Your top-10 season achievements are archived in your profile. Leaderboard positions reset to 0 at the start of each season.
+
+### How do I earn seasonal rewards?
+
+Top finishers receive rewards at season end:
+
+- **Top 10**: Exclusive badge + 50 STX bonus
+- **Top 50**: In-game cosmetics
+- **Top 100**: Special season title
+
+Rewards are distributed within 48 hours of season conclusion.
+
+## Technical Issues
+
+### The game keeps freezing or lagging
+
+**Quick fixes:**
+
+- Close other browser tabs and apps
+- Ensure stable internet connection (WiFi or strong 4G)
+- Clear browser cache: Settings → More Tools → Clear Browsing Data
+- Try a different browser (Chrome, Firefox, Safari)
+- Disable browser extensions (ad blockers, VPNs)
+
+If issues persist, [join our Telegram support group](#support) and describe your device/OS.
+
+### My balance shows incorrectly
+
+The app fetches your balance every 10 seconds. If it seems wrong:
+
+1. Manually refresh the page
+2. Check the [Stacks explorer](https://explorer.stacks.co) for the true balance
+3. Wait a few seconds for blockchain confirmation (Nakamoto fast blocks)
+4. Try reconnecting your wallet
+
+### I'm getting a "Network Error" message
+
+This usually means:
+
+- Your internet connection dropped
+- The Stacks network is experiencing congestion
+- Your wallet provider's service is temporarily down
+
+**What to do:**
+
+1. Check your internet connection
+2. Wait 30 seconds and refresh
+3. Try switching wallets if you have both Leather and Xverse
+4. Report the issue in our [Telegram group](#support) with a screenshot
+
+### How do I contact support?
+
+We're most responsive on **Telegram**. Join our community:
+
+<Callout type="success">
+**[Join Stacks Wars Telegram Support Group](https://t.me/stackswars)**
+
+Our moderation and support team monitors 24/7. Expected response time: 5-30 minutes during active hours.
+
+</Callout>
+
+## Account & Security
+
+### Is my wallet private key stored on Stacks Wars?
+
+**Absolutely not.** We never request or store private keys. Your wallet extension (Leather/Xverse) handles all signing. Stacks Wars only receives verified signatures from approved transactions.
+
+### Can I change my username?
+
+Usernames are permanent and tied to your wallet address. Choose carefully during initial setup. Contact support if you need to change a username (limited to 1 change).
+
+### What happens if I lose access to my wallet?
+
+Your STX funds are secure in your wallet. However:
+
+- Pending payouts in your Vault may be inaccessible
+- You cannot claim winnings without connecting that wallet
+
+**Recovery steps:**
+
+1. Restore your wallet using your seed phrase
+2. Reconnect to Stacks Wars
+3. Access your Vault and claim pending payouts
+
+<Callout type="warning">
+	Never share your seed phrase with anyone, including support staff. We will
+	never ask for it.
+</Callout>
+
+---
+
+## Still Have Questions?
+
+**Join our community on Telegram** for instant help, gaming tips, and updates:
+
+[Join Stacks Wars Telegram](https://t.me/stackswars)
+
+Our team is active 24/7 and loves helping players get the most out of the platform.

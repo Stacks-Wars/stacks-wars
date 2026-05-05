@@ -1,9 +1,14 @@
+export interface Reaction {
+	userId: string;
+	emoji: string;
+}
+
 export interface ChatMessage {
-	id: string;
+	messageId: string;
 	lobbyId: string;
-	senderId: string;
+	userId: string;
 	content: string;
 	replyTo?: string;
-	reactions: Record<string, string[]>; // emoji -> userId[]
-	timestamp: number;
+	reactions: Reaction[];
+	createdAt: string; // ISO date string
 }

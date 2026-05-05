@@ -8,7 +8,18 @@
 // - Sync results to PlayerState after game completion
 // - Save permanent game summaries to Redis
 
-use crate::{db::player_state::PlayerStateRepository, errors::AppError, state::RedisClient};
+use crate::{
+    db::{
+        lobby::LobbyRepository, lobby_state::LobbyStateRepository,
+        player_state::PlayerStateRepository, season::SeasonRepository,
+        user_game_stats::UserGameStatsRepository,
+        user_wars_points::UserWarsPointsRepository,
+    },
+    errors::AppError,
+    http::{bot::broadcasts::broadcast_lobby_winner_to_tg, handlers::stacks::convert_to_stx},
+    models::LobbyStatus,
+    state::{AppState, RedisClient},
+};
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
@@ -104,9 +115,10 @@ impl TurnRotation {
     pub fn eliminate_player(&mut self, player_id: Uuid) {
         self.eliminated.insert(player_id, true);
 
-        // If we eliminated the current player, move to next
-        if self.current_player() == Some(player_id) {
-            self.next_turn();
+        // Wrap current_index if it's now out of bounds after elimination
+        let active_count = self.active_count();
+        if active_count > 0 && self.current_index >= active_count {
+            self.current_index = self.current_index % active_count;
         }
     }
 
@@ -246,28 +258,143 @@ pub struct GameSummary {
     pub finished_at: i64,
 }
 
-/// Sync game results to PlayerState in Redis
+/// Result of saving a player's game result
+#[derive(Debug, Clone)]
+pub struct PlayerResult {
+    pub rank: usize,
+    pub prize: Option<f64>,
+    pub wars_point: f64,
+}
+
+/// Save a player's game result to Redis and PostgreSQL
 ///
-/// Updates each player's rank, prize (none for now), and claim_state (none) in their PlayerState.
-/// This should be called when a game finishes.
-pub async fn sync_results_to_player_state(
-    player_state_repo: &PlayerStateRepository,
+/// This function:
+/// 1. Calculates wars_point using the provided context
+/// 2. Saves rank, prize, wars_point to Redis PlayerState
+/// 3. Saves wars_point to PostgreSQL user_wars_points for current season
+/// 4. Returns the calculated values
+pub async fn save_player_result(
+    state: &AppState,
     lobby_id: Uuid,
-    results: &GameResults,
-) -> Result<(), AppError> {
-    for ranking in &results.rankings {
-        player_state_repo
-            .set_result(
-                lobby_id,
-                ranking.user_id,
-                ranking.rank,
-                None, // prize is None for now
+    ctx: &WarsPointContext,
+) -> Result<PlayerResult, AppError> {
+    save_player_result_with_winner(state, lobby_id, ctx, ctx.rank == 1).await
+}
+
+/// Save a player's game result to Redis and PostgreSQL with explicit winner flag.
+/// Useful for draw outcomes where rank may be tied but no participant should count as winner.
+pub async fn save_player_result_with_winner(
+    state: &AppState,
+    lobby_id: Uuid,
+    ctx: &WarsPointContext,
+    is_winner: bool,
+) -> Result<PlayerResult, AppError> {
+    let wars_point = calculate_wars_point(ctx);
+
+    // Save to Redis PlayerState
+    let player_repo = PlayerStateRepository::new(state.redis.clone());
+    player_repo
+        .set_result(lobby_id, ctx.user_id, ctx.rank, ctx.prize, wars_point)
+        .await?;
+
+    // Save wars_point and update player statistics (points, matches, wins, pnl)
+    let season_repo = SeasonRepository::new(state.postgres.clone());
+    if let Ok(season_id) = season_repo.get_current_season_id().await {
+        let wars_points_repo = UserWarsPointsRepository::new(state.postgres.clone());
+        // Pass season_id and wars_point so the repository will upsert points and
+        // also update match/win/pnl statistics in a single call.
+        // Convert prize and entry_amount to STX if the lobby uses a non-STX token
+        let needs_conversion = ctx
+            .token_symbol
+            .as_deref()
+            .is_some_and(|s| !s.eq_ignore_ascii_case("STX"));
+
+        let (stx_entry_amount, stx_prize) = if needs_conversion {
+            if let Some(contract_id) = ctx.token_contract_id.as_deref() {
+                let entry = match ctx.entry_amount {
+                    Some(amt) if amt > 0.0 => {
+                        Some(convert_to_stx(contract_id, amt, &state.redis).await)
+                    }
+                    other => other,
+                };
+                let prize = match ctx.prize {
+                    Some(amt) if amt > 0.0 => {
+                        Some(convert_to_stx(contract_id, amt, &state.redis).await)
+                    }
+                    other => other,
+                };
+                (entry, prize)
+            } else {
+                tracing::warn!(
+                    "Token symbol is {:?} but no token_contract_id provided, skipping conversion",
+                    ctx.token_symbol
+                );
+                (ctx.entry_amount, ctx.prize)
+            }
+        } else {
+            (ctx.entry_amount, ctx.prize)
+        };
+
+        wars_points_repo
+            .update_player_stats(
+                ctx.user_id,
+                Some(season_id),
+                Some(wars_point),
+                stx_entry_amount,
+                stx_prize,
+                is_winner,
             )
             .await?;
+
+        if let Some(game_id) = ctx.game_id {
+            let game_stats_repo = UserGameStatsRepository::new(state.postgres.clone());
+            game_stats_repo
+                .update_game_stats(
+                    ctx.user_id,
+                    game_id,
+                    Some(season_id),
+                    Some(wars_point),
+                    stx_entry_amount,
+                    stx_prize,
+                    is_winner,
+                )
+                .await?;
+        }
     }
+
+    Ok(PlayerResult {
+        rank: ctx.rank,
+        prize: ctx.prize,
+        wars_point,
+    })
+}
+
+/// Finish a lobby after game completion
+///
+/// Updates both Redis LobbyState and PostgreSQL Lobby to mark as finished.
+/// This should be called once per game end, after all player results are saved.
+///
+/// This function:
+/// 1. Updates Redis LobbyState: sets status to Finished and finished_at timestamp
+/// 2. Updates PostgreSQL Lobby: sets status to Finished
+/// 3. Broadcasts the lobby update to connected clients
+/// 4. Broadcasts winner announcement to Telegram
+pub async fn finish_lobby(state: &AppState, lobby_id: Uuid) -> Result<(), AppError> {
+    // Update Redis LobbyState first
+    let lobby_state_repo = LobbyStateRepository::new(state.redis.clone());
+    lobby_state_repo.mark_finished(lobby_id).await?;
+
+    // Update PostgreSQL Lobby
+    let lobby_repo = LobbyRepository::new(state.postgres.clone());
+    lobby_repo.update_status(lobby_id, LobbyStatus::Finished, state.clone()).await?;
+
+    // Broadcast winner to Telegram
+    broadcast_lobby_winner_to_tg(state.clone(), lobby_id).await;
+
     Ok(())
 }
 
+// TODO: Remove
 /// Save permanent game summary to Redis
 ///
 /// This persists the final game results and metadata so players can view
@@ -303,28 +430,35 @@ pub async fn save_game_summary(
     Ok(())
 }
 
-/// Load game summary from Redis (for viewing completed games)
-pub async fn load_game_summary(
-    redis: &RedisClient,
-    lobby_id: Uuid,
-) -> Result<Option<GameSummary>, AppError> {
-    let mut conn = redis
-        .get()
-        .await
-        .map_err(|e| AppError::RedisError(format!("Failed to get Redis connection: {}", e)))?;
-
-    let key = format!("game:{}:state", lobby_id);
-    let json: Option<String> = conn.get(&key).await.map_err(AppError::RedisCommandError)?;
-
-    match json {
-        Some(json) => {
-            let summary: GameSummary =
-                serde_json::from_str(&json).map_err(|e| AppError::Serialization(e.to_string()))?;
-            Ok(Some(summary))
-        }
-        None => Ok(None),
-    }
+/// Context for calculating wars points for a player result
+#[derive(Debug, Clone)]
+pub struct WarsPointContext {
+    pub user_id: Uuid,
+    pub game_id: Option<Uuid>,
+    pub rank: usize,
+    pub prize: Option<f64>,
+    pub participants: usize,
+    pub entry_amount: Option<f64>,
+    pub current_amount: Option<f64>,
+    pub is_sponsored: bool,
+    pub creator_id: Option<Uuid>,
+    pub active_players: usize,
+    pub token_symbol: Option<String>,
+    pub token_contract_id: Option<String>,
 }
+
+/// Calculate wars points based on game result context
+///
+/// Formula: (participants - rank + 1) * 2, capped at 50 points
+pub fn calculate_wars_point(ctx: &WarsPointContext) -> f64 {
+    let base_points = (ctx.participants as f64 - ctx.rank as f64 + 1.0) * 2.0;
+    base_points.min(50.0).max(0.0)
+}
+
+
+// ============================================================================
+// Tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

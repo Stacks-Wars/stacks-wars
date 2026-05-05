@@ -117,7 +117,7 @@ impl GameRepository {
             "SELECT id, name, path, description, image_url, min_players, max_players, category,
                 creator_id, is_active, updated_at, created_at
             FROM games
-            WHERE category = $1 AND is_active = TRUE
+            WHERE $1 = ANY(category) AND is_active = TRUE
             ORDER BY created_at DESC
             LIMIT $2",
         )

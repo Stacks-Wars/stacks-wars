@@ -1,15 +1,16 @@
 // Game registry - central place for game contributors to register their games
 use crate::games::{
-    //lexi_wars::create_lexi_wars
-    GameFactory,
-    coin_flip::create_coin_flip,
+    GameFactory, checkers::create_checkers, lexi_wars::create_lexi_wars, ludo::create_ludo,
+    ludo_rush::create_ludo_rush,
 };
 use std::collections::HashMap;
 use uuid::Uuid;
 
 // Game IDs - randomly generated UUIDs
-//pub const LEXI_WARS_GAME_ID: Uuid = uuid::uuid!("7c9e6679-7425-40de-944b-e6e9a5c5f0a4");
-pub const COIN_FLIP_GAME_ID: Uuid = uuid::uuid!("05f920e9-6b71-471e-a98a-2e5fe9402c00");
+pub const LEXI_WARS_GAME_ID: Uuid = uuid::uuid!("5eb61ff4-8f9f-48bd-ae61-dfd6d95052eb");
+pub const LUDO_GAME_ID: Uuid = uuid::uuid!("d04edafc-c9f7-42cc-bfae-68fd93422e43");
+pub const LUDO_RUSH_GAME_ID: Uuid = uuid::uuid!("76bf88c3-7ceb-4131-8d2d-6a679d70f82b");
+pub const CHECKERS_GAME_ID: Uuid = uuid::uuid!("4d94aca3-0ba2-4965-8fa2-4628e5e3ee27");
 
 /// Initialize and return the game registry with all registered games
 ///
@@ -23,8 +24,10 @@ pub fn create_game_registry() -> HashMap<Uuid, GameFactory> {
     let mut registry = HashMap::new();
 
     // Register games
-    //registry.insert(LEXI_WARS_GAME_ID, create_lexi_wars as GameFactory);
-    registry.insert(COIN_FLIP_GAME_ID, create_coin_flip as GameFactory);
+    registry.insert(LEXI_WARS_GAME_ID, create_lexi_wars as GameFactory);
+    registry.insert(LUDO_GAME_ID, create_ludo as GameFactory);
+    registry.insert(LUDO_RUSH_GAME_ID, create_ludo_rush as GameFactory);
+    registry.insert(CHECKERS_GAME_ID, create_checkers as GameFactory);
 
     // Future games can be added here:
     // registry.insert(YOUR_GAME_ID, create_your_game as GameFactory);

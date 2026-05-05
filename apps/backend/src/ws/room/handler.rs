@@ -17,11 +17,13 @@ use std::sync::Arc;
 use tokio::sync::Mutex as TokioMutex;
 use uuid::Uuid;
 
-use crate::db::lobby::LobbyRepository;
-use crate::middleware::{ApiRateLimit, check_rate_limit};
-use crate::ws::core::manager;
-use crate::ws::room::{RoomError, engine::handle_room_message, messages::RoomServerMessage};
-use crate::{auth::extractors::WsAuth, db::lobby_chat::get_chat_history};
+use crate::ws::{broadcast_room, broadcast_user, core::manager};
+use crate::{auth::extractors::WsAuth, db::lobby_chat::LobbyChatRepository};
+use crate::{db::lobby::LobbyRepository, models::LobbyInfo};
+use crate::{
+    db::{game::GameRepository, user::UserRepository},
+    middleware::{ApiRateLimit, check_rate_limit},
+};
 use crate::{
     db::{
         join_request::JoinRequestRepository, lobby_state::LobbyStateRepository,
@@ -29,6 +31,10 @@ use crate::{
     },
     models::LobbyExtended,
     state::{AppState, ConnectionContext, ConnectionInfo},
+};
+use crate::{
+    models::LobbyStatus,
+    ws::room::{RoomError, engine::handle_room_message, messages::RoomServerMessage},
 };
 
 /// HTTP endpoint: Upgrades an HTTP request to a WebSocket connection for lobby/game communication.
@@ -76,18 +82,17 @@ async fn handle_socket(
 
     let lobby_repo = LobbyRepository::new(state.postgres.clone());
 
-    // Fetch lobby by path first to get the ID
-    let db_lobby_result = lobby_repo.find_by_path(&lobby_path).await;
-    let lobby = match db_lobby_result {
-        Ok(db_lobby) => db_lobby,
+    // Fetch lobby by path with joined user and game data
+    let lobby = match lobby_repo.find_by_path(&lobby_path).await {
+        Ok(l) => l,
         Err(_) => {
             let err = RoomError::NotFound;
             tracing::error!("Lobby not found for path {}: {:?}", lobby_path, err);
             return;
         }
     };
+
     let lobby_id = lobby.id;
-    let game_path = lobby.game_path.clone();
 
     let conn = Arc::new(ConnectionInfo {
         connection_id,
@@ -99,21 +104,37 @@ async fn handle_socket(
     // Register the connection
     manager::register_connection(&state, connection_id, conn.clone()).await;
 
+    let game_repo = GameRepository::new(state.postgres.clone());
+    let user_repo = UserRepository::new(state.postgres.clone());
     let lobby_state_repo = LobbyStateRepository::new(state.redis.clone());
     let player_repo = PlayerStateRepository::new(state.redis.clone());
     let jr_repo = JoinRequestRepository::new(state.redis.clone());
 
-    let (state_info_result, players_result, join_requests_result, chat_history_result) = tokio::join!(
+    let chat_repo = LobbyChatRepository::new(state.redis.clone());
+
+    let contract_address = lobby.contract_address.clone();
+
+    let (
+        game,
+        creator,
+        state_info_result,
+        players_result,
+        join_requests_result,
+        chat_history_result,
+    ) = tokio::join!(
+        game_repo.find_by_id(lobby.game_id),
+        user_repo.find_by_id(lobby.creator_id),
         lobby_state_repo.get_state(lobby_id),
         player_repo.get_all_in_lobby(lobby_id),
         jr_repo.list(lobby_id),
-        get_chat_history(&state.redis, lobby_id, Some(50))
+        chat_repo.get_history(lobby_id, Some(50))
     );
 
     // Validate we have the minimum required data
-    match state_info_result {
-        Ok(state_info) => {
+    match (state_info_result, game, creator) {
+        (Ok(state_info), Ok(game), Ok(creator)) => {
             let lobby_ext = LobbyExtended::from_parts(lobby, state_info);
+            let lobby_status = lobby_ext.status;
             let players = players_result.unwrap_or_default();
             let join_requests = join_requests_result
                 .unwrap_or_default()
@@ -122,18 +143,80 @@ async fn handle_socket(
                 .collect();
             let chat_history = chat_history_result.unwrap_or_default();
 
+            let lobby_info = LobbyInfo {
+                lobby: lobby_ext,
+                game,
+                creator,
+            };
+
             let _ = manager::send_to_connection(
                 &conn,
                 &RoomServerMessage::LobbyBootstrap {
-                    lobby: lobby_ext,
+                    lobby_info,
                     players,
                     join_requests,
                     chat_history,
                 },
             )
             .await;
+
+            // If game is in progress, send GameState for reconnecting user
+            if lobby_status == LobbyStatus::InProgress {
+                let active_games = state.active_games.lock().await;
+                if let Some(game_engine) = active_games.get(&lobby_id) {
+                    if let Ok(game_state) = game_engine.get_game_state(auth_user_id).await {
+                        let _ = manager::send_to_connection(
+                            &conn,
+                            &RoomServerMessage::GameState { game_state },
+                        )
+                        .await;
+                    }
+                }
+            }
+
+            // If game is finished, send FinalStanding and GameOver for authenticated users
+            if lobby_status == LobbyStatus::Finished {
+                // Get all players sorted by rank for standings
+                if let Ok(mut standings) = player_repo.get_all_in_lobby(lobby_id).await {
+                    // Sort by rank (players with rank come first, sorted ascending)
+                    standings.sort_by(|a, b| match (&a.rank, &b.rank) {
+                        (Some(ra), Some(rb)) => ra.cmp(rb),
+                        (Some(_), None) => std::cmp::Ordering::Less,
+                        (None, Some(_)) => std::cmp::Ordering::Greater,
+                        (None, None) => std::cmp::Ordering::Equal,
+                    });
+
+                    let _ = manager::send_to_connection(
+                        &conn,
+                        &RoomServerMessage::FinalStanding {
+                            standings: standings.clone(),
+                        },
+                    )
+                    .await;
+
+                    // Send GameOver to authenticated user if they were a participant
+                    if let Some(user_id) = auth_user_id {
+                        if let Some(player) = standings.iter().find(|p| p.user_id == user_id) {
+                            if let Some(rank) = player.rank {
+                                let has_claimed = player.has_claimed();
+                                let prize_to_send = if has_claimed { None } else { player.prize };
+
+                                let _ = manager::send_to_connection(
+                                    &conn,
+                                    &RoomServerMessage::GameOver {
+                                        rank,
+                                        prize: prize_to_send,
+                                        wars_point: player.wars_point.unwrap_or(0.0),
+                                    },
+                                )
+                                .await;
+                            }
+                        }
+                    }
+                }
+            }
         }
-        Err(_) => {
+        _ => {
             let err = RoomError::NotFound;
             tracing::error!("Lobby state not found for id {}: {:?}", lobby_id, err);
             let msg = RoomServerMessage::from(err);
@@ -168,37 +251,25 @@ async fn handle_socket(
                         &state,
                         &player_repo,
                         &lobby_state_repo,
+                        contract_address.as_ref(),
                     )
                     .await;
                     continue;
                 }
 
-                // Try parsing as game action message
-                // Game developers control their own message validation and restrictions
-                if let Some(msg_type) = parsed_msg.get("type").and_then(|v| v.as_str()) {
-                    if msg_type == "game_action" {
-                        if let Some(action) = parsed_msg.get("action") {
-                            if let Some(user_id) = auth_user_id {
-                                handle_game_action(
-                                    &state,
-                                    lobby_id,
-                                    user_id,
-                                    action.clone(),
-                                    &game_path,
-                                )
-                                .await;
-                            } else {
-                                tracing::warn!("Game action from unauthenticated user");
-                            }
-                        } else {
-                            tracing::warn!("Game action missing 'action' field");
-                        }
-                        continue;
+                // Try parsing as game action message wrapped in "game" object
+                // Format: { "game": { "type": "submitWord", "word": "hello" } }
+                if let Some(game_action) = parsed_msg.get("game") {
+                    if let Some(user_id) = auth_user_id {
+                        handle_game_action(&state, lobby_id, user_id, game_action.clone()).await;
+                    } else {
+                        tracing::warn!("Game action from unauthenticated user");
                     }
+                    continue;
                 }
 
                 // Unknown message type - log and ignore
-                tracing::debug!(
+                tracing::warn!(
                     "Unknown message type received: {:?}",
                     parsed_msg.get("type")
                 );
@@ -207,7 +278,7 @@ async fn handle_socket(
             Ok(Message::Binary(_)) => {}
             Ok(Message::Close(_)) | Ok(Message::Pong(_)) | Ok(Message::Ping(_)) => {}
             Err(e) => {
-                tracing::debug!("ws recv err: {}", e);
+                tracing::warn!("ws recv err: {}", e);
                 break;
             }
         }
@@ -229,53 +300,69 @@ async fn handle_socket(
 }
 
 /// Handle a game action message from a player
+///
+/// Input format: { "type": "submitWord", "word": "hello" }
+/// (already extracted from the "game" wrapper)
+///
+/// Response events are wrapped back in the "game" format:
+/// { "game": { "type": "...", ...fields } }
 async fn handle_game_action(
     state: &AppState,
     lobby_id: Uuid,
     user_id: Uuid,
     action: serde_json::Value,
-    game_path: &str,
 ) {
     // Get the active game engine for this lobby
     let mut active_games = state.active_games.lock().await;
     if let Some(game_engine) = active_games.get_mut(&lobby_id) {
+        // Check if this is a quit action — handled separately from game-specific actions
+        if action.get("type").and_then(|v| v.as_str()) == Some("quit") {
+            match game_engine.handle_player_quit(user_id).await {
+                Ok(events) => {
+                    for event in events {
+                        let wrapped_msg = serde_json::json!({ "game": event });
+                        let game_msg = crate::ws::core::message::JsonMessage::from(wrapped_msg);
+                        let _ = broadcast_room(state, lobby_id, &game_msg).await;
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Player quit handling failed for lobby {}: {}", lobby_id, e);
+                    let wrapped_error = serde_json::json!({
+                        "game": { "type": "error", "message": e.to_string() }
+                    });
+                    let game_error = crate::ws::core::message::JsonMessage::from(wrapped_error);
+                    let _ = broadcast_user(state, user_id, &game_error).await;
+                }
+            }
+            return;
+        }
+
         // Handle the action and get response events
         match game_engine.handle_action(user_id, action).await {
             Ok(events) => {
-                // Broadcast all response events wrapped with game identifier
+                // Broadcast all response events wrapped in "game" object to room
                 for event in events {
-                    // Extract type and payload from the event
-                    if let Some(obj) = event.as_object() {
-                        if let Some(msg_type) = obj.get("type").and_then(|v| v.as_str()) {
-                            // Wrap with game identifier for frontend router
-                            let wrapped_msg = serde_json::json!({
-                                "game": game_path,
-                                "type": msg_type,
-                                "payload": event
-                            });
+                    // Wrap event in "game" object: { "game": { "type": "...", ...fields } }
+                    let wrapped_msg = serde_json::json!({
+                        "game": event
+                    });
 
-                            let game_msg = crate::ws::core::message::JsonMessage::from(wrapped_msg);
-                            let _ = crate::ws::broadcast::broadcast_room_participants(
-                                state, lobby_id, &game_msg,
-                            )
-                            .await;
-                        }
-                    }
+                    let game_msg = crate::ws::core::message::JsonMessage::from(wrapped_msg);
+                    let _ = broadcast_room(state, lobby_id, &game_msg).await;
                 }
             }
             Err(e) => {
                 tracing::error!("Game action handling failed for lobby {}: {}", lobby_id, e);
 
-                // Send error message back to the specific user (wrapped with game identifier)
+                // Send error message back to the specific user
                 let wrapped_error = serde_json::json!({
-                    "game": game_path,
-                    "type": "gameError",
-                    "payload": {
+                    "game": {
+                        "type": "error",
                         "message": e.to_string()
                     }
                 });
                 let game_error = crate::ws::core::message::JsonMessage::from(wrapped_error);
-                let _ = crate::ws::broadcast::broadcast_user(state, user_id, &game_error).await;
+                let _ = broadcast_user(state, user_id, &game_error).await;
             }
         }
     } else {

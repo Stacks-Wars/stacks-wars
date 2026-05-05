@@ -1,0 +1,203 @@
+"use client";
+
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import {
+	useGameOverData,
+	useIsActionLoading,
+	useLobby,
+	useLobbyActions,
+} from "@/lib/stores/room";
+import { useUser } from "@/lib/stores/user";
+import { claimRewardContract } from "@/lib/contract-utils/claim";
+import {
+	ExpectedError,
+	waitForTxConfirmed,
+} from "@/lib/contract-utils/waitForTxConfirmed";
+import type { AssetString, ContractIdString } from "@stacks/transactions";
+import { toast } from "sonner";
+import { Trophy, Sparkles, Coins, Loader2 } from "lucide-react";
+import { cn, formatAmount } from "@/lib/utils";
+import { useRoom } from "@/lib/contexts/room-context";
+import { useRef } from "react";
+
+const rankLabels: Record<number, string> = {
+	1: "1st Place",
+	2: "2nd Place",
+	3: "3rd Place",
+};
+
+const rankColors: Record<number, string> = {
+	1: "text-yellow-500",
+	2: "text-gray-400",
+	3: "text-amber-600",
+};
+
+export default function GameOverModal() {
+	const gameOverData = useGameOverData();
+	const lobbyActions = useLobbyActions();
+	const lobby = useLobby();
+	const user = useUser();
+	const { sendLobbyMessage } = useRoom();
+	const isClaiming = useIsActionLoading("claimReward");
+	const pendingActionsRef = useRef<Set<string>>(new Set());
+
+	const handleClose = () => {
+		lobbyActions.setGameOver(null);
+	};
+
+	const handleClaim = async () => {
+		console.log(
+			`lobby: ${lobby}, user: ${user}, prize: ${gameOverData?.prize}, CA: ${lobby?.contractAddress}`
+		);
+		if (!lobby || !user || !gameOverData?.prize || !lobby.contractAddress) {
+			toast.error("Missing data for claim.");
+			return;
+		}
+		try {
+			const contract = lobby.contractAddress as ContractIdString;
+			const tokenId =
+				`${lobby.tokenContractId}::${lobby.tokenSymbol}` as AssetString;
+			const claimTxId = await claimRewardContract({
+				contract,
+				amount: gameOverData.prize,
+				walletAddress: user.walletAddress,
+				tokenId,
+			});
+			if (!claimTxId) {
+				toast.error("Failed to claim reward", {
+					description: "Please try again later.",
+				});
+				return;
+			}
+			pendingActionsRef.current.add("claimReward");
+			lobbyActions.setActionLoading("claimReward", true);
+			await waitForTxConfirmed(
+				claimTxId,
+				ExpectedError.ERR_ALREADY_CLAIMED
+			);
+			sendLobbyMessage({ type: "claimReward", txId: claimTxId });
+			lobbyActions.setGameOver(null);
+		} catch (err) {
+			toast.error("Contract transaction failed. Please try again.");
+			console.error("Claim contract failed", err);
+		}
+	};
+
+	if (!gameOverData) return null;
+
+	const { rank, prize, warsPoint } = gameOverData;
+	const isTopThree = rank <= 3;
+	const rankLabel = rankLabels[rank] || `#${rank}`;
+	const rankColor = rankColors[rank] || "text-muted-foreground";
+
+	return (
+		<Dialog
+			open={!!gameOverData}
+			onOpenChange={(open) => !open && handleClose()}
+		>
+			<DialogContent
+				className="sm:max-w-md"
+				showCloseButton={false}
+				disableOutsideClose={true}
+			>
+				<DialogHeader className="text-center">
+					<DialogTitle className="text-2xl font-bold">
+						Game Over!
+					</DialogTitle>
+					<DialogDescription className="sr-only">
+						Your game results and rewards
+					</DialogDescription>
+				</DialogHeader>
+
+				<div className="flex flex-col items-center gap-6 py-4">
+					{/* Rank Display */}
+					<div className="flex flex-col items-center gap-2">
+						{isTopThree && (
+							<Trophy
+								className={cn("size-16", rankColor)}
+								strokeWidth={1.5}
+							/>
+						)}
+						<p
+							className={cn(
+								"text-4xl font-bold",
+								isTopThree ? rankColor : "text-foreground"
+							)}
+						>
+							{rankLabel}
+						</p>
+						{!isTopThree && (
+							<p className="text-muted-foreground text-sm">
+								Better luck next time!
+							</p>
+						)}
+					</div>
+
+					{/* Rewards Section */}
+					<div className="w-full space-y-3">
+						{/* Prize (if won) */}
+						{prize != null && prize > 0 && (
+							<div className="bg-card flex items-center justify-between rounded-lg border p-4">
+								<div className="flex items-center gap-3">
+									<div className="flex size-10 items-center justify-center rounded-full bg-green-500/10">
+										<Coins className="size-5 text-green-500" />
+									</div>
+									<span className="font-medium">
+										Prize Won
+									</span>
+								</div>
+								<span className="text-xl font-bold text-green-500">
+									+{formatAmount(prize)}{" "}
+									{lobby?.tokenSymbol || "STX"}
+								</span>
+							</div>
+						)}
+
+						{/* Wars Points */}
+						<div className="bg-card flex items-center justify-between rounded-lg border p-4">
+							<div className="flex items-center gap-3">
+								<div className="bg-primary/10 flex size-10 items-center justify-center rounded-full">
+									<Sparkles className="text-primary size-5" />
+								</div>
+								<span className="font-medium">Wars Points</span>
+							</div>
+							<span className="text-primary text-xl font-bold">
+								+{warsPoint}
+							</span>
+						</div>
+					</div>
+				</div>
+
+				<div className="flex justify-center pt-2">
+					{prize != null && prize > 0 ? (
+						<Button
+							onClick={handleClaim}
+							className="flex w-full items-center justify-center"
+							disabled={isClaiming}
+						>
+							{isClaiming ? (
+								<>
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									Claiming...
+								</>
+							) : (
+								"Claim Reward"
+							)}
+						</Button>
+					) : (
+						<Button onClick={handleClose} className="w-full">
+							Close
+						</Button>
+					)}
+				</div>
+			</DialogContent>
+		</Dialog>
+	);
+}

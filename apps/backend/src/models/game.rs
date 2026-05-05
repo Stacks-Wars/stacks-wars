@@ -20,7 +20,7 @@ pub struct Game {
     pub image_url: String,
     pub min_players: i16,
     pub max_players: i16,
-    pub category: Option<String>,
+    pub category: Vec<String>,
     pub creator_id: Uuid,
     pub is_active: bool,
     pub updated_at: NaiveDateTime,

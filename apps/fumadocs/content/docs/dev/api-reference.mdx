@@ -1,0 +1,656 @@
+---
+title: API Reference
+description: Complete HTTP and WebSocket API reference for the Stacks Wars backend.
+---
+
+The Stacks Wars backend exposes an HTTP REST API and two WebSocket endpoints. The base URL defaults to `http://localhost:3001` in development.
+
+---
+
+## Authentication
+
+Most read endpoints are public. Write endpoints require a JWT token set as an `auth_token` HTTP-only cookie. The token is issued on user creation and lasts 14 days by default.
+
+| Route Group               | Auth               | Rate Limit | Description                          |
+| ------------------------- | ------------------ | ---------- | ------------------------------------ |
+| `GET /`, `GET /health`    | None               | None       | Public health check                  |
+| `GET /api/*`              | None               | Standard   | Public read-only API                 |
+| `POST/PATCH /api/*`       | JWT required       | Auth       | Authenticated writes                 |
+| `POST /api/user`          | None               | Strict     | User creation (heavily rate-limited) |
+| `POST/PUT /api/*` (admin) | JWT + Admin wallet | Auth       | Admin-only operations                |
+
+---
+
+## HTTP Endpoints
+
+### Health & Info
+
+#### `GET /`
+
+Returns API metadata.
+
+```json
+{ "name": "Stacks Wars API", "version": "0.1.0", "status": "running" }
+```
+
+#### `GET /health`
+
+Returns `"OK"` (200). Use for uptime monitoring.
+
+---
+
+### Users
+
+#### `POST /api/user`
+
+Create a new user account. Returns the user and sets an `auth_token` cookie.
+
+**Body:**
+
+```json
+{ "walletAddress": "SP...", "emailAddress": "user@example.com" }
+```
+
+**Response:** `User` object + `Set-Cookie: auth_token=...`
+
+---
+
+#### `GET /api/me`
+
+Get the authenticated user's profile. Requires JWT.
+
+**Response:** `User`
+
+---
+
+#### `GET /api/user/{identifier}`
+
+Get any user's public profile.
+
+**Path:** `identifier` — UUID, wallet address, or username.
+
+**Response:** `User`
+
+---
+
+#### `PATCH /api/user/username`
+
+Update the authenticated user's username (must be unique). Requires JWT.
+
+**Body:**
+
+```json
+{ "username": "newname" }
+```
+
+---
+
+#### `PATCH /api/user/display-name`
+
+Update the authenticated user's display name. Requires JWT.
+
+**Body:**
+
+```json
+{ "displayName": "New Name" }
+```
+
+---
+
+#### `PATCH /api/user/profile`
+
+Partial profile update. Requires JWT.
+
+**Body:**
+
+```json
+{ "username": "optional", "displayName": "optional" }
+```
+
+**Response:** Full updated `User` object.
+
+---
+
+#### `GET /api/unclaimed-reward`
+
+Get unclaimed prize rewards for the authenticated user. Requires JWT.
+
+**Response:**
+
+```json
+[{ "lobbyInfo": { ... }, "prize": 1.5 }]
+```
+
+---
+
+#### `GET /api/player-lobby/{user_id}`
+
+Get all lobbies a user is participating in.
+
+**Path:** `user_id` — UUID
+
+**Query:**
+
+| Param    | Type      | Default | Description              |
+| -------- | --------- | ------- | ------------------------ |
+| `status` | `string`  | all     | Comma-separated statuses |
+| `limit`  | `integer` | 6       | Page size                |
+| `offset` | `integer` | 0       | Pagination offset        |
+
+**Response:** `[LobbyInfo[], total]`
+
+---
+
+#### `POST /api/logout`
+
+Revoke the JWT token and clear the auth cookie. Requires JWT.
+
+**Response:** `204 No Content`
+
+---
+
+### Games
+
+#### `GET /api/games`
+
+List all game types.
+
+**Query:**
+
+| Param   | Type      | Default | Description         |
+| ------- | --------- | ------- | ------------------- |
+| `page`  | `integer` | 1       | Page number         |
+| `limit` | `integer` | 20      | Page size           |
+| `order` | `string`  | —       | `"asc"` or `"desc"` |
+
+**Response:** `Game[]`
+
+---
+
+#### `GET /api/game/{identifier}`
+
+Get a game by UUID or path slug (e.g., `"lexi-wars"`).
+
+**Response:** `Game`
+
+---
+
+#### `GET /api/game/by-creator/{creator_id}`
+
+Get all games created by a user.
+
+**Path:** `creator_id` — UUID
+
+**Response:** `Game[]`
+
+---
+
+#### `POST /api/game`
+
+Create a new game type. Requires JWT (admin only).
+
+**Body:**
+
+```json
+{
+	"name": "My Game",
+	"path": "my-game",
+	"description": "A fun game",
+	"imageUrl": "/games/my-game.png",
+	"minPlayers": 2,
+	"maxPlayers": 6,
+	"category": ["Strategy", "Competitive"]
+}
+```
+
+**Response:** `Game` (includes the generated UUID)
+
+---
+
+### Lobbies
+
+#### `GET /api/lobbies`
+
+List all lobbies with pagination.
+
+**Query:**
+
+| Param    | Type      | Default | Description         |
+| -------- | --------- | ------- | ------------------- |
+| `limit`  | `integer` | 20      | Page size (max 100) |
+| `offset` | `integer` | 0       | Pagination offset   |
+
+**Response:**
+
+```json
+{ "data": [LobbyInfo], "total": 42, "limit": 20, "offset": 0 }
+```
+
+---
+
+#### `GET /api/lobby/{identifier}`
+
+Get a lobby by UUID or path.
+
+**Response:** `Lobby`
+
+---
+
+#### `GET /api/game/{game_identifier}/lobbies`
+
+List lobbies for a game, filtered by status.
+
+**Path:** `game_identifier` — game UUID or path
+
+**Query:**
+
+| Param      | Type      | Default | Description                                                |
+| ---------- | --------- | ------- | ---------------------------------------------------------- |
+| `statuses` | `string`  | all     | Comma-separated: `"waiting,starting,in_progress,finished"` |
+| `limit`    | `integer` | 20      | Page size (max 100)                                        |
+| `offset`   | `integer` | 0       | Pagination offset                                          |
+
+**Response:** `PaginatedResponse<LobbyInfo>`
+
+---
+
+#### `GET /api/lobby/my`
+
+List lobbies created by the authenticated user. Requires JWT.
+
+**Query:** `limit`, `offset`
+
+**Response:** `PaginatedResponse<Lobby>`
+
+---
+
+#### `POST /api/lobby`
+
+Create a new lobby. Requires JWT.
+
+**Body:**
+
+```json
+{
+	"name": "My Lobby",
+	"description": "Optional description",
+	"entryAmount": 1.5,
+	"currentAmount": 1.5,
+	"tokenSymbol": "STX",
+	"tokenContractId": "stx",
+	"contractAddress": "SP...",
+	"isPrivate": false,
+	"isSponsored": false,
+	"gameId": "5eb61ff4-...",
+	"gamePath": "lexi-wars"
+}
+```
+
+For sponsored lobbies, set `isSponsored: true`, `entryAmount: null`, and `currentAmount` to the sponsor's pool amount.
+
+**Response:** `201 Created` + `Lobby`
+
+---
+
+### Seasons
+
+#### `GET /api/season/current`
+
+Get the currently active season.
+
+**Response:** `Season` (or `404` if no active season)
+
+---
+
+#### `GET /api/season`
+
+List all seasons.
+
+**Query:** `limit` (default 10, max 100), `offset` (default 0)
+
+**Response:** `Season[]`
+
+---
+
+#### `POST /api/season`
+
+Create a new season. Requires JWT + admin wallet.
+
+**Body:**
+
+```json
+{
+	"name": "Season 1",
+	"description": "The first season",
+	"startDate": "2026-01-01 00:00:00",
+	"endDate": "2026-03-31 23:59:59"
+}
+```
+
+---
+
+#### `PUT /api/season/{season_id}`
+
+Update a season. Requires JWT + admin wallet.
+
+**Path:** `season_id` — integer
+
+**Body:** Partial — `name`, `description`, `startDate`, `endDate` (all optional)
+
+---
+
+### Leaderboard
+
+#### `GET /api/leaderboard`
+
+Get paginated leaderboard rankings.
+
+**Query:**
+
+| Param      | Type      | Default    | Description                                       |
+| ---------- | --------- | ---------- | ------------------------------------------------- |
+| `seasonId` | `integer` | current    | Season to query                                   |
+| `limit`    | `integer` | 10         | Page size (max 100)                               |
+| `offset`   | `integer` | 0          | Pagination offset                                 |
+| `sortBy`   | `string`  | `"points"` | `"points"`, `"matches"`, `"win_rate"`, or `"pnl"` |
+| `order`    | `string`  | `"desc"`   | `"asc"` or `"desc"`                               |
+
+**Response:**
+
+```json
+{ "total": 150, "leaderboard": [LeaderBoard] }
+```
+
+---
+
+#### `GET /api/leaderboard/{user_id}`
+
+Get a single player's leaderboard entry.
+
+**Path:** `user_id` — UUID
+
+**Query:** `seasonId` (optional)
+
+**Response:** `LeaderBoard`
+
+---
+
+### Platform Ratings
+
+#### `GET /api/platform-rating`
+
+List all platform ratings, optionally filtered by star value.
+
+**Query:** `rating` — integer 1–5 (optional)
+
+**Response:** `PlatformRating[]`
+
+---
+
+#### `GET /api/platform-rating/{user_id}`
+
+Get a user's rating.
+
+**Response:** `PlatformRating`
+
+---
+
+#### `POST /api/platform-rating`
+
+Create or replace the authenticated user's rating. Requires JWT.
+
+**Body:**
+
+```json
+{ "rating": 5, "comment": "Great platform!" }
+```
+
+---
+
+#### `PATCH /api/platform-rating`
+
+Update the authenticated user's rating. Requires JWT.
+
+---
+
+#### `DELETE /api/platform-rating`
+
+Delete the authenticated user's rating. Requires JWT.
+
+---
+
+### Stacks Blockchain
+
+#### `GET /api/balance/{wallet_address}`
+
+Get STX and fungible token balances for a wallet.
+
+**Response:**
+
+```json
+[{ "name": "STX", "balance": 150.5, "contractId": "stx" }]
+```
+
+Amounts are in human-readable units (not micro-units).
+
+---
+
+#### `GET /api/token/{contract_address}`
+
+Get token USD price and minimum wager amount (~$10 equivalent).
+
+**Response:**
+
+```json
+{ "price": 1.25, "minimumAmount": 8.0 }
+```
+
+---
+
+### Contracts
+
+#### `GET /api/contract`
+
+Generate a vault contract Clarity source with baked-in creator and entry fee.
+
+**Query:**
+
+| Param           | Type      | Description                                                     |
+| --------------- | --------- | --------------------------------------------------------------- |
+| `gameCreatorId` | `UUID`    | Creator's user ID                                               |
+| `entryFee`      | `integer` | Entry fee in micro-units                                        |
+| `contractId`    | `string`  | `"stx"` for STX vault, or a token contract address for FT vault |
+
+**Response:** Clarity contract source code (string)
+
+---
+
+#### `GET /api/sponsored-contract`
+
+Generate a sponsored vault contract.
+
+**Query:**
+
+| Param           | Type      | Description                       |
+| --------------- | --------- | --------------------------------- |
+| `gameCreatorId` | `UUID`    | Creator's user ID                 |
+| `poolSize`      | `integer` | Pool size in micro-units          |
+| `contractId`    | `string`  | `"stx"` or token contract address |
+
+**Response:** Clarity contract source code (string)
+
+---
+
+## WebSocket Endpoints
+
+### `GET /ws/lobbies` — Lobby List
+
+Subscribe to the global lobby list with real-time updates. No authentication required.
+
+**Query parameters:**
+
+| Param    | Type      | Default | Description                        |
+| -------- | --------- | ------- | ---------------------------------- |
+| `status` | `string`  | all     | Comma-separated statuses to filter |
+| `limit`  | `integer` | 6       | Page size                          |
+
+#### Client → Server
+
+| Message Type | Fields                                 | Description               |
+| ------------ | -------------------------------------- | ------------------------- |
+| `subscribe`  | `status?: string[]`, `limit?: integer` | Change status filter      |
+| `loadMore`   | `offset: integer`, `limit: integer`    | Paginate for more lobbies |
+
+#### Server → Client
+
+| Message Type   | Fields                                     | Description              |
+| -------------- | ------------------------------------------ | ------------------------ |
+| `lobbyList`    | `lobbyInfo: LobbyInfo[]`, `total: integer` | Full lobby page          |
+| `lobbyCreated` | `lobbyInfo: LobbyInfo`                     | New lobby created (live) |
+| `lobbyUpdated` | `lobby: LobbyInfo`                         | Lobby changed (live)     |
+| `lobbyRemoved` | `lobbyId: string`                          | Lobby removed (live)     |
+| `error`        | `code: string`, `message: string`          | Error                    |
+
+---
+
+### `GET /ws/room/{lobby_path}` — Game Room
+
+Join a specific lobby room for game and chat communication. Supports unauthenticated spectators and authenticated participants.
+
+**Path:** `lobby_path` — the URL-friendly lobby path
+
+**Authentication:** Optional JWT via cookie/header. Unauthenticated users can spectate.
+
+#### On Connect
+
+The server sends a `lobbyBootstrap` message containing the lobby info, players, join requests, and chat history. If a game is in progress and the user is a participant, a `gameState` message is also sent for reconnection.
+
+#### Client → Server
+
+| Message Type          | Fields                                | Auth          | Description                     |
+| --------------------- | ------------------------------------- | ------------- | ------------------------------- |
+| `join`                | —                                     | Yes           | Join the lobby                  |
+| `leave`               | —                                     | Yes           | Leave the lobby                 |
+| `updateLobbyStatus`   | `status: string`                      | Yes (creator) | Change lobby status             |
+| `joinRequest`         | —                                     | Yes           | Request to join a private lobby |
+| `approveJoin`         | `userId: string`                      | Yes (creator) | Accept a join request           |
+| `rejectJoin`          | `userId: string`                      | Yes (creator) | Reject a join request           |
+| `kick`                | `userId: string`                      | Yes (creator) | Kick a participant              |
+| `sendMessage`         | `content: string`, `replyTo?: string` | Yes           | Send a chat message             |
+| `addReaction`         | `messageId: string`, `emoji: string`  | Yes           | Add emoji reaction              |
+| `removeReaction`      | `messageId: string`, `emoji: string`  | Yes           | Remove emoji reaction           |
+| `claimReward`         | `txId: string`                        | Yes           | Claim prize after a game ends   |
+| `toggleParticipation` | `participate: boolean`                | Yes (creator) | Toggle sponsor participation    |
+| `ping`                | `ts: integer`                         | No            | Heartbeat (unix ms timestamp)   |
+
+**Game actions** are sent wrapped in a `game` envelope:
+
+```json
+{ "game": { "type": "submitWord", "word": "hello" } }
+```
+
+The special action `{ "game": { "type": "quit" } }` triggers player quit handling.
+
+#### Server → Client
+
+| Message Type           | Fields                                                | Scope    | Description               |
+| ---------------------- | ----------------------------------------------------- | -------- | ------------------------- |
+| `lobbyBootstrap`       | `lobbyInfo`, `players`, `joinRequests`, `chatHistory` | Personal | Initial state on connect  |
+| `lobbyStatusChanged`   | `status`, `participantCount`, `currentAmount?`        | Room     | Lobby status update       |
+| `startCountdown`       | `secondsRemaining?`                                   | Room     | Pre-game countdown        |
+| `playerJoined`         | `player: PlayerState`                                 | Room     | Player joined             |
+| `playerLeft`           | `player: PlayerState`                                 | Room     | Player left               |
+| `playerKicked`         | `player: PlayerState`                                 | Room     | Player kicked             |
+| `joinRequestsUpdated`  | `joinRequests: JoinRequest[]`                         | Room     | Updated join requests     |
+| `joinRequestStatus`    | `userId`, `accepted`                                  | Personal | Your join request result  |
+| `messageReceived`      | `message: ChatMessage`                                | Room     | Chat message              |
+| `reactionAdded`        | `messageId`, `userId`, `emoji`                        | Room     | Reaction added            |
+| `reactionRemoved`      | `messageId`, `userId`, `emoji`                        | Room     | Reaction removed          |
+| `pong`                 | `elapsedMs: integer`                                  | Personal | Heartbeat response        |
+| `playerUpdated`        | `players: PlayerState[]`                              | Room     | Updated player list       |
+| `gameState`            | `gameState: object`                                   | Personal | Game state (reconnection) |
+| `gameStarted`          | —                                                     | Room     | Game has started          |
+| `gameStartFailed`      | `reason: string`                                      | Room     | Game failed to start      |
+| `finalStanding`        | `standings: PlayerState[]`                            | Room     | Final rankings            |
+| `gameOver`             | `rank`, `prize?`, `warsPoint`                         | Personal | Your game result          |
+| `claimSuccess`         | —                                                     | Personal | Prize claimed             |
+| `participationToggled` | `userId`, `participating`                             | Room     | Sponsor toggled           |
+| `error`                | `code`, `message`                                     | Personal | Error                     |
+
+Game-specific events are wrapped in a `game` envelope:
+
+```json
+{ "game": { "type": "turn", "player": { ... }, "timeoutSecs": 15 } }
+```
+
+---
+
+## Key Types
+
+### `User`
+
+```json
+{
+	"id": "uuid",
+	"walletAddress": "SP...",
+	"username": "alice",
+	"displayName": "Alice",
+	"email": "alice@example.com",
+	"emailVerified": false,
+	"trustRating": 10.0,
+	"createdAt": "2026-01-01T00:00:00",
+	"updatedAt": "2026-01-01T00:00:00"
+}
+```
+
+### `Game`
+
+```json
+{
+	"id": "uuid",
+	"name": "Lexi Wars",
+	"path": "lexi-wars",
+	"description": "...",
+	"imageUrl": "/games/lexi-wars.png",
+	"minPlayers": 2,
+	"maxPlayers": 20,
+	"category": ["Word Games", "Competitive"],
+	"creatorId": "uuid",
+	"isActive": true
+}
+```
+
+### `LobbyStatus`
+
+`"waiting"` | `"starting"` | `"in_progress"` | `"finished"`
+
+### `PlayerState`
+
+```json
+{
+	"userId": "uuid",
+	"walletAddress": "SP...",
+	"username": "alice",
+	"displayName": "Alice",
+	"trustRating": 10.0,
+	"lobbyId": "uuid",
+	"status": "Joined",
+	"state": "Accepted",
+	"rank": 1,
+	"prize": 2.5,
+	"warsPoint": 10.0,
+	"claimState": null,
+	"isCreator": false
+}
+```
+
+### `PaginatedResponse<T>`
+
+```json
+{
+	"data": [],
+	"total": 42,
+	"limit": 20,
+	"offset": 0
+}
+```

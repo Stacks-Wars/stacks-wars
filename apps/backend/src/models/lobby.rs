@@ -4,7 +4,7 @@ use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
 use super::WalletAddress;
-use crate::models::{LobbyState, LobbyStatus};
+use crate::models::{Game, LobbyState, LobbyStatus, User};
 
 /// Lobby model mapping to the `lobbies` table (room metadata and status).
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -120,6 +120,14 @@ pub enum LobbyAmountError {
     },
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LobbyInfo {
+    pub lobby: LobbyExtended,
+    pub game: Game,
+    pub creator: User,
+}
+
 /// Flattened Lobby payload combining Postgres metadata and Redis runtime fields.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -138,45 +146,42 @@ pub struct LobbyExtended {
     pub contract_address: Option<WalletAddress>,
     pub is_private: bool,
     pub is_sponsored: bool,
-
-    // Postgres-backed status
     pub status: LobbyStatus,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 
     // Runtime fields from Redis
     pub participant_count: usize,
     pub creator_last_ping: Option<u64>,
     pub started_at: Option<i64>,
     pub finished_at: Option<i64>,
-
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
 }
 
 impl LobbyExtended {
     /// Build a flattened extended lobby payload from Postgres `Lobby` and Redis `LobbyState`.
-    pub fn from_parts(db: Lobby, runtime: LobbyState) -> Self {
+    pub fn from_parts(lobby: Lobby, state_info: LobbyState) -> Self {
         Self {
-            id: db.id(),
-            path: db.path,
-            name: db.name,
-            description: db.description,
-            game_id: db.game_id,
-            game_path: db.game_path,
-            creator_id: db.creator_id,
-            entry_amount: db.entry_amount,
-            current_amount: db.current_amount,
-            token_symbol: db.token_symbol,
-            token_contract_id: db.token_contract_id,
-            contract_address: db.contract_address,
-            is_private: db.is_private,
-            is_sponsored: db.is_sponsored,
-            status: runtime.status,
-            participant_count: runtime.participant_count,
-            creator_last_ping: runtime.creator_last_ping,
-            started_at: runtime.started_at,
-            finished_at: runtime.finished_at,
-            created_at: db.created_at,
-            updated_at: db.updated_at,
+            id: lobby.id,
+            path: lobby.path,
+            name: lobby.name,
+            description: lobby.description,
+            game_id: lobby.game_id,
+            game_path: lobby.game_path,
+            creator_id: lobby.creator_id,
+            entry_amount: lobby.entry_amount,
+            current_amount: lobby.current_amount,
+            token_symbol: lobby.token_symbol,
+            token_contract_id: lobby.token_contract_id,
+            contract_address: lobby.contract_address,
+            is_private: lobby.is_private,
+            is_sponsored: lobby.is_sponsored,
+            status: lobby.status,
+            created_at: lobby.created_at,
+            updated_at: lobby.updated_at,
+            participant_count: state_info.participant_count,
+            creator_last_ping: state_info.creator_last_ping,
+            started_at: state_info.started_at,
+            finished_at: state_info.finished_at,
         }
     }
 }

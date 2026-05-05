@@ -1,4 +1,5 @@
 use crate::{errors::AppError, models::UserWarsPoints};
+use crate::db::season::SeasonRepository;
 use uuid::Uuid;
 
 use super::UserWarsPointsRepository;
@@ -34,6 +35,82 @@ impl UserWarsPointsRepository {
         );
 
         Ok(wars_points)
+    }
+
+    /// Update player statistics and optionally add wars points for a season.
+    ///
+    /// If `season_id` is `None` the current season will be resolved. If
+    /// `wars_point` is `Some`, it will be added to the user's `points`.
+    /// This also increments `total_matches`, optionally `total_wins`, updates
+    /// `total_pnl` and recalculates `win_rate`.
+    pub async fn update_player_stats(
+        &self,
+        user_id: Uuid,
+        season_id: Option<i32>,
+        wars_point: Option<f64>,
+        entry_amount: Option<f64>,
+        prize: Option<f64>,
+        is_winner: bool,
+    ) -> Result<(), AppError> {
+        // Resolve season
+        let season_id = if let Some(s) = season_id {
+            s
+        } else {
+            let season_repo = SeasonRepository::new(self.pool.clone());
+            season_repo.get_current_season_id().await?
+        };
+
+        let points_delta = wars_point.unwrap_or(0.0);
+        let wins_delta = if is_winner { 1 } else { 0 };
+
+        let entry = entry_amount.unwrap_or(0.0);
+        let prize_amount = prize.unwrap_or(0.0);
+        let pnl_delta = prize_amount - entry;
+
+        let initial_win_rate = if wins_delta > 0 { 100.0 } else { 0.0 };
+
+        sqlx::query(
+            "INSERT INTO user_wars_points (
+                user_id,
+                season_id,
+                points,
+                total_matches,
+                total_wins,
+                total_pnl,
+                win_rate
+            )
+            VALUES ($1, $2, $3, 1, $4, $5, $6)
+            ON CONFLICT (user_id, season_id)
+            DO UPDATE SET
+                points = user_wars_points.points + EXCLUDED.points,
+                total_matches = user_wars_points.total_matches + 1,
+                total_wins = user_wars_points.total_wins + EXCLUDED.total_wins,
+                total_pnl = user_wars_points.total_pnl + EXCLUDED.total_pnl,
+                win_rate = CASE
+                    WHEN user_wars_points.total_matches + 1 > 0
+                    THEN ((user_wars_points.total_wins + EXCLUDED.total_wins)::double precision / (user_wars_points.total_matches + 1)::double precision) * 100.0
+                    ELSE 0.0
+                END,
+                updated_at = NOW()",
+        )
+        .bind(user_id)
+        .bind(season_id)
+        .bind(points_delta)
+        .bind(wins_delta)
+        .bind(pnl_delta)
+        .bind(initial_win_rate)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| AppError::DatabaseError(format!("Failed to upsert player stats: {}", e)))?;
+
+        tracing::debug!(
+            "Updated player stats for {}: season={}, wars_point={:?}",
+            user_id,
+            season_id,
+            wars_point
+        );
+
+        Ok(())
     }
 
     /// Set a user's wars points to an explicit value.

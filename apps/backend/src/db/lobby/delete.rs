@@ -1,13 +1,17 @@
 use sqlx::query;
 use uuid::Uuid;
 
-use crate::{errors::AppError, models::LobbyStatus};
+use crate::{errors::AppError, models::LobbyStatus, state::AppState};
 
 use super::LobbyRepository;
 
 impl LobbyRepository {
     /// Delete a lobby by ID (returns number of rows deleted).
-    pub async fn delete_lobby(&self, lobby_id: Uuid) -> Result<u64, AppError> {
+    pub async fn delete_lobby(
+        &self,
+        lobby_id: Uuid,
+        state: Option<AppState>,
+    ) -> Result<u64, AppError> {
         let result = query("DELETE FROM lobbies WHERE id = $1")
             .bind(lobby_id)
             .execute(&self.pool)
@@ -16,6 +20,18 @@ impl LobbyRepository {
 
         if result.rows_affected() > 0 {
             tracing::info!("Deleted lobby: {}", lobby_id);
+
+            // Broadcast lobby removal to lobby list subscribers
+            if let Some(state) = state {
+                tokio::spawn(async move {
+                    use crate::ws::{broadcast, lobby::LobbyServerMessage};
+                    let _ = broadcast::broadcast_lobby_list(
+                        &state,
+                        &LobbyServerMessage::LobbyRemoved { lobby_id },
+                    )
+                    .await;
+                });
+            }
         }
 
         Ok(result.rows_affected())

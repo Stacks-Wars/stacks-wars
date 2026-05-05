@@ -1,6 +1,5 @@
-import { useAuthStore } from "@/lib/stores/auth";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_BASE_URL =
+	process.env.NEXT_PUBLIC_HTTP_URL || "http://localhost:3001";
 
 export interface ApiResponse<T> {
 	data?: T;
@@ -10,25 +9,22 @@ export interface ApiResponse<T> {
 
 export class ApiClient {
 	private static getHeaders(): HeadersInit {
-		const { token } = useAuthStore.getState();
-		const headers: HeadersInit = {
+		return {
 			"Content-Type": "application/json",
 			Accept: "application/json",
 		};
-
-		if (token) {
-			headers["Authorization"] = `Bearer ${token}`;
-		}
-
-		return headers;
 	}
 
-	static async get<T>(endpoint: string): Promise<ApiResponse<T>> {
+	static async get<T>(
+		endpoint: string,
+		cache: RequestCache = "no-store"
+	): Promise<ApiResponse<T>> {
 		try {
 			const response = await fetch(`${API_BASE_URL}${endpoint}`, {
 				method: "GET",
 				headers: this.getHeaders(),
 				credentials: "include",
+				cache,
 			});
 
 			const data = await response.json();
@@ -54,7 +50,8 @@ export class ApiClient {
 
 	static async post<T>(
 		endpoint: string,
-		body?: any
+		body?: any,
+		cache: RequestCache = "no-store"
 	): Promise<ApiResponse<T>> {
 		try {
 			const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -62,6 +59,7 @@ export class ApiClient {
 				headers: this.getHeaders(),
 				credentials: "include",
 				body: body ? JSON.stringify(body) : undefined,
+				cache,
 			});
 
 			const data = await response.json();
@@ -85,13 +83,18 @@ export class ApiClient {
 		}
 	}
 
-	static async put<T>(endpoint: string, body?: any): Promise<ApiResponse<T>> {
+	static async put<T>(
+		endpoint: string,
+		body?: any,
+		cache: RequestCache = "no-store"
+	): Promise<ApiResponse<T>> {
 		try {
 			const response = await fetch(`${API_BASE_URL}${endpoint}`, {
 				method: "PUT",
 				headers: this.getHeaders(),
 				credentials: "include",
 				body: body ? JSON.stringify(body) : undefined,
+				cache,
 			});
 
 			const data = await response.json();
@@ -115,12 +118,51 @@ export class ApiClient {
 		}
 	}
 
-	static async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
+	static async patch<T>(
+		endpoint: string,
+		body?: any,
+		cache: RequestCache = "no-store"
+	): Promise<ApiResponse<T>> {
+		try {
+			const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+				method: "PATCH",
+				headers: this.getHeaders(),
+				credentials: "include",
+				body: body ? JSON.stringify(body) : undefined,
+				cache,
+			});
+
+			const data = await response.json();
+
+			if (!response.ok) {
+				return {
+					error: data.message || "Request failed",
+					status: response.status,
+				};
+			}
+
+			return {
+				data,
+				status: response.status,
+			};
+		} catch (error) {
+			return {
+				error: error instanceof Error ? error.message : "Network error",
+				status: 500,
+			};
+		}
+	}
+
+	static async delete<T>(
+		endpoint: string,
+		cache: RequestCache = "no-store"
+	): Promise<ApiResponse<T>> {
 		try {
 			const response = await fetch(`${API_BASE_URL}${endpoint}`, {
 				method: "DELETE",
 				headers: this.getHeaders(),
 				credentials: "include",
+				cache,
 			});
 
 			const data = await response.json();

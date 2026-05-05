@@ -5,45 +5,18 @@
  * Each game implements a plugin that handles its own state and messages.
  */
 
-import type {
-	ChatMessage,
-	JoinRequest,
-	LobbyExtended,
-	PlayerState,
-} from "@/lib/definitions";
+import type { Game, LobbyExtended } from "@/lib/definitions";
 
 // ============================================================================
-// Message Wrapper - All WS messages use this structure
+// Message Wrapper - Game messages from server
 // ============================================================================
 
-export interface GameMessage<T = unknown> {
-	/** Game identifier (e.g., "lexi-wars", "chess", "coin-flip") */
-	game: string;
-	/** Message type specific to the game */
-	type: string;
-	/** Game-specific payload */
-	payload: T;
-}
-
-// ============================================================================
-// Lobby-level messages (not game-specific)
-// ============================================================================
-
-export type LobbyMessage =
-	| { type: "lobbyBootstrap"; payload: LobbyBootstrapPayload }
-	| { type: "lobbyStateChanged"; payload: { state: string } }
-	| { type: "playerJoined"; payload: { playerId: string } }
-	| { type: "playerLeft"; payload: { playerId: string } }
-	| { type: "playerKicked"; payload: { playerId: string } }
-	| { type: "joinRequestsUpdated"; payload: { joinRequests: JoinRequest[] } }
-	| { type: "messageReceived"; payload: { message: ChatMessage } }
-	| { type: "error"; payload: { error: string; message: string } };
-
-export interface LobbyBootstrapPayload {
-	lobby: LobbyExtended;
-	players: PlayerState[];
-	joinRequests: JoinRequest[];
-	chatHistory: ChatMessage[];
+/**
+ * Game messages are wrapped in a "game" object:
+ * { "game": { "type": "word_entry", "word": "hello", ... } }
+ */
+export interface GameMessageWrapper<T = unknown> {
+	game: T;
 }
 
 // ============================================================================
@@ -51,8 +24,8 @@ export interface LobbyBootstrapPayload {
 // ============================================================================
 
 export interface GamePlugin<TState = unknown, TMessage = unknown> {
-	/** Unique game identifier */
-	id: string;
+	/** Game path (used for routing and matching) */
+	path: string;
 	/** Display name */
 	name: string;
 	/** Game description */
@@ -62,13 +35,20 @@ export interface GamePlugin<TState = unknown, TMessage = unknown> {
 	createInitialState: () => TState;
 
 	/** Handle incoming WebSocket messages for this game */
-	handleMessage: (state: TState, message: GameMessage<TMessage>) => TState;
+	handleMessage: (state: TState, message: TMessage) => TState;
 
 	/** React component to render the game UI */
 	GameComponent: React.ComponentType<GamePluginProps<TState>>;
 
 	/** Optional: Validate if a message belongs to this game */
-	isGameMessage?: (msg: unknown) => msg is GameMessage<TMessage>;
+	isGameMessage?: (msg: unknown) => msg is TMessage;
+
+	/**
+	 * Optional: Apply game state from reconnection.
+	 * Called when a player connects/reconnects to an in-progress game.
+	 * The rawGameState is the game_state field from GameStateMessage.
+	 */
+	applyGameState?: (state: TState, rawGameState: unknown) => TState;
 }
 
 export interface GamePluginProps<TState = unknown> {
@@ -78,8 +58,8 @@ export interface GamePluginProps<TState = unknown> {
 	sendMessage: (type: string, payload: unknown) => void;
 	/** Lobby information */
 	lobby: LobbyExtended;
-	/** Current players */
-	players: PlayerState[];
+	/** Game information */
+	game: Game;
 }
 
 // ============================================================================
@@ -87,5 +67,5 @@ export interface GamePluginProps<TState = unknown> {
 // ============================================================================
 
 export interface PluginRegistry {
-	[gameId: string]: GamePlugin;
+	[gamePath: string]: GamePlugin;
 }

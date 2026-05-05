@@ -1,0 +1,115 @@
+---
+title: Lexi Wars
+description: Rules and strategy for the Lexi Wars word elimination game
+---
+
+# Lexi Wars
+
+Lexi Wars is a fast-paced, turn-based word elimination game where players compete to submit valid words that satisfy changing rules. The last player standing wins.
+
+## Objective
+
+Survive elimination rounds by submitting valid English words that follow the current rule before the timer expires. Players who fail are eliminated. The last player remaining wins the pot.
+
+## Game Setup
+
+- **Players:** 2–8 per game
+- **Turn Timer:** 15 seconds per turn
+- **Starting Word Length:** Minimum 4 characters
+- **Rules Per Cycle:** 4 rules cycle sequentially
+
+## How to Play
+
+### Turn Flow
+
+1. **A rule is shown** — Only the current player sees the active rule (e.g. "Word must contain the letter 'A'")
+2. **Submit a word** — Type a valid English word that satisfies the rule within 15 seconds
+3. **Validation** — The server checks the word against a dictionary, the rule, minimum length, and used-word list
+4. **Success** — Your word is broadcast to the room and the turn passes to the next player
+5. **Failure** — If the timer expires or you submit an invalid word, you are eliminated
+
+### Rule Cycling
+
+The game has 17 possible rules, but only **4 are active** per cycle. Rules cycle in order:
+
+- After all 4 rules have been used, the cycle restarts
+- Each time a full cycle completes, the **minimum word length increases by 2** (4 → 6 → 8 → …)
+- This ensures the game gets progressively harder
+
+### Available Rule Types
+
+| Rule                      | Description                                                    |
+| ------------------------- | -------------------------------------------------------------- |
+| Minimum Length            | Word must be at least N characters                             |
+| Contains Letter           | Word must contain a specific letter                            |
+| Not Contains Letter       | Word must NOT contain a specific letter                        |
+| Starts With Letter        | Word must start with a specific letter                         |
+| Ends With Letter          | Word must end with a specific letter                           |
+| Ends With "-tion"         | Word must end with "tion"                                      |
+| Starts With "co-"         | Word must start with "co"                                      |
+| Double Letters            | Word must contain consecutive double letters (e.g. "oo", "ll") |
+| Exact Length              | Word must be exactly N characters                              |
+| Consonant Start & End     | Word must start and end with consonants                        |
+| Vowel Start & End         | Word must start and end with vowels                            |
+| Triple Letter             | Word must contain the same letter 3+ times                     |
+| Palindrome                | Word must read the same forwards and backwards                 |
+| No Repeating Letters      | Every letter in the word must be unique                        |
+| Exact Vowels & Consonants | Word must have exactly N vowels and M consonants               |
+| Same Letter Three Times   | Word must contain a specific letter at least 3 times           |
+| Equal Vowels & Consonants | Word must have the same number of vowels and consonants        |
+
+### Elimination
+
+- If the 15-second timer expires without a valid submission, you are **eliminated**
+- Your rank is determined by how many players remain when you're eliminated
+- You receive a `GameOver` message with your rank, prize (if any), and Wars Points earned
+- The game continues until only **1 player remains**
+
+## Word Validation
+
+Words are validated against a compiled English dictionary. A word must:
+
+1. **Exist in the dictionary** — Common English words including plurals and tenses
+2. **Satisfy the current rule** — Match the active rule criteria
+3. **Meet minimum length** — At least 4 characters initially (increases each cycle)
+4. **Not be previously used** — Each word can only be used once per game across all players
+
+> Proper nouns, abbreviations, and non-English words are **not** in the dictionary.
+
+## Prize Distribution
+
+Prizes are calculated from the total pool (`current_amount`):
+
+| Rank | 2 Players | 3+ Players |
+| ---- | --------- | ---------- |
+| 1st  | 70%       | 50%        |
+| 2nd  | 30%       | 30%        |
+| 3rd  | —         | 20%        |
+| 4th+ | —         | 0%         |
+
+A **2% platform fee** is deducted on-chain when claiming via the vault contract.
+
+## Wars Points
+
+Points are awarded based on your placement:
+
+```
+wars_point = (total_participants - your_rank + 1) × 2
+```
+
+Points are capped at a maximum of **50** per game.
+
+**Examples:**
+
+- 4-player game, 1st place: `(4 - 1 + 1) × 2 = 8 points`
+- 4-player game, 4th place: `(4 - 4 + 1) × 2 = 2 points`
+- 8-player game, 1st place: `(8 - 1 + 1) × 2 = 16 points`
+
+## Strategy Tips
+
+- **Only you see the rule** — Opponents don't know what rule you're playing against
+- **Speed matters** — You have exactly 15 seconds; no extensions
+- **Plan ahead** — Think of words for common rules before your turn
+- **Watch used words** — Words broadcast to the room are permanently unavailable
+- **Longer words survive longer** — As minimum length increases each cycle, having a strong vocabulary for 6+ letter words is critical
+- **Copy/paste is blocked** — You must type your word manually

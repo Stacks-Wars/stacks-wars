@@ -1,57 +1,64 @@
-"use client";
+import dynamic from "next/dynamic";
+import type { Metadata } from "next";
+import { ApiClient } from "@/lib/api/client";
+import type { Lobby } from "@/lib/definitions";
 
-import { useParams } from "next/navigation";
-import { RoomProvider, useRoom } from "@/lib/contexts/room-context";
+const RoomContent = dynamic(() => import("./room-content"));
 
-/**
- * Room Layout with Parallel Routes
- *
- * Conditionally renders @lobby or @game slots based on lobby.status from WebSocket
- */
-function RoomContent({
-	children,
-	lobby,
-	game,
-}: {
+interface LayoutProps {
 	children: React.ReactNode;
 	lobby: React.ReactNode;
 	game: React.ReactNode;
-}) {
-	const { lobby: lobbyData } = useRoom();
-
-	return (
-		<div className="flex min-h-screen flex-col">
-			{/* Conditionally render slots based on lobby status */}
-			{(!lobbyData || lobbyData.status === "waiting") && lobby}
-			{lobbyData?.status === "inProgress" && game}
-			{lobbyData?.status === "finished" && (
-				<div className="container mx-auto px-4 py-8 text-center">
-					<h2 className="text-2xl font-bold">Game Completed!</h2>
-					<p className="mt-2 text-muted-foreground">Thanks for playing!</p>
-				</div>
-			)}
-			{children}
-		</div>
-	);
+	params: Promise<{ lobbyPath: string }>;
 }
 
-export default function RoomLayout({
+async function getLobby(lobbyPath: string): Promise<Lobby> {
+	try {
+		const res = await ApiClient.get<Lobby>(`/api/lobby/${lobbyPath}`);
+		if (!res.data) {
+			throw new Error("No lobby data received");
+		}
+		return res.data;
+	} catch (error) {
+		console.error("Failed to fetch lobby:", error);
+		throw error;
+	}
+}
+
+export async function generateMetadata({
+	params,
+}: LayoutProps): Promise<Metadata> {
+	const lobbyPath = (await params).lobbyPath;
+
+	try {
+		const lobby = await getLobby(lobbyPath);
+		return {
+			title: `${lobby.name} lobby`,
+			description:
+				lobby.description ||
+				`Join the ${lobby.name} lobby on Stacks Wars`,
+		};
+	} catch {
+		return {
+			title: "Room",
+			description: "Join a game room on Stacks Wars",
+		};
+	}
+}
+
+export default async function RoomLayout({
 	children,
 	lobby,
 	game,
-}: {
-	children: React.ReactNode;
-	lobby: React.ReactNode;
-	game: React.ReactNode;
-}) {
-	const params = useParams();
-	const lobbyPath = params.lobbyPath as string;
+	params,
+}: LayoutProps) {
+	const lobbyPath = (await params).lobbyPath;
 
 	return (
-		<RoomProvider lobbyPath={lobbyPath}>
-			<RoomContent lobby={lobby} game={game}>
+		<main className="flex min-h-screen flex-col">
+			<RoomContent lobby={lobby} game={game} lobbyPath={lobbyPath}>
 				{children}
 			</RoomContent>
-		</RoomProvider>
+		</main>
 	);
 }

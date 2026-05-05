@@ -20,12 +20,12 @@ async fn test_lobby_creation_and_join() {
 
     // Create test users
     let (creator_id, creator_token) = factory
-        .create_test_user(Some("lobby-creator"))
+        .create_test_user(None)
         .await
         .expect("Failed to create creator");
 
     let (_player1_id, player1_token) = factory
-        .create_test_user(Some("player-1"))
+        .create_test_user(None)
         .await
         .expect("Failed to create player 1");
 
@@ -93,12 +93,12 @@ async fn test_lobby_start_game() {
 
     // Create test users
     let (creator_id, creator_token) = factory
-        .create_test_user(Some("game-starter"))
+        .create_test_user(None)
         .await
         .expect("Failed to create creator");
 
     let (_player1_id, player1_token) = factory
-        .create_test_user(Some("game-player"))
+        .create_test_user(None)
         .await
         .expect("Failed to create player");
 
@@ -188,12 +188,12 @@ async fn test_lobby_not_creator_cannot_start() {
 
     // Create test users
     let (creator_id, creator_token) = factory
-        .create_test_user(Some("creator"))
+        .create_test_user(None)
         .await
         .expect("Failed to create creator");
 
     let (_player_id, player_token) = factory
-        .create_test_user(Some("non-creator"))
+        .create_test_user(None)
         .await
         .expect("Failed to create player");
 
@@ -270,7 +270,7 @@ async fn test_lobby_need_at_least_min_players() {
 
     // Create creator only (Coin Flip needs min 2 players)
     let (creator_id, creator_token) = factory
-        .create_test_user(Some("solo-creator"))
+        .create_test_user(None)
         .await
         .expect("Failed to create creator");
 

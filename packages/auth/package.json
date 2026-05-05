@@ -16,14 +16,14 @@
 	},
 	"dependencies": {
 		"@better-auth/core": "^1.4.7",
-		"@better-auth/expo": "catalog:",
+		"@better-auth/expo": "^1.4.7",
 		"@stacks-wars/db": "workspace:*",
 		"@stacks-wars/shared": "workspace:*",
 		"@stacks/encryption": "^7.3.0",
 		"@stacks/transactions": "^7.3.0",
-		"better-auth": "catalog:",
+		"better-auth": "^1.4.7",
 		"bns-v2-sdk": "^2.1.0",
-		"dotenv": "catalog:",
-		"zod": "catalog:"
+		"dotenv": "^17.2.3",
+		"zod": "^4.2.1"
 	}
 }

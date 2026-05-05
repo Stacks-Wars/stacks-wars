@@ -5,13 +5,12 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{
-    auth::AuthClaims, db::lobby::LobbyRepository, models::Lobby, state::AppState,
-    ws::lobby::LobbyServerMessage,
-};
+use crate::{http::handlers::stacks::has_joined, models::LobbyStatus};
+use crate::models::WalletAddress;
+use crate::{auth::AuthClaims, db::lobby::LobbyRepository, models::{Lobby, LobbyInfo}, state::AppState};
 
 // ============================================================================
 // Request/Response Types
@@ -40,6 +39,22 @@ pub struct LobbyQuery {
     pub offset: Option<i64>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct LobbyByGameAndStatusQuery {
+    pub statuses: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaginatedResponse<T> {
+    pub data: Vec<T>,
+    pub total: i64,
+    pub limit: i64,
+    pub offset: i64,
+}
+
 // ============================================================================
 // Handlers
 // ============================================================================
@@ -54,6 +69,33 @@ pub async fn create_lobby(
         tracing::error!("Invalid user ID in token");
         (StatusCode::UNAUTHORIZED, "Invalid token".to_string())
     })?;
+
+    // Get user's wallet address from JWT claims
+    let wallet_address = WalletAddress::try_from(claims.wallet.as_str()).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            "Invalid wallet address in token".to_string(),
+        )
+    })?;
+
+    // Confirm join if contract_address is provided
+    if let Some(ref contract_addr) = payload.contract_address {
+        let contract_wallet = WalletAddress::try_from(contract_addr.as_str()).map_err(|_| {
+            (
+                StatusCode::BAD_REQUEST,
+                "Invalid contract address".to_string(),
+            )
+        })?;
+        let has_joined = has_joined(&contract_wallet, &wallet_address, &state)
+            .await
+            .map_err(|e| e.to_response())?;
+        if !has_joined {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Player has not joined the vault contract".to_string(),
+            ));
+        }
+    }
 
     // For non-sponsored lobbies, default current_amount to entry_amount if not provided
     let current_amount = if !payload.is_sponsored {
@@ -79,50 +121,22 @@ pub async fn create_lobby(
             payload.is_private.unwrap_or(false),
             payload.is_sponsored,
             state.redis.clone(),
+            state.clone(),
         )
         .await
         .map_err(|e| e.to_response())?;
 
-    // Broadcast lobby creation to lobby list subscribers
-    tokio::spawn({
-        let state_clone = state.clone();
-        let lobby_clone = lobby.clone();
-        async move {
-            use crate::ws::broadcast;
-
-            let _ = broadcast::broadcast_lobby_list(
-                &state_clone,
-                &LobbyServerMessage::LobbyCreated { lobby: lobby_clone },
-            )
-            .await;
-        }
-    });
-
     Ok((StatusCode::CREATED, Json(lobby)))
 }
 
-/// Get lobby details by UUID. Public endpoint returning `Lobby`.
+/// Get lobby details by UUID or path. Public endpoint returning `Lobby`.
 pub async fn get_lobby(
     State(state): State<AppState>,
-    Path(lobby_id): Path<Uuid>,
+    Path(identifier): Path<String>,
 ) -> Result<Json<Lobby>, (StatusCode, String)> {
     let repo = LobbyRepository::new(state.postgres);
     let lobby = repo
-        .find_by_id(lobby_id)
-        .await
-        .map_err(|e| e.to_response())?;
-
-    Ok(Json(lobby))
-}
-
-/// Get lobby details by path. Public endpoint returning `Lobby`.
-pub async fn get_lobby_by_path(
-    State(state): State<AppState>,
-    Path(path): Path<String>,
-) -> Result<Json<Lobby>, (StatusCode, String)> {
-    let repo = LobbyRepository::new(state.postgres);
-    let lobby = repo
-        .find_by_path(&path)
+        .find_by_identifier(&identifier)
         .await
         .map_err(|e| e.to_response())?;
 
@@ -133,19 +147,64 @@ pub async fn list_lobbies_by_game(
     State(state): State<AppState>,
     Path(game_id): Path<Uuid>,
     Query(query): Query<LobbyQuery>,
-) -> Result<Json<Vec<Lobby>>, (StatusCode, String)> {
+) -> Result<Json<PaginatedResponse<Lobby>>, (StatusCode, String)> {
+    let limit = query.limit.unwrap_or(20).min(100) as usize;
+    let offset = query.offset.unwrap_or(0).max(0) as usize;
+
     let repo = LobbyRepository::new(state.postgres);
-    let lobbies = repo
-        .find_by_game_id(game_id)
+    let (lobbies, total) = repo
+        .find_by_game_id(game_id, offset, limit)
         .await
         .map_err(|e| e.to_response())?;
 
-    // Apply pagination
+    Ok(Json(PaginatedResponse {
+        data: lobbies,
+        total,
+        limit: limit as i64,
+        offset: offset as i64,
+    }))
+}
+
+/// List lobbies for a game and statuses with pagination. Public endpoint.
+pub async fn list_lobbies_by_game_and_status(
+    State(state): State<AppState>,
+    Path(game_identifier): Path<String>,
+    Query(query): Query<LobbyByGameAndStatusQuery>,
+) -> Result<Json<PaginatedResponse<LobbyInfo>>, (StatusCode, String)> {
+    let statuses: Vec<LobbyStatus> = if let Some(status_str) = &query.statuses {
+        if status_str.trim().is_empty() {
+            vec![]
+        } else {
+            status_str.split(',')
+                .map(|s| s.trim().parse::<LobbyStatus>())
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid status".to_string()))?
+        }
+    } else {
+        vec![]
+    };
+
+    let statuses = if statuses.is_empty() {
+        vec![LobbyStatus::Waiting, LobbyStatus::Starting, LobbyStatus::InProgress, LobbyStatus::Finished]
+    } else {
+        statuses
+    };
+
     let limit = query.limit.unwrap_or(20).min(100) as usize;
     let offset = query.offset.unwrap_or(0).max(0) as usize;
-    let paginated: Vec<Lobby> = lobbies.into_iter().skip(offset).take(limit).collect();
 
-    Ok(Json(paginated))
+    let repo = LobbyRepository::new(state.postgres);
+    let (lobbies, total) = repo
+        .find_lobbies_by_game_and_status(&game_identifier, &statuses, offset, limit, &state.redis)
+        .await
+        .map_err(|e| e.to_response())?;
+
+    Ok(Json(PaginatedResponse {
+        data: lobbies,
+        total,
+        limit: limit as i64,
+        offset: offset as i64,
+    }))
 }
 
 /// List lobbies created by the authenticated user. Requires JWT.
@@ -153,68 +212,45 @@ pub async fn list_my_lobbies(
     State(state): State<AppState>,
     AuthClaims(claims): AuthClaims,
     Query(query): Query<LobbyQuery>,
-) -> Result<Json<Vec<Lobby>>, (StatusCode, String)> {
+) -> Result<Json<PaginatedResponse<Lobby>>, (StatusCode, String)> {
     let user_id = Uuid::parse_str(&claims.sub)
         .map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid token".to_string()))?;
 
+    let limit = query.limit.unwrap_or(20).min(100) as usize;
+    let offset = query.offset.unwrap_or(0).max(0) as usize;
+
     let repo = LobbyRepository::new(state.postgres);
-    let lobbies = repo
-        .find_by_creator(user_id)
+    let (lobbies, total) = repo
+        .find_by_creator(user_id, offset, limit)
         .await
         .map_err(|e| e.to_response())?;
 
-    // Apply pagination
-    let limit = query.limit.unwrap_or(20).min(100) as usize;
-    let offset = query.offset.unwrap_or(0).max(0) as usize;
-    let paginated: Vec<Lobby> = lobbies.into_iter().skip(offset).take(limit).collect();
-
-    Ok(Json(paginated))
+    Ok(Json(PaginatedResponse {
+        data: lobbies,
+        total,
+        limit: limit as i64,
+        offset: offset as i64,
+    }))
 }
 
 /// List all lobbies with pagination. Public endpoint.
 pub async fn get_all_lobbies(
     State(state): State<AppState>,
     Query(query): Query<LobbyQuery>,
-) -> Result<Json<Vec<Lobby>>, (StatusCode, String)> {
+) -> Result<Json<PaginatedResponse<LobbyInfo>>, (StatusCode, String)> {
     let limit = query.limit.unwrap_or(20).min(100);
     let offset = query.offset.unwrap_or(0).max(0);
 
-    let repo = LobbyRepository::new(state.postgres);
-    let lobbies = repo
-        .get_all_lobbies(limit, offset)
+    let repo = LobbyRepository::new(state.postgres.clone());
+    let (lobbies, total) = repo
+        .get_all_lobbies(limit, offset, &state.redis)
         .await
         .map_err(|e| e.to_response())?;
 
-    Ok(Json(lobbies))
-}
-
-/// Delete a lobby. Only the lobby creator may delete it. Returns `204`.
-pub async fn delete_lobby(
-    State(state): State<AppState>,
-    AuthClaims(claims): AuthClaims,
-    Path(lobby_id): Path<Uuid>,
-) -> Result<StatusCode, (StatusCode, String)> {
-    let user_id = Uuid::parse_str(&claims.sub)
-        .map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid token".to_string()))?;
-
-    let repo = LobbyRepository::new(state.postgres);
-
-    // Verify user is the creator
-    let lobby = repo
-        .find_by_id(lobby_id)
-        .await
-        .map_err(|e| e.to_response())?;
-
-    if lobby.creator_id != user_id {
-        return Err((
-            StatusCode::FORBIDDEN,
-            "Only the creator can delete this lobby".to_string(),
-        ));
+    Ok(Json(PaginatedResponse {
+        data: lobbies,
+        total,
+        limit,
+        offset,
+    }))
     }
-
-    repo.delete_lobby(lobby_id)
-        .await
-        .map_err(|e| e.to_response())?;
-
-    Ok(StatusCode::NO_CONTENT)
-}

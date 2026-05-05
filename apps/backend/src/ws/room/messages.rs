@@ -1,7 +1,7 @@
 // Room message types (client -> server, server -> client)
 use crate::db::join_request::JoinRequest;
 use crate::models::lobby_state::LobbyStatus;
-use crate::models::{ChatMessage, LobbyExtended, PlayerState};
+use crate::models::{ChatMessage, LobbyInfo, PlayerState};
 use crate::ws::room::error::RoomError;
 use uuid::Uuid;
 
@@ -17,31 +17,47 @@ pub enum RoomClientMessage {
     /// Request to join a private lobby
     JoinRequest,
     /// Creator accepts a join request
+    #[serde(rename_all = "camelCase")]
     ApproveJoin {
-        player_id: Uuid,
+        user_id: Uuid,
     },
     /// Creator rejects a join request
+    #[serde(rename_all = "camelCase")]
     RejectJoin {
-        player_id: Uuid,
+        user_id: Uuid,
     },
     /// Creator kicks a participant
+    #[serde(rename_all = "camelCase")]
     Kick {
-        player_id: Uuid,
+        user_id: Uuid,
     },
     /// Send a chat message
+    #[serde(rename_all = "camelCase")]
     SendMessage {
         content: String,
         reply_to: Option<Uuid>,
     },
     /// Add a reaction to a message
+    #[serde(rename_all = "camelCase")]
     AddReaction {
         message_id: Uuid,
         emoji: String,
     },
     /// Remove a reaction from a message
+    #[serde(rename_all = "camelCase")]
     RemoveReaction {
         message_id: Uuid,
         emoji: String,
+    },
+    /// Request to claim a prize reward
+    #[serde(rename_all = "camelCase")]
+    ClaimReward {
+        tx_id: String,
+    },
+    /// Toggle participation for sponsored lobby creator (spectator <-> participant)
+    #[serde(rename_all = "camelCase")]
+    ToggleParticipation {
+        participate: bool,
     },
     /// Heartbeat from client; `ts` is client's timestamp in milliseconds
     Ping {
@@ -58,40 +74,51 @@ pub enum RoomClientMessage {
 pub enum RoomServerMessage {
     #[serde(rename_all = "camelCase")]
     LobbyBootstrap {
-        lobby: LobbyExtended,
+        lobby_info: LobbyInfo,
         players: Vec<PlayerState>,
         join_requests: Vec<JoinRequest>,
         chat_history: Vec<ChatMessage>,
     },
 
     /// Generic lobby state change
+    #[serde(rename_all = "camelCase")]
     LobbyStatusChanged {
         status: LobbyStatus,
+        participant_count: usize,
+        current_amount: Option<f64>,
     },
 
     /// Countdown updates
+    #[serde(rename_all = "camelCase")]
     StartCountdown {
-        seconds_remaining: u8,
+        seconds_remaining: Option<u8>,
     },
 
+    #[serde(rename_all = "camelCase")]
     PlayerJoined {
-        player_id: Uuid,
+        player: PlayerState,
     },
+
+    #[serde(rename_all = "camelCase")]
     PlayerLeft {
-        player_id: Uuid,
+        player: PlayerState,
     },
+
+    #[serde(rename_all = "camelCase")]
     PlayerKicked {
-        player_id: Uuid,
+        player: PlayerState,
     },
 
     /// Broadcasted list of join requests (visible to lobby); only creator may accept/reject
+    #[serde(rename_all = "camelCase")]
     JoinRequestsUpdated {
         join_requests: Vec<JoinRequest>,
     },
 
     /// Personal status for a join request
+    #[serde(rename_all = "camelCase")]
     JoinRequestStatus {
-        player_id: Uuid,
+        user_id: Uuid,
         accepted: bool,
     },
 
@@ -101,6 +128,7 @@ pub enum RoomServerMessage {
     },
 
     /// Reaction added to a message
+    #[serde(rename_all = "camelCase")]
     ReactionAdded {
         message_id: Uuid,
         user_id: Uuid,
@@ -108,6 +136,7 @@ pub enum RoomServerMessage {
     },
 
     /// Reaction removed from a message
+    #[serde(rename_all = "camelCase")]
     ReactionRemoved {
         message_id: Uuid,
         user_id: Uuid,
@@ -115,12 +144,55 @@ pub enum RoomServerMessage {
     },
 
     /// Personal pong response; elapsed_ms = now.saturating_sub(client_ts)
+    #[serde(rename_all = "camelCase")]
     Pong {
         elapsed_ms: u64,
     },
 
     PlayerUpdated {
         players: Vec<PlayerState>,
+    },
+
+    /// Game state for reconnecting players - sent when joining an in-progress game
+    /// Contains game-specific state that each game engine provides via get_game_state
+    #[serde(rename_all = "camelCase")]
+    GameState {
+        game_state: serde_json::Value,
+    },
+
+    // ========================================================================
+    // Shared Game Events (used across all games)
+    // ========================================================================
+    /// Game has started - broadcast to room
+    GameStarted,
+
+    /// Game failed to start - broadcast to room
+    GameStartFailed {
+        reason: String,
+    },
+
+    /// Final standings when game ends - broadcast to room
+    FinalStanding {
+        standings: Vec<PlayerState>,
+    },
+
+    /// Game over for a specific user - sent to individual user
+    /// Used to render claim reward modal on client
+    #[serde(rename_all = "camelCase")]
+    GameOver {
+        rank: usize,
+        prize: Option<f64>,
+        wars_point: f64,
+    },
+
+    /// Claim reward success
+    ClaimSuccess,
+
+    /// Participation toggled for sponsored lobby creator
+    #[serde(rename_all = "camelCase")]
+    ParticipationToggled {
+        user_id: Uuid,
+        participating: bool,
     },
 
     Error {
@@ -145,43 +217,33 @@ impl From<RoomError> for RoomServerMessage {
 /// Example:
 /// ```json
 /// {
-///   "game": "lexi-wars",
-///   "type": "wordSubmitted",
-///   "payload": { "word": "hello", "points": 5, "valid": true }
+///   "game": {
+///     "type": "wordEntry",
+///     "word": "hello",
+///     "player": { ... }
+///   }
 /// }
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameMessage {
-    /// Game identifier (e.g., "lexi-wars", "coin-flip")
-    pub game: String,
-    /// Message type specific to the game
-    #[serde(rename = "type")]
-    pub msg_type: String,
-    /// Game-specific payload
-    pub payload: serde_json::Value,
+    /// Game-specific event containing type and all fields
+    pub game: serde_json::Value,
 }
 
 impl GameMessage {
     /// Create a new game message
-    pub fn new(game: String, msg_type: String, payload: serde_json::Value) -> Self {
-        Self {
-            game,
-            msg_type,
-            payload,
-        }
+    ///
+    /// The payload should be a JSON object with a "type" field
+    /// Example: { "type": "wordEntry", "word": "hello", "player": {...} }
+    pub fn new(payload: serde_json::Value) -> Self {
+        Self { game: payload }
     }
 
     /// Create a game message from a serializable payload
-    pub fn with_payload<T: serde::Serialize>(
-        game: String,
-        msg_type: String,
-        payload: T,
-    ) -> Result<Self, serde_json::Error> {
+    pub fn from_event<T: serde::Serialize>(event: &T) -> Result<Self, serde_json::Error> {
         Ok(Self {
-            game,
-            msg_type,
-            payload: serde_json::to_value(payload)?,
+            game: serde_json::to_value(event)?,
         })
     }
 }
